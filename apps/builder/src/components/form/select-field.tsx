@@ -17,6 +17,7 @@ interface SelectFieldProps<T extends FieldValues> {
   description?: string
   defaultValue?: string
   options: { value: string; label: string }[]
+  disabledOptions?: string[]
   className?: string
 }
 
@@ -27,8 +28,11 @@ export function SelectField<T extends FieldValues>({
   placeholder,
   description,
   options,
+  disabledOptions,
   ...props
 }: SelectFieldProps<T>) {
+  const disabled = disabledOptions ?? []
+
   return (
     <FormFieldWrapper<T>
       name={name}
@@ -48,7 +52,11 @@ export function SelectField<T extends FieldValues>({
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (
-              <SelectItem key={option.value} value={String(option.value)}>
+              <SelectItem
+                key={option.value}
+                value={String(option.value)}
+                disabled={disabled.includes(option.value)}
+              >
                 {option.label}
               </SelectItem>
             ))}

@@ -1,57 +1,50 @@
 "use client"
 
 import { SelectField } from "@/components/form/select-field"
-import { MessengerIcon } from "@/components/icons/messenger"
 import WhatsappIcon from "@/components/icons/whatsapp"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DateTimePicker } from "@/components/ui/date-picker"
 import { Form } from "@/components/ui/form"
+import { Label } from "@/components/ui/label"
 import { createBroadcastAction } from "@/features/broadcasts/actions/create-broadcast.action"
 import { createBroadcastRequest } from "@/features/broadcasts/schemas/create-broadcast-schema"
-import {
-  type BroadcastSchedulesType,
-  BroadcastSubaction,
-  InboxType,
-} from "@ahachat.ai/database/types"
+import { BroadcastSchedulesType, InboxType } from "@ahachat.ai/database/types"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks"
 import { useTranslate } from "@tolgee/react"
 import { add } from "date-fns"
 import { AtomIcon, Loader2Icon } from "lucide-react"
 import Link from "next/link"
-import { use, useState } from "react"
+import { useEffect, useState } from "react"
+import { useFormContext } from "react-hook-form"
 import { toast } from "sonner"
+import { ContactFilterManage } from "../contacts/components/contact-filter"
 import { FlowSelect } from "../flows/flow-select"
-import type { listInboxes } from "../inboxes/queries"
+// import type { listInboxes } from "../inboxes/queries"
 
-export function CreateBroadcastForm({
+export const CreateBroadcastForm = ({
   chatbotId,
-  promises,
+  // promises,
 }: {
   chatbotId: string
-  promises: Promise<Awaited<ReturnType<typeof listInboxes>>>
-}) {
+  // promises: Promise<Awaited<ReturnType<typeof listInboxes>>>
+}) => {
   const { t } = useTranslate()
 
-  const [hasInboxType, setHasInboxType] = useState(false)
-  const [hasSubAction, setHasSubAction] = useState(false)
-  const [schedulesType, _setSchedulesType] =
-    useState<BroadcastSchedulesType | null>(null)
+  const [contactCount, setContactCount] = useState(0)
+  const [isLoadingContactCount, setIsLoadingContactCount] = useState(false)
 
-  const { data } = use(promises)
-  const inboxTypes = data.map((inbox) => inbox.inboxType)
   const schedulesOptions = [
     {
-      value: "NOW",
+      value: BroadcastSchedulesType.NOW,
       label: "Now",
     },
     {
-      value: "FUTURE",
+      value: BroadcastSchedulesType.FUTURE,
       label: "Schedule for later (All simultaneously)",
     },
   ]
-
   const {
     form,
     handleSubmitWithAction,
@@ -74,22 +67,39 @@ export function CreateBroadcastForm({
         mode: "onChange",
         defaultValues: {
           inboxType: null,
-          conditions: [],
+          // subaction: null,
+          schedulesType: BroadcastSchedulesType.NOW,
+          schedulesAt: null,
+          contactFilter: {
+            joinOperator: "AND",
+            conditions: [],
+          },
         },
       },
       errorMapProps: {},
     },
   )
 
-  const onSelectInboxType = (inboxType: InboxType | null) => {
-    setHasInboxType(true)
-    setValue("inboxType", inboxType)
+  const inboxType = form.watch("inboxType")
+  const schedulesType = form.watch("schedulesType")
 
-    if (inboxType === null) {
-      setHasSubAction(true)
-      setValue("subaction", BroadcastSubaction.ALL_CONTACTS)
+  useEffect(() => {
+    if (inboxType) {
+      setIsLoadingContactCount(true)
+      fetch(`/api/chatbots/${chatbotId}/contacts/count`)
+        .then(async (results) => {
+          const json: { total: number } = await results.json()
+          setContactCount(json.total)
+          setIsLoadingContactCount(false)
+        })
+        .catch(() => {
+          setContactCount(0)
+          setIsLoadingContactCount(false)
+        })
+    } else {
+      setContactCount(0)
     }
-  }
+  }, [inboxType, chatbotId])
 
   return (
     <div className="flex justify-center">
@@ -100,15 +110,12 @@ export function CreateBroadcastForm({
               onSubmit={handleSubmitWithAction}
               className="flex-1 space-y-4"
             >
-              {!hasInboxType && (
-                <InboxTypeSelect
-                  inboxTypes={inboxTypes}
-                  onSelectInboxType={onSelectInboxType}
-                />
-              )}
+              {!inboxType && <InboxTypeSelect />}
 
-              {hasInboxType && hasSubAction && (
+              {inboxType && (
                 <>
+                  <div>{inboxType}</div>
+
                   <FlowSelect
                     label="Flow to send"
                     name="flowId"
@@ -118,18 +125,15 @@ export function CreateBroadcastForm({
                   <SelectField
                     name="schedulesType"
                     label={t("broadcasts.scheduleSendMessage")}
+                    isRequired={true}
                     options={schedulesOptions}
-                    // onValueChange={(value) =>
-                    //   setSchedulesType(value as BroadcastSchedulesType)
-                    // }
-                    defaultValue="Now"
                   />
 
-                  {schedulesType === "FUTURE" && (
+                  {schedulesType === BroadcastSchedulesType.FUTURE && (
                     <DateTimePicker
                       granularity="minute"
                       displayFormat={{ hour24: "yyyy-MM-dd HH:mm" }}
-                      value={add(new Date(), { minutes: 15 })}
+                      value={add(new Date(), { minutes: 1 })}
                       onChange={(value) => {
                         setValue(
                           "schedulesAt",
@@ -139,8 +143,17 @@ export function CreateBroadcastForm({
                     />
                   )}
 
+                  <div>
+                    <Label>
+                      Targeting:{" "}
+                      {isLoadingContactCount ? <Loader2Icon /> : contactCount}
+                    </Label>
+
+                    <ContactFilterManage parentName="contactFilter" />
+                  </div>
+
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" asChild>
+                    <Button variant="link" asChild>
                       <Link href={`/chatbots/${chatbotId}/broadcasts`}>
                         Cancel
                       </Link>
@@ -168,53 +181,36 @@ export function CreateBroadcastForm({
   )
 }
 
-const InboxTypeSelect = ({
-  inboxTypes,
-  onSelectInboxType,
-}: {
-  inboxTypes: string[]
-  onSelectInboxType: (inboxType: InboxType | null) => void
-}) => {
-  const allTypes = [
+function InboxTypeSelect() {
+  const { setValue } = useFormContext()
+
+  const inboxTypes = [
     {
-      icon: <MessengerIcon />,
-      name: "Messenger",
-      value: InboxType.MESSENGER,
-      description: "",
-    },
-    {
-      icon: <WhatsappIcon />,
+      icon: WhatsappIcon,
       name: "Whatsapp",
       value: InboxType.WHATSAPP,
       description: "",
     },
+    {
+      icon: AtomIcon,
+      name: "Omnichannel",
+      value: null,
+      description:
+        "Send a flow to all contacts. You can send messages or executes actions.",
+    },
   ]
-
-  const validTypes = []
-  for (const t of allTypes) {
-    if (inboxTypes.includes(t.value ?? "")) {
-      validTypes.push(t)
-    }
-  }
-  validTypes.push({
-    icon: <AtomIcon />,
-    name: "Omnichannel",
-    value: null,
-    description:
-      "Send a flow to all contacts. You can send messages or executes actions.",
-  })
 
   return (
     <>
-      {validTypes.map((t) => (
+      {inboxTypes.map((t) => (
         <div className="flex items-center w-full gap-2" key={t.value}>
           <span className="flex-1 flex gap-2">
-            {t.icon}
+            <t.icon />
             {t.name}
           </span>
           <Button
             variant="secondary"
-            onClick={() => onSelectInboxType(t.value)}
+            onClick={() => setValue("inboxType", t.value)}
           >
             Continue
           </Button>

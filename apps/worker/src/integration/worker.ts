@@ -12,6 +12,10 @@ import { receiveMessage } from "./handlers/received-message"
 import type { OutgoingMessageEntity } from "@ahachat.ai/sdk"
 import { sendFlowNode } from "./handlers/send-flow-node"
 import { sendFlowPostback } from "./handlers/send-flow-postback"
+import {
+  sendBroadcast,
+  sendMultipleBroadcasts,
+} from "./handlers/broadcast-handler"
 
 const worker = new Worker(
   QueueName.INTEGRATION,
@@ -33,6 +37,14 @@ const worker = new Worker(
       }
       case IntegrationJobAction.SEND_FLOW_POSTBACK: {
         await sendFlowPostback(job.data.data)
+        return
+      }
+      case IntegrationJobAction.SEEK_AVAILABLE_BROADCASTS: {
+        await sendMultipleBroadcasts()
+        return
+      }
+      case IntegrationJobAction.SEND_BROADCAST: {
+        await sendBroadcast(job.data.data.broadcastId)
         return
       }
       default:

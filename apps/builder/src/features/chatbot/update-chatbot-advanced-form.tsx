@@ -16,17 +16,13 @@ import {
 } from "@/components/ui/form"
 import type { ChatbotResource } from "@/features/chatbots/schemas"
 import { FlowSelect } from "@/features/flows/flow-select"
+import { countrySelectOptions, timezoneSelectOptions } from "@/lib/country"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks"
 import { useTranslate } from "@tolgee/react"
 import { Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 import { updateChatbotAdvancedAction } from "./actions/update-chatbox-action"
-import {
-  allCountryOptions,
-  allTimezoneOptions,
-  UNKNOWN_COUNTRY,
-} from "./schemas/types"
 import { updateChatbotAdvancedRequest } from "./schemas/update-chatbot-schema"
 
 export function UpdateChatbotAdvancedForm({
@@ -52,7 +48,7 @@ export function UpdateChatbotAdvancedForm({
         mode: "onChange",
         defaultValues: {
           defaultReply: chatbot.defaultReply ?? "",
-          targetCountry: chatbot.targetCountry ?? UNKNOWN_COUNTRY,
+          targetCountry: chatbot.targetCountry ?? "unknown",
           defaultLanguage: chatbot.defaultLanguage,
           accountTimezone: chatbot.accountTimezone,
           brandColor: chatbot.brandColor,
@@ -82,7 +78,10 @@ export function UpdateChatbotAdvancedForm({
               label={t("targetCountry.label")}
               description={t("targetCountry.label.description")}
             >
-              <ComboboxField name="targetCountry" options={allCountryOptions} />
+              <ComboboxField
+                name="targetCountry"
+                options={countrySelectOptions}
+              />
             </SettingRow>
 
             <SettingRow
@@ -104,7 +103,7 @@ export function UpdateChatbotAdvancedForm({
             >
               <ComboboxField
                 name="accountTimezone"
-                options={allTimezoneOptions}
+                options={timezoneSelectOptions}
               />
             </SettingRow>
 

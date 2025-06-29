@@ -6,6 +6,8 @@ export enum IntegrationJobAction {
   SEND_FLOW = "SEND_FLOW",
   RECEIVE_MESSAGE = "RECEIVE_MESSAGE",
   SEND_FLOW_POSTBACK = "SEND_FLOW_POSTBACK",
+  SEEK_AVAILABLE_BROADCASTS = "SEEK_AVAILABLE_BROADCASTS",
+  SEND_BROADCAST = "SEND_BROADCAST",
 }
 
 export type IntegrationJobReceiveMessage = {
@@ -33,10 +35,23 @@ export type IntegrationJobSendFlowPostback = {
   }
 }
 
+export type IntegrationJobSendBroadcast = {
+  type: IntegrationJobAction.SEND_BROADCAST
+  data: {
+    broadcastId: string
+  }
+}
+
+export type IntegrationJobSeekAvailableBroadcasts = {
+  type: IntegrationJobAction.SEEK_AVAILABLE_BROADCASTS
+}
+
 export type IntegrationJobData =
   | IntegrationJobReceiveMessage
   | IntegrationJobSendFlow
   | IntegrationJobSendFlowPostback
+  | IntegrationJobSendBroadcast
+  | IntegrationJobSeekAvailableBroadcasts
 
 export const integrationQueue = new Queue<IntegrationJobData>(
   QueueName.INTEGRATION,

@@ -166,3 +166,31 @@ export const sendFlowStep = async (
     ctx.logger.error("An error occurred while sending the message", error)
   }
 }
+
+export const sendBroadcast = async (
+  ctx: Context<WhatsappAuthValue>,
+  message: MessageEntity,
+  wabaPhoneNumberId: string,
+  contactPhoneNumbers: string[],
+) => {
+  const whatsappClient = getWhatsappClient(ctx.auth)
+
+  try {
+    for (const whatsappMessage of convertMessageToWhatsappMessage(message)) {
+      if (!whatsappMessage) {
+        ctx.logger.error("Unable to parse outgoing message", message)
+        continue
+      }
+
+      await whatsappClient.broadcastMessage(
+        wabaPhoneNumberId,
+        contactPhoneNumbers,
+        whatsappMessage,
+        Math.floor(Math.random() * (50 - 35) + 35), // random batch size between 35~50
+        1000,
+      )
+    }
+  } catch (error) {
+    ctx.logger.error("An error occurred while sending the message", error)
+  }
+}

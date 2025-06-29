@@ -12,6 +12,10 @@ import {
   prisma,
   type Prisma,
 } from "@ahachat.ai/database"
+import {
+  IntegrationJobAction,
+  integrationQueue,
+} from "@ahachat.ai/worker-config"
 import { revalidateTag } from "next/cache"
 import {
   type CreateBroadcastRequest,
@@ -52,18 +56,28 @@ export const createBroadcastAction = chatbotActionClient
         },
       })
 
-      await prisma.broadcast.create({
-        data: {
-          ...data,
-          contacts: {
-            create: contacts.map((contact) => ({
-              contactId: contact.id,
-            })),
+      const broadcast = await prisma.$transaction(async (tx) => {
+        return await tx.broadcast.create({
+          data: {
+            ...data,
+            contactsOnBroadcasts: {
+              create: contacts.map((contact) => ({
+                contactId: contact.id,
+              })),
+            },
           },
-        },
+        })
       })
 
-      // TODO: add logic to send broadcast
+      // Send broadcast immediately if necessary
+      if (broadcast.status === BroadcastStatus.SENT) {
+        await integrationQueue.add(IntegrationJobAction.SEND_BROADCAST, {
+          type: IntegrationJobAction.SEND_BROADCAST,
+          data: {
+            broadcastId: broadcast.id,
+          },
+        })
+      }
 
       revalidateTag(`chatbots:${chatbotId}#broadcasts`)
     },

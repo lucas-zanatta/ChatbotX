@@ -1,4 +1,4 @@
-import { type Prisma, prisma } from "@ahachat.ai/database"
+import { prisma, type Prisma } from "@ahachat.ai/database"
 import {
   AutoAssignConversationRule,
   type ArchiveConversationStepSchema,
@@ -11,14 +11,22 @@ import {
   type UnassignConversationStepSchema,
   type UnfollowConversationStepSchema,
 } from "@ahachat.ai/flow-config"
-import type { FlowStepProps } from "./step-handler"
 import { subHours } from "date-fns"
+import type { FlowStepProps } from "./step-handler"
 
 export async function archiveConversation({
   conversation,
 }: FlowStepProps<ArchiveConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { archivedAt: new Date() },
   })
 }
@@ -26,8 +34,16 @@ export async function archiveConversation({
 export async function unarchiveConversation({
   conversation,
 }: FlowStepProps<UnarchiveConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { archivedAt: null },
   })
 }
@@ -36,18 +52,30 @@ export async function assignConversation({
   conversation,
   step,
 }: FlowStepProps<AssignConversationStepSchema>) {
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
   if (step.assignedId.startsWith("u_")) {
     const userId = step.assignedId.substring(2)
     const chatbotMember = await prisma.chatbotMember.findFirst({
       where: {
         userId,
-        chatbotId: conversation.chatbotId,
+        chatbotId: conversations[0].chatbotId,
       },
     })
+
     if (chatbotMember) {
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { assignedUserId: userId },
+      await prisma.conversation.updateMany({
+        where: {
+          id: {
+            in: conversations.map((c) => c.id),
+          },
+        },
+        data: {
+          assignedUserId: userId,
+          assignedInboxTeamId: null,
+        },
       })
     }
   } else if (step.assignedId.startsWith("t_")) {
@@ -55,13 +83,20 @@ export async function assignConversation({
     const inboxTeam = await prisma.inboxTeam.findFirst({
       where: {
         id: inboxTeamId,
-        chatbotId: conversation.chatbotId,
+        chatbotId: conversations[0].chatbotId,
       },
     })
     if (inboxTeam) {
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { assignedInboxTeamId: inboxTeamId },
+      await prisma.conversation.updateMany({
+        where: {
+          id: {
+            in: conversations.map((c) => c.id),
+          },
+        },
+        data: {
+          assignedUserId: null,
+          assignedInboxTeamId: inboxTeamId,
+        },
       })
     }
   }
@@ -72,6 +107,10 @@ export async function autoAssignConversation({
   step,
 }: FlowStepProps<AutoAssignConversationStepSchema>) {
   if (step.assignedIds.length === 0) return
+
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
 
   const userIds = []
   const inboxTeamIds = []
@@ -119,7 +158,7 @@ export async function autoAssignConversation({
   if (userIds.length > 0) {
     requiredUsers = await prisma.chatbotMember.findMany({
       where: {
-        chatbotId: conversation.chatbotId,
+        chatbotId: conversations[0].chatbotId,
         id: {
           in: userIds,
         },
@@ -141,7 +180,7 @@ export async function autoAssignConversation({
   if (inboxTeamIds.length > 0) {
     requiredInboxTeams = await prisma.inboxTeam.findMany({
       where: {
-        chatbotId: conversation.chatbotId,
+        chatbotId: conversations[0].chatbotId,
         id: {
           in: inboxTeamIds,
         },
@@ -204,9 +243,11 @@ export async function autoAssignConversation({
   }
 
   // update assignee
-  await prisma.conversation.update({
+  await prisma.conversation.updateMany({
     where: {
-      id: conversation.id,
+      id: {
+        in: conversations.map((c) => c.id),
+      },
     },
     data: {
       assignedUserId: allocation[smallestKey].assignedUserId,
@@ -218,8 +259,16 @@ export async function autoAssignConversation({
 export async function unassignConversation({
   conversation,
 }: FlowStepProps<UnassignConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: {
       assignedUserId: null,
       assignedInboxTeamId: null,
@@ -230,8 +279,16 @@ export async function unassignConversation({
 export async function followConversation({
   conversation,
 }: FlowStepProps<FollowConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { followed: true },
   })
 }
@@ -239,8 +296,16 @@ export async function followConversation({
 export async function unfollowConversation({
   conversation,
 }: FlowStepProps<UnfollowConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { followed: false },
   })
 }
@@ -248,8 +313,16 @@ export async function unfollowConversation({
 export async function disableBot({
   conversation,
 }: FlowStepProps<DisableBotStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { liveChatEnabled: true },
   })
 }
@@ -257,8 +330,16 @@ export async function disableBot({
 export async function enableBot({
   conversation,
 }: FlowStepProps<EnableBotStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
+  const conversations = Array.isArray(conversation)
+    ? conversation
+    : [conversation]
+
+  await prisma.conversation.updateMany({
+    where: {
+      id: {
+        in: conversations.map((c) => c.id),
+      },
+    },
     data: { liveChatEnabled: false },
   })
 }

@@ -277,12 +277,14 @@ model Tag {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   name            String
-  folderId        String?
   syncToMessenger Boolean  @default(false)
-  chatbotId       String
 
-  chatbot  Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
-  folder   Folder?   @relation(fields: [folderId], references: [id])
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id])
+
   contacts Contact[]
 
   @@unique([chatbotId, name])
@@ -688,9 +690,9 @@ model Broadcast {
   schedulesAt   DateTime
   conditions    Json?
 
-  chatbot  Chatbot                @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
-  flow     Flow                   @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  contacts ContactsOnBroadcasts[]
+  chatbot              Chatbot                @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  flow                 Flow                   @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  contactsOnBroadcasts ContactsOnBroadcasts[]
 
   @@index([chatbotId])
   @@index([flowId])
@@ -698,16 +700,17 @@ model Broadcast {
 }
 
 model ContactsOnBroadcasts {
-  broadcastId String
-  contactId   String
-  sent        Boolean @default(false)
-  delivered   Boolean @default(false)
-  seen        Boolean @default(false)
-  clicked     Boolean @default(false)
-  failed      Boolean @default(false)
+  sent      Boolean @default(false)
+  delivered Boolean @default(false)
+  seen      Boolean @default(false)
+  clicked   Boolean @default(false)
+  failed    Boolean @default(false)
 
-  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
-  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  broadcastId String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@id([broadcastId, contactId])
 }

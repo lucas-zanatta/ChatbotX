@@ -26,7 +26,7 @@ export async function listBroadcasts(
           include: {
             _count: {
               select: {
-                contacts: true,
+                contactsOnBroadcasts: true,
               },
             },
           },

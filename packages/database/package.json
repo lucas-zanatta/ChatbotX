@@ -5,7 +5,8 @@
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
     "@prisma/adapter-pg": "^6.8.2",
-    "@prisma/client": "^6.8.2"
+    "@prisma/client": "^6.8.2",
+    "zod": "^3.25.23"
   },
   "devDependencies": {
     "@ahachat.ai/typescript-config": "workspace:*",
