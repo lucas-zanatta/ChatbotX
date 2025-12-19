@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@aha.chat/ui/components/ui/card"
-import { Handle, NodeToolbar, Position } from "@xyflow/react"
+import { NodeToolbar, Position } from "@xyflow/react"
 import { PlayCircleIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { memo } from "react"
@@ -43,7 +43,12 @@ export const NodeViewer = memo((props: NodeViewerProps) => {
 
       <Card className="w-72 gap-0 bg-white/75 p-0 hover:border-blue-500">
         <CardHeader className="relative p-4">
-          <Handle id={id} position={Position.Left} type="target" />
+          <BaseHandle
+            id={id}
+            isConnectableStart={false}
+            position={Position.Left}
+            type="target"
+          />
           <CardTitle className="flex items-center gap-1">
             {nodeConfig?.icon ? <nodeConfig.icon className="size-5" /> : " "}
             {data.name}

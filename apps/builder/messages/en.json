@@ -432,6 +432,9 @@
     "contactFilter": {
       "label": "Contact filter"
     },
+    "contactNote": {
+      "label": "Contact Note"
+    },
     "chooseTime": {
       "label": "Choose time"
     },
@@ -1085,6 +1088,9 @@
     },
     "sequence": {
       "label": "Sequence"
+    },
+    "spreadsheet": {
+      "label": "Spreadsheet"
     }
   },
   "sequences": {
@@ -1243,9 +1249,6 @@
     "title": "General"
   },
   "googleSheets": {
-    "delete": {
-      "dialog_title": "Delete Spreadsheet"
-    },
     "spreadsheet": "Spreadsheet",
     "name": "Spreadsheet Name",
     "link": "Spreadsheet Link",
