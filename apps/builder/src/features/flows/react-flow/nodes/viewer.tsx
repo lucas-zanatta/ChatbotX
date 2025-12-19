@@ -28,7 +28,7 @@ export const NodeViewer = memo((props: NodeViewerProps) => {
 
   return data.details && nodeConfig ? (
     <>
-      <div className="-translate-y-full absolute min-h-6 w-full transform">
+      <div className="absolute min-h-6 w-full -translate-y-full transform">
         {data.isStartNode && (
           <div className="inline-flex items-center gap-1 rounded-xl border bg-destructive px-1.5 py-0.5 text-sm text-white">
             <PlayCircleIcon className="text-sm" size={16} />
