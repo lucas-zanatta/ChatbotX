@@ -38,17 +38,24 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
 
   return (
     <FlowStoreProvider autoInitialize={true} chatbotId={chatbotId}>
-      <div className="container mx-auto max-w-4xl py-8">
+      <div className="container mx-auto py-8">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl">{sequence.name}</CardTitle>
-              {sequence.steps.length !== 0 && (
-                <Button onClick={handleAddStep} size="sm">
-                  <PlusIcon className="h-4 w-4" />
-                  {t("sequences.addStep")}
+              <div className="flex items-center gap-2">
+                {sequence.steps.length > 0 && (
+                  <Button className="w-30" onClick={handleAddStep} size="sm">
+                    <PlusIcon className="h-4 w-4" />
+                    {t("sequences.addStep")}
+                  </Button>
+                )}
+                <Button asChild className="w-20" size="sm" variant="outline">
+                  <a href={`/chatbots/${chatbotId}/sequences`}>
+                    {t("actions.back")}
+                  </a>
                 </Button>
-              )}
+              </div>
             </div>
           </CardHeader>
 

@@ -626,6 +626,16 @@ model SequenceStep {
   delayHours       Int       @default(0)
   delayUnit        String?   @default("days")
   specificDateTime DateTime?
+  isActive         Boolean   @default(true)
+
+  // Time window settings
+  anytime        Boolean @default(true)
+  sendTimeStart  String? // HH:mm format
+  sendTimeEnd    String? // HH:mm format
+
+  // Day selection (JSON array of weekday strings)
+  sendDays String? @default("[\"monday\",\"tuesday\",\"wednesday\",\"thursday\",\"friday\",\"saturday\",\"sunday\"]")
+
   flowId           String
   flow             Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
 

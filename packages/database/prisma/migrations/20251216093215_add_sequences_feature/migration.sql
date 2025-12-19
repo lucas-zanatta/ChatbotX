@@ -32,6 +32,11 @@ CREATE TABLE "SequenceStep" (
     "delayHours" INTEGER NOT NULL DEFAULT 0,
     "delayUnit" TEXT DEFAULT 'days',
     "specificDateTime" TIMESTAMP(3),
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "anytime" BOOLEAN NOT NULL DEFAULT true,
+    "sendTimeStart" TEXT,
+    "sendTimeEnd" TEXT,
+    "sendDays" TEXT DEFAULT '["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]',
     "flowId" TEXT NOT NULL,
     "sequenceId" TEXT NOT NULL,
 
