@@ -10,7 +10,7 @@ export const upsertSequenceStepRequest = z.object({
     .enum(["immediate", "minutes", "hours", "days", "specificTime"])
     .default("days"),
   specificDateTime: z.string().datetime().optional(),
-  flowId: z.string(),
+  flowId: z.string().optional(),
   isActive: z.boolean().default(true),
   anytime: z.boolean().default(true),
   sendTimeStart: z.string().optional(), // HH:mm format

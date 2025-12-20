@@ -133,7 +133,7 @@ export function FlowSelectorSimple({
           <Switch checked={isActive} onCheckedChange={onActiveChange} />
         )}
 
-        <span className="m-4 text-muted-foreground text-sm">Send</span>
+        <span className="mr-4 ml-4 text-muted-foreground text-sm">Send</span>
 
         {selectedFlow && !isEditing ? (
           // Show flow name when selected and not editing

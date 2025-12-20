@@ -636,8 +636,8 @@ model SequenceStep {
   // Day selection (JSON array of weekday strings)
   sendDays String? @default("[\"monday\",\"tuesday\",\"wednesday\",\"thursday\",\"friday\",\"saturday\",\"sunday\"]")
 
-  flowId           String
-  flow             Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  flowId           String?
+  flow             Flow?     @relation(fields: [flowId], references: [id], onDelete: Cascade)
 
   sequenceId String
   sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)

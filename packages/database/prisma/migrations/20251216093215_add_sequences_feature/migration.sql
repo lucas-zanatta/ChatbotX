@@ -37,7 +37,7 @@ CREATE TABLE "SequenceStep" (
     "sendTimeStart" TEXT,
     "sendTimeEnd" TEXT,
     "sendDays" TEXT DEFAULT '["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]',
-    "flowId" TEXT NOT NULL,
+    "flowId" TEXT,
     "sequenceId" TEXT NOT NULL,
 
     CONSTRAINT "SequenceStep_pkey" PRIMARY KEY ("id")

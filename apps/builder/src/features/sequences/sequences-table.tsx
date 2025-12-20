@@ -177,7 +177,7 @@ export function SequencesTable({ promises }: SequencesTableProps) {
     columns,
     pageCount,
     initialState: {
-      sorting: [{ id: "createdAt", desc: true }],
+      sorting: [{ id: "createdAt", desc: false }],
       columnPinning: { right: ["actions"] },
     },
     getRowId: (originalRow) => originalRow.id,

@@ -53,7 +53,7 @@ export const upsertSequenceStepAction = chatbotActionClient
         delayHours,
         delayUnit,
         specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
-        flowId,
+        ...(flowId && { flowId }),
         isActive,
         anytime,
         sendTimeStart,

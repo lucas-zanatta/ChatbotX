@@ -26,7 +26,7 @@ export async function listSequences(
         },
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: "asc",
       },
     }),
     prisma.sequence.count({ where }),

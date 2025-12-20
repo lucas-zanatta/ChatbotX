@@ -81,7 +81,7 @@ export function SequenceStepCard({
   // Convert existing delay to unit + value
   const getInitialDelayUnit = (): DelayUnit => {
     if (!step) {
-      return "immediate"
+      return "days"
     }
     if (step.delayDays > 0) {
       return "days"
@@ -112,7 +112,7 @@ export function SequenceStepCard({
   const [selectedFlowId, setSelectedFlowId] = useState<string>(
     step?.flowId || "",
   )
-  const [isActive, setIsActive] = useState(step?.isActive ?? true)
+  const [isActive, setIsActive] = useState(step?.isActive ?? false)
   const [_isSaving, setIsSaving] = useState(false)
   const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false)
   const [timeOption, setTimeOption] = useState<"anytime" | "between">(
@@ -325,249 +325,238 @@ export function SequenceStepCard({
   }
 
   return (
-    <div className="mb-4">
-      <Card>
-        <CardContent>
-          <div className="grid grid-cols-[130px_1fr] justify-center gap-4">
-            {/* Left side - Schedule */}
-            <div className="relative flex items-center border-r-2 pr-4">
-              {/* Timeline circle */}
-              <div className="absolute -right-[7px] h-3 w-3 rounded-full border-2 border-background bg-muted" />
+    <div className="grid grid-cols-[130px_1fr] gap-4">
+      {/* Left side - Schedule */}
+      <div className="relative flex items-center border-r-2 pr-4">
+        {/* Timeline circle */}
+        <div className="absolute -right-[7px] h-3 w-3 rounded-full border-2 border-background bg-muted" />
+        <Popover
+          onOpenChange={setIsSchedulePopoverOpen}
+          open={isSchedulePopoverOpen}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              className="h-auto justify-start p-0 font-medium text-muted-foreground hover:text-foreground"
+              variant="ghost"
+            >
+              <span className="font-normal text-sm underline decoration-2 decoration-muted-foreground/40 underline-offset-6">
+                {getDelayText()}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 p-6">
+            <div className="space-y-5">
+              <div>
+                <Label className="mb-2 font-semibold text-base">
+                  {t("sequences.schedule")}
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  {t("sequences.messageSentAtLeast")}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  {delayUnit !== "immediate" &&
+                    delayUnit !== "specificTime" && (
+                      <Input
+                        className="w-20"
+                        max={99_999}
+                        min={1}
+                        onChange={(e) => {
+                          const value = Number(e.target.value)
+                          if (value >= 1) {
+                            setDelayValue(value)
+                          }
+                        }}
+                        type="number"
+                        value={delayValue}
+                      />
+                    )}
+                  <Select
+                    onValueChange={(value) => setDelayUnit(value as DelayUnit)}
+                    value={delayUnit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">
+                        {t("sequences.delayUnits.immediate")}
+                      </SelectItem>
+                      <SelectItem value="minutes">
+                        {t("sequences.delayUnits.minutes")}
+                      </SelectItem>
+                      <SelectItem value="hours">
+                        {t("sequences.delayUnits.hours")}
+                      </SelectItem>
+                      <SelectItem value="days">
+                        {t("sequences.delayUnits.days")}
+                      </SelectItem>
+                      <SelectItem value="specificTime">
+                        {t("sequences.delayUnits.specificTime")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {delayUnit === "specificTime" && (
+                  <div>
+                    <Label className="mb-2 text-sm">
+                      {t("sequences.specificDateTime")}
+                    </Label>
+                    <Input
+                      onChange={(e) => setSpecificDateTime(e.target.value)}
+                      type="datetime-local"
+                      value={specificDateTime}
+                    />
+                  </div>
+                )}
+
+                <p className="text-muted-foreground text-xs">
+                  {t("sequences.afterPreviousMessage")}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Time selection */}
+              <div className="space-y-2">
+                <Select
+                  onValueChange={(value) =>
+                    setTimeOption(value as "anytime" | "between")
+                  }
+                  value={timeOption}
+                >
+                  <SelectTrigger className="bg-muted">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="anytime">
+                      {t("sequences.anyTime")}
+                    </SelectItem>
+                    <SelectItem value="between">
+                      {t("sequences.sendBetween")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {timeOption === "between" && (
+                  <div className="flex gap-2">
+                    <Input
+                      onChange={(e) => setStartTime(e.target.value)}
+                      type="time"
+                      value={startTime}
+                    />
+                    <span className="flex items-center">-</span>
+                    <Input
+                      onChange={(e) => setEndTime(e.target.value)}
+                      type="time"
+                      value={endTime}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Day selection */}
               <Popover
-                onOpenChange={setIsSchedulePopoverOpen}
-                open={isSchedulePopoverOpen}
+                onOpenChange={setIsDayPopoverOpen}
+                open={isDayPopoverOpen}
               >
                 <PopoverTrigger asChild>
                   <Button
-                    className="h-auto justify-start p-0 font-medium text-muted-foreground hover:text-foreground"
-                    variant="ghost"
+                    className="w-full justify-start font-normal"
+                    variant="outline"
                   >
-                    <span className="font-normal text-sm underline decoration-2 decoration-muted-foreground/40 underline-offset-8">
-                      {getDelayText()}
-                    </span>
+                    {selectedDays.length === 7
+                      ? t("sequences.anyDay")
+                      : selectedDays.length === 0
+                        ? t("sequences.selectDays")
+                        : selectedDays
+                            .map((d) => t(`sequences.${d.slice(0, 3)}`))
+                            .join(", ")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-80 p-6">
-                  <div className="space-y-5">
-                    <div>
-                      <Label className="mb-2 font-semibold text-base">
-                        {t("sequences.schedule")}
-                      </Label>
-                      <p className="text-muted-foreground text-xs">
-                        {t("sequences.messageSentAtLeast")}
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        {delayUnit !== "immediate" &&
-                          delayUnit !== "specificTime" && (
-                            <Input
-                              className="w-20"
-                              max={99_999}
-                              min={1}
-                              onChange={(e) => {
-                                const value = Number(e.target.value)
-                                if (value >= 1) {
-                                  setDelayValue(value)
-                                }
-                              }}
-                              type="number"
-                              value={delayValue}
-                            />
-                          )}
-                        <Select
-                          onValueChange={(value) =>
-                            setDelayUnit(value as DelayUnit)
-                          }
-                          value={delayUnit}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="immediate">
-                              {t("sequences.delayUnits.immediate")}
-                            </SelectItem>
-                            <SelectItem value="minutes">
-                              {t("sequences.delayUnits.minutes")}
-                            </SelectItem>
-                            <SelectItem value="hours">
-                              {t("sequences.delayUnits.hours")}
-                            </SelectItem>
-                            <SelectItem value="days">
-                              {t("sequences.delayUnits.days")}
-                            </SelectItem>
-                            <SelectItem value="specificTime">
-                              {t("sequences.delayUnits.specificTime")}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {delayUnit === "specificTime" && (
-                        <div>
-                          <Label className="mb-2 text-sm">
-                            {t("sequences.specificDateTime")}
-                          </Label>
-                          <Input
-                            onChange={(e) =>
-                              setSpecificDateTime(e.target.value)
-                            }
-                            type="datetime-local"
-                            value={specificDateTime}
-                          />
-                        </div>
-                      )}
-
-                      <p className="text-muted-foreground text-xs">
-                        {t("sequences.afterPreviousMessage")}
-                      </p>
-                    </div>
-
-                    <Separator />
-
-                    {/* Time selection */}
+                <PopoverContent align="start" className="w-64">
+                  <div className="space-y-3">
                     <div className="space-y-2">
-                      <Select
-                        onValueChange={(value) =>
-                          setTimeOption(value as "anytime" | "between")
-                        }
-                        value={timeOption}
-                      >
-                        <SelectTrigger className="bg-muted">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="anytime">
-                            {t("sequences.anyTime")}
-                          </SelectItem>
-                          <SelectItem value="between">
-                            {t("sequences.sendBetween")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {timeOption === "between" && (
-                        <div className="flex gap-2">
-                          <Input
-                            onChange={(e) => setStartTime(e.target.value)}
-                            type="time"
-                            value={startTime}
-                          />
-                          <span className="flex items-center">-</span>
-                          <Input
-                            onChange={(e) => setEndTime(e.target.value)}
-                            type="time"
-                            value={endTime}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <Separator />
-
-                    {/* Day selection */}
-                    <Popover
-                      onOpenChange={setIsDayPopoverOpen}
-                      open={isDayPopoverOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          className="w-full justify-start font-normal"
-                          variant="outline"
-                        >
-                          {selectedDays.length === 7
-                            ? t("sequences.anyDay")
-                            : selectedDays.length === 0
-                              ? t("sequences.selectDays")
-                              : selectedDays
-                                  .map((d) => t(`sequences.${d.slice(0, 3)}`))
-                                  .join(", ")}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="w-64">
-                        <div className="space-y-3">
-                          <div className="space-y-2">
-                            {WEEKDAY_ORDER.map((day) => (
-                              <div
-                                className="flex items-center space-x-2"
-                                key={day}
-                              >
-                                <Checkbox
-                                  checked={selectedDays.includes(day)}
-                                  id={`day-${day}`}
-                                  onCheckedChange={(checked) => {
-                                    let newDays: string[]
-                                    if (checked) {
-                                      newDays = [...selectedDays, day]
-                                    } else {
-                                      newDays = selectedDays.filter(
-                                        (d) => d !== day,
-                                      )
-                                    }
-                                    // Sort by weekday order
-                                    newDays.sort(
-                                      (a, b) =>
-                                        WEEKDAY_ORDER.indexOf(a as any) -
-                                        WEEKDAY_ORDER.indexOf(b as any),
-                                    )
-                                    setSelectedDays(newDays)
-                                  }}
-                                />
-                                <label
-                                  className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                  htmlFor={`day-${day}`}
-                                >
-                                  {t(`sequences.${day}`)}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                          <Button
-                            className="w-full"
-                            onClick={() => {
-                              if (selectedDays.length === 7) {
-                                setSelectedDays([])
+                      {WEEKDAY_ORDER.map((day) => (
+                        <div className="flex items-center space-x-2" key={day}>
+                          <Checkbox
+                            checked={selectedDays.includes(day)}
+                            id={`day-${day}`}
+                            onCheckedChange={(checked) => {
+                              let newDays: string[]
+                              if (checked) {
+                                newDays = [...selectedDays, day]
                               } else {
-                                setSelectedDays([...WEEKDAY_ORDER])
+                                newDays = selectedDays.filter((d) => d !== day)
                               }
+                              // Sort by weekday order
+                              newDays.sort(
+                                (a, b) =>
+                                  WEEKDAY_ORDER.indexOf(a as any) -
+                                  WEEKDAY_ORDER.indexOf(b as any),
+                              )
+                              setSelectedDays(newDays)
                             }}
-                            variant="outline"
+                          />
+                          <label
+                            className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            htmlFor={`day-${day}`}
                           >
-                            {selectedDays.length === 7
-                              ? t("sequences.deselectAll")
-                              : t("sequences.anyDay")}
-                          </Button>
+                            {t(`sequences.${day}`)}
+                          </label>
                         </div>
-                      </PopoverContent>
-                    </Popover>
-
-                    <Separator />
-
-                    <Button className="w-full" onClick={handleScheduleSave}>
-                      {t("sequences.saveUpdateSchedule")}
+                      ))}
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        if (selectedDays.length === 7) {
+                          setSelectedDays([])
+                        } else {
+                          setSelectedDays([...WEEKDAY_ORDER])
+                        }
+                      }}
+                      variant="outline"
+                    >
+                      {selectedDays.length === 7
+                        ? t("sequences.deselectAll")
+                        : t("sequences.anyDay")}
                     </Button>
                   </div>
                 </PopoverContent>
               </Popover>
-            </div>
 
-            {/* Right side - Flow selection + Active toggle */}
-            <div className="pl-4">
-              <FlowSelectorSimple
-                chatbotId={chatbotId}
-                flows={flows}
-                isActive={isActive}
-                isNew={isNew}
-                onActiveChange={handleActiveChange}
-                onDelete={handleDelete}
-                onSelectFlow={handleSelectFlow}
-                selectedFlowId={selectedFlowId}
-              />
+              <Separator />
+
+              <Button className="w-full" onClick={handleScheduleSave}>
+                {t("sequences.saveUpdateSchedule")}
+              </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Right side - Flow selection + Active toggle */}
+      <div className="mt-2 mb-2 pl-4">
+        <Card className="py-2">
+          <CardContent>
+            <FlowSelectorSimple
+              chatbotId={chatbotId}
+              flows={flows}
+              isActive={isActive}
+              isNew={isNew}
+              onActiveChange={handleActiveChange}
+              onDelete={handleDelete}
+              onSelectFlow={handleSelectFlow}
+              selectedFlowId={selectedFlowId}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
