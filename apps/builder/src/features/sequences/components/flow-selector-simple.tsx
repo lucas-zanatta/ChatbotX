@@ -96,7 +96,6 @@ export function FlowSelectorSimple({
                 feature: t("fields.flow.label"),
               }),
             )
-            // Refresh flow list to include the newly created flow
             await getAllActiveFlows(chatbotId)
             if (data?.flowId) {
               onSelectFlow(data.flowId)
@@ -136,12 +135,10 @@ export function FlowSelectorSimple({
         <span className="mr-4 ml-4 text-muted-foreground text-sm">Send</span>
 
         {selectedFlow && !isEditing ? (
-          // Show flow name when selected and not editing
           <div className="flex flex-1 items-center">
             <span className="font-normal text-sm">{selectedFlow.name}</span>
           </div>
         ) : (
-          // Show create/select buttons when no flow selected
           <>
             <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>
               <Button

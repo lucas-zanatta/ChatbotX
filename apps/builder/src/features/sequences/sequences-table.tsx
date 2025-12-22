@@ -16,6 +16,7 @@ import type { DataTableRowAction } from "@aha.chat/ui/types/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
   CheckCircleIcon,
+  FolderIcon,
   MoreHorizontalIcon,
   PauseCircleIcon,
   PencilIcon,
@@ -29,15 +30,31 @@ import React, { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
+import { MoveToFolderDialog } from "./components/move-to-folder-dialog"
+import { SequenceFoldersGrid } from "./components/sequence-folders-grid"
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
 
 type SequencesTableProps = {
   promises: Promise<[Awaited<ReturnType<typeof listSequences>>]>
+  folders?: any[]
+  allFolders?: any[]
+  onSelectFolder?: (folderId: string | null) => void
+  selectedFolderId?: string | null
+  currentFolderId?: string | null
+  canCreateFolder?: boolean
 }
 
-export function SequencesTable({ promises }: SequencesTableProps) {
+export function SequencesTable({
+  promises,
+  folders = [],
+  allFolders = [],
+  onSelectFolder,
+  selectedFolderId,
+  currentFolderId,
+  canCreateFolder,
+}: SequencesTableProps) {
   const [{ data, pageCount }] = React.use(promises)
   const { chatbotId } = useParams<{ chatbotId: string }>()
 
@@ -95,22 +112,6 @@ export function SequencesTable({ promises }: SequencesTableProps) {
         cell: ({ row }) => <div>{row.original.messages ?? 0}</div>,
       },
       {
-        accessorKey: "openRate",
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Open Rate" />
-        ),
-        cell: ({ row }) => (
-          <div>{Math.round(row.original.openRate * 100)}%</div>
-        ),
-      },
-      {
-        accessorKey: "ctr",
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="CTR" />
-        ),
-        cell: ({ row }) => <div>{Math.round(row.original.ctr * 100)}%</div>,
-      },
-      {
         accessorKey: "status",
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Status" />
@@ -156,6 +157,12 @@ export function SequencesTable({ promises }: SequencesTableProps) {
                 {t("actions.rename")}
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => setRowAction({ row, variant: "move" })}
+              >
+                <FolderIcon className="mr-2" />
+                {t("sequences.folders.moveToFolder")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={() => setRowAction({ row, variant: "delete" })}
               >
                 <TrashIcon className="mr-2" />
@@ -185,13 +192,18 @@ export function SequencesTable({ promises }: SequencesTableProps) {
     clearOnDefault: true,
   })
 
+  // Build create URL with folderId if we're in a folder
+  const createUrl = currentFolderId
+    ? `/chatbots/${chatbotId}/sequences/create?folderId=${currentFolderId}`
+    : `/chatbots/${chatbotId}/sequences/create`
+
   return (
     <>
       <DataTable table={table}>
         <DataTableToolbar table={table}>
           <div className="flex justify-end">
             <Button asChild size="sm">
-              <Link href={`/chatbots/${chatbotId}/sequences/create`}>
+              <Link href={createUrl}>
                 <PlusIcon />
                 {t("actions.createFeature", {
                   feature: t("fields.sequences.label"),
@@ -200,6 +212,15 @@ export function SequencesTable({ promises }: SequencesTableProps) {
             </Button>
           </div>
         </DataTableToolbar>
+
+        <div className="mt-5 mb-5">
+          <SequenceFoldersGrid
+            canCreateFolder={canCreateFolder}
+            chatbotId={chatbotId}
+            currentFolderId={currentFolderId ?? selectedFolderId ?? null}
+            folders={folders}
+          />
+        </div>
       </DataTable>
 
       <RenameSequenceDialog
@@ -209,6 +230,14 @@ export function SequencesTable({ promises }: SequencesTableProps) {
         }}
         open={rowAction?.variant === "rename"}
         sequence={rowAction?.row.original || null}
+      />
+
+      <MoveToFolderDialog
+        chatbotId={chatbotId}
+        folders={allFolders.length > 0 ? allFolders : folders}
+        onClose={() => setRowAction(null)}
+        open={rowAction?.variant === "move"}
+        sequence={rowAction?.row.original || { id: "", name: "" }}
       />
 
       <DeleteSequenceDialog

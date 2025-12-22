@@ -18,7 +18,13 @@ import { toast } from "sonner"
 import { createSequenceAction } from "@/features/sequences/actions/create-sequence.action"
 import { createSequenceRequest } from "@/features/sequences/schemas/create-sequence-schema"
 
-export function CreateSequenceForm({ chatbotId }: { chatbotId: string }) {
+export function CreateSequenceForm({
+  chatbotId,
+  defaultFolderId,
+}: {
+  chatbotId: string
+  defaultFolderId?: string
+}) {
   const t = useTranslations()
   const router = useRouter()
 
@@ -47,6 +53,7 @@ export function CreateSequenceForm({ chatbotId }: { chatbotId: string }) {
         mode: "onChange",
         defaultValues: {
           name: "",
+          folderId: defaultFolderId ?? null,
         },
       },
       errorMapProps: {},

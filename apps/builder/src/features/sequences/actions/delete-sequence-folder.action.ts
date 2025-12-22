@@ -8,37 +8,30 @@ import {
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
-  type CreateSequenceRequest,
-  createSequenceRequest,
-} from "../schemas/create-sequence-schema"
+  type DeleteSequenceFolderRequest,
+  deleteSequenceFolderRequest,
+} from "../schemas/sequence-folder-schema"
 
-export const createSequenceAction = chatbotActionClient
+export const deleteSequenceFolderAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdRequestParams)
-  .inputSchema(createSequenceRequest)
+  .inputSchema(deleteSequenceFolderRequest)
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
-      parsedInput: CreateSequenceRequest
+      parsedInput: DeleteSequenceFolderRequest
     }) => {
-      const sequence = await prisma.sequence.create({
-        data: {
+      await prisma.sequenceFolder.delete({
+        where: {
+          id: parsedInput.folderId,
           chatbotId,
-          name: parsedInput.name,
-          ...(parsedInput.folderId && {
-            sequencesOnFolders: {
-              create: {
-                folderId: parsedInput.folderId,
-              },
-            },
-          }),
         },
       })
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
 
-      return { sequenceId: sequence.id }
+      return { success: true }
     },
   )

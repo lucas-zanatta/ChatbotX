@@ -8,7 +8,7 @@ export const getSequencesSearchParamsCache = createSearchParamsCache({
 
 export type GetSequencesSchema = Awaited<
   ReturnType<typeof getSequencesSearchParamsCache.parse>
-> & { chatbotId: string }
+> & { chatbotId: string; folderId?: string | null }
 
 export type SequenceResource = SequenceModel & {
   _count?: {

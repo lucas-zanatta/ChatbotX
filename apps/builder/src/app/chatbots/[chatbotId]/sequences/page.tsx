@@ -1,8 +1,12 @@
 import type { SearchParams } from "nuqs/server"
 import { Suspense } from "react"
+import { SequencesWithFolders } from "@/features/sequences/components/sequences-with-folders"
 import { listSequences } from "@/features/sequences/queries"
+import {
+  listAllSequenceFolders,
+  listSequenceFolders,
+} from "@/features/sequences/queries/sequence-folders"
 import { getSequencesSearchParamsCache } from "@/features/sequences/schemas/get-sequences-schema"
-import { SequencesTable } from "@/features/sequences/sequences-table"
 
 export default async function SequencesPage(props: {
   params: Promise<{ chatbotId: string }>
@@ -17,11 +21,13 @@ export default async function SequencesPage(props: {
       ...search,
       chatbotId,
     }),
+    listSequenceFolders(chatbotId),
+    listAllSequenceFolders(chatbotId),
   ])
 
   return (
     <Suspense>
-      <SequencesTable promises={promises} />
+      <SequencesWithFolders chatbotId={chatbotId} promises={promises} />
     </Suspense>
   )
 }

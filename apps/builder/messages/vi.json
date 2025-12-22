@@ -89,6 +89,8 @@
     "activate": "Kích hoạt",
     "deactivate": "Tắt",
     "save": "Lưu",
+    "saving": "Đang lưu...",
+    "creating": "Đang tạo...",
     "selectAll": "Chọn tất cả",
     "selectRow": "Chọn hàng",
     "sendAudio": "Gửi âm thanh",
@@ -1163,7 +1165,27 @@
     "fri": "T6",
     "sat": "T7",
     "sun": "CN",
-    "afterText": "Sau"
+    "afterText": "Sau",
+    "folders": {
+      "title": "Thư mục",
+      "allSequences": "Tất cả chăm sóc",
+      "createNew": "Tạo thư mục mới",
+      "created": "Đã tạo thư mục thành công",
+      "renamed": "Đã đổi tên thư mục thành công",
+      "folderDeleted": "Đã xóa thư mục thành công",
+      "nameRequired": "Tên thư mục là bắt buộc",
+      "confirmDeleteFolder": "Bạn có chắc chắn muốn xóa thư mục này?",
+      "confirmDeleteFolderWithName": "Bạn có chắc chắn muốn xóa thư mục \"{name}\"?",
+      "sequenceCount": "{count} chăm sóc",
+      "createDescription": "Tạo thư mục mới để tổ chức các chăm sóc của bạn",
+      "rename": "Đổi tên thư mục",
+      "renameDescription": "Nhập tên mới cho thư mục",
+      "moveToFolder": "Di chuyển vào thư mục",
+      "selectFolder": "Chọn thư mục",
+      "noFolder": "Không có thư mục",
+      "movedToFolder": "Đã di chuyển chăm sóc vào thư mục",
+      "selectMultipleHint": "Chọn nhiều thư mục bằng cách tick vào checkbox"
+    }
   },
   "flows": {
     "actions": {

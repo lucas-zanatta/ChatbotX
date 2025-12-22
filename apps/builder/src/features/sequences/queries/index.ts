@@ -12,6 +12,23 @@ export async function listSequences(
     chatbotId: input.chatbotId,
   }
 
+  // Filter by folderId if provided (through junction table)
+  if (input.folderId !== undefined) {
+    if (input.folderId === null) {
+      // Show sequences without any folder
+      where.sequencesOnFolders = {
+        none: {},
+      }
+    } else {
+      // Show sequences in specific folder
+      where.sequencesOnFolders = {
+        some: {
+          folderId: input.folderId,
+        },
+      }
+    }
+  }
+
   const [data, total] = await prisma.$transaction([
     prisma.sequence.findMany({
       skip: (input.page - 1) * input.perPage,
@@ -22,6 +39,17 @@ export async function listSequences(
           select: {
             steps: true,
             contactsOnSequences: true,
+          },
+        },
+        sequencesOnFolders: {
+          select: {
+            folderId: true,
+            folder: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
