@@ -46,22 +46,16 @@ export const upsertSequenceStepAction = chatbotActionClient
         },
       })
 
-      const stepData: any = {
+      const stepData = {
         order,
         sequenceId,
+        delayDays: delayDays ?? 0,
+        delayMinutes: delayMinutes ?? 0,
+        delayUnit: delayUnit ?? "days",
       }
 
       if (flowId !== undefined) {
         stepData.flowId = flowId
-      }
-      if (delayDays !== undefined) {
-        stepData.delayDays = delayDays
-      }
-      if (delayMinutes !== undefined) {
-        stepData.delayMinutes = delayMinutes
-      }
-      if (delayUnit !== undefined) {
-        stepData.delayUnit = delayUnit
       }
       if (specificDateTime !== undefined) {
         stepData.specificDateTime = specificDateTime
@@ -84,7 +78,9 @@ export const upsertSequenceStepAction = chatbotActionClient
         stepData.sendDays = sendDays ? JSON.stringify(sendDays) : null
       }
 
-      let step
+      let step:
+        | Awaited<ReturnType<typeof prisma.sequenceStep.create>>
+        | Awaited<ReturnType<typeof prisma.sequenceStep.update>>
       if (stepId) {
         step = await prisma.sequenceStep.update({
           where: { id: stepId },

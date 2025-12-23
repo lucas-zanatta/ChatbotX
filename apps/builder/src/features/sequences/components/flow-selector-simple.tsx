@@ -45,19 +45,17 @@ type FlowSelectorSimpleProps = {
   isActive?: boolean
   onActiveChange?: (active: boolean) => void
   onDelete?: () => void
-  isNew?: boolean
   showError?: boolean
 }
 
 export function FlowSelectorSimple({
-  flows,
   chatbotId,
+  flows,
   selectedFlowId,
   onSelectFlow,
   isActive,
   onActiveChange,
   onDelete,
-  isNew,
   showError,
 }: FlowSelectorSimpleProps) {
   const t = useTranslations()
@@ -68,41 +66,40 @@ export function FlowSelectorSimple({
 
   const selectedFlow = flows.find((f) => f.id === selectedFlowId)
 
-  const { form, handleSubmitWithAction, resetFormAndAction } =
-    useHookFormAction(
-      createFlowAction.bind(null, chatbotId),
-      zodResolver(createFlowSchema),
-      {
-        actionProps: {
-          onSuccess: async ({ data }) => {
-            toast.success(
-              t("messages.createdSuccess", {
-                feature: t("fields.flow.label"),
-              }),
-            )
-            await getAllActiveFlows(chatbotId)
-            if (data?.flowId) {
-              onSelectFlow(data.flowId)
-            }
-            setCreateDialogOpen(false)
-            resetFormAndAction()
-          },
-          onError: ({ error }) => {
-            if (error.serverError) {
-              toast.error(error.serverError)
-            }
-          },
+  const { resetFormAndAction } = useHookFormAction(
+    createFlowAction.bind(null, chatbotId),
+    zodResolver(createFlowSchema),
+    {
+      actionProps: {
+        onSuccess: async ({ data }) => {
+          toast.success(
+            t("messages.createdSuccess", {
+              feature: t("fields.flow.label"),
+            }),
+          )
+          await getAllActiveFlows(chatbotId)
+          if (data?.flowId) {
+            onSelectFlow(data.flowId)
+          }
+          setCreateDialogOpen(false)
+          resetFormAndAction()
         },
-        formProps: {
-          mode: "onChange",
-          defaultValues: {
-            name: "",
-            folderId: null,
-          },
+        onError: ({ error }) => {
+          if (error.serverError) {
+            toast.error(error.serverError)
+          }
         },
-        errorMapProps: {},
       },
-    )
+      formProps: {
+        mode: "onChange",
+        defaultValues: {
+          name: "",
+          folderId: null,
+        },
+      },
+      errorMapProps: {},
+    },
+  )
 
   const handleSelectFlow = (flowId: string) => {
     onSelectFlow(flowId)

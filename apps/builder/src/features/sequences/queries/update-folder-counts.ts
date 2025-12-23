@@ -28,7 +28,8 @@ export async function updateFolderSequenceCounts(folderId: string) {
 
   const calculateTotalSequences = (targetFolderId: string): number => {
     if (countCache.has(targetFolderId)) {
-      return countCache.get(targetFolderId)!
+      const cached = countCache.get(targetFolderId)
+      return cached ?? 0
     }
 
     const targetFolder = folderMap.get(targetFolderId)
@@ -84,7 +85,8 @@ export async function recalculateAllFolderCounts(chatbotId: string) {
 
   const calculateTotalSequences = (folderId: string): number => {
     if (countCache.has(folderId)) {
-      return countCache.get(folderId)!
+      const cached = countCache.get(folderId)
+      return cached ?? 0
     }
 
     const folder = allFolders.find((f) => f.id === folderId)

@@ -6,20 +6,10 @@ import { FolderIcon, PencilIcon, Trash2Icon } from "lucide-react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
+import type { SequenceFolder } from "../types"
 import { CreateSequenceFolderDialog } from "./create-sequence-folder-dialog"
 import { DeleteSequenceFolderDialog } from "./delete-sequence-folder-dialog"
 import { RenameSequenceFolderDialog } from "./rename-sequence-folder-dialog"
-
-type SequenceFolder = {
-  id: string
-  name: string
-  parentId?: string | null
-  _count: {
-    sequencesOnFolders: number
-    totalSequences: number
-    children?: number
-  }
-}
 
 type SequenceFoldersGridProps = {
   chatbotId: string
@@ -59,8 +49,8 @@ export function SequenceFoldersGrid({
                       {folder.name}
                     </CardTitle>
                     <p className="text-[10px] text-muted-foreground">
-                      {folder._count.totalSequences} sequences
-                      {folder._count.children
+                      {folder._count?.totalSequences || 0} sequences
+                      {folder._count?.children
                         ? ` • ${folder._count.children} folders`
                         : ""}
                     </p>

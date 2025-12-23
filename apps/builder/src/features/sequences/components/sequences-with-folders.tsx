@@ -20,10 +20,7 @@ type SequencesWithFoldersProps = {
   chatbotId: string
 }
 
-export function SequencesWithFolders({
-  promises,
-  chatbotId,
-}: SequencesWithFoldersProps) {
+export function SequencesWithFolders({ promises }: SequencesWithFoldersProps) {
   const [sequencesData, foldersData, allFolders] = React.use(promises)
   const searchParams = useSearchParams()
   const router = useRouter()

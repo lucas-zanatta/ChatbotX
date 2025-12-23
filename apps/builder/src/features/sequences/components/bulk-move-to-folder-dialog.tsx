@@ -65,13 +65,17 @@ export function BulkMoveToFolderDialog({
     }
 
     const folderMap = new Map<string, Folder & { children: Folder[] }>()
-    folders.forEach((f) => {
+    for (const f of folders) {
       folderMap.set(f.id, { ...f, children: [] })
-    })
+    }
 
     const rootFolders: Folder[] = []
-    folders.forEach((folder) => {
-      const node = folderMap.get(folder.id)!
+    for (const folder of folders) {
+      const node = folderMap.get(folder.id)
+      if (!node) {
+        // Skip if node doesn't exist (shouldn't happen but safer)
+        continue
+      }
       if (folder.parentId) {
         const parent = folderMap.get(folder.parentId)
         if (parent) {
@@ -82,7 +86,7 @@ export function BulkMoveToFolderDialog({
       } else {
         rootFolders.push(node)
       }
-    })
+    }
 
     return rootFolders
   }, [folders])
@@ -109,10 +113,10 @@ export function BulkMoveToFolderDialog({
 
     const parentIds = new Set(expandedFolderIds)
     const findParents = (id: string) => {
-      const folder = folders.find((f) => f.id === id)
-      if (folder?.parentId) {
-        parentIds.add(folder.parentId)
-        findParents(folder.parentId)
+      const folderItem = folders.find((f) => f.id === id)
+      if (folderItem?.parentId) {
+        parentIds.add(folderItem.parentId)
+        findParents(folderItem.parentId)
       }
     }
     findParents(folderId)
@@ -147,8 +151,8 @@ export function BulkMoveToFolderDialog({
     onClose()
   }
 
-  const renderFolderTree = (folders: Folder[], level = 0) =>
-    folders.map((folder) => {
+  const renderFolderTree = (folderList: Folder[], level = 0) =>
+    folderList.map((folder) => {
       const hasChildren = folder.children && folder.children.length > 0
       const isExpanded = expandedFolderIds.has(folder.id)
 
@@ -206,7 +210,7 @@ export function BulkMoveToFolderDialog({
                 isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
               }`}
             >
-              {renderFolderTree(folder.children!, level + 1)}
+              {renderFolderTree(folder.children || [], level + 1)}
             </div>
           )}
         </div>

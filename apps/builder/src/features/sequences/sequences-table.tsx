@@ -30,7 +30,7 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useQueryState } from "nuqs"
-import React, { useMemo, useState } from "react"
+import React, { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
@@ -41,11 +41,12 @@ import { SequencesTableToolbarActions } from "./components/sequences-table-toolb
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
+import type { SequenceFolder } from "./types"
 
 type SequencesTableProps = {
   promises: Promise<[Awaited<ReturnType<typeof listSequences>>]>
-  folders?: any[]
-  allFolders?: any[]
+  folders?: SequenceFolder[]
+  allFolders?: SequenceFolder[]
   onSelectFolder?: (folderId: string | null) => void
   selectedFolderId?: string | null
   currentFolderId?: string | null
@@ -56,7 +57,6 @@ export function SequencesTable({
   promises,
   folders = [],
   allFolders = [],
-  onSelectFolder,
   selectedFolderId,
   currentFolderId,
   canCreateFolder,
@@ -82,35 +82,38 @@ export function SequencesTable({
     SequenceResource[]
   >([])
 
-  const handleToggleStatus = async (sequence: SequenceResource) => {
-    try {
-      await toggleSequenceStatusAction(chatbotId, {
-        sequenceId: sequence.id,
-        active: !sequence.active,
-      })
-      toast.success(
-        t(sequence.active ? "sequences.deactivated" : "sequences.activated"),
-      )
-      router.refresh()
-    } catch (_error) {
-      toast.error(t("messages.unknownError"))
-    }
-  }
+  const handleToggleStatus = useCallback(
+    async (sequence: SequenceResource) => {
+      try {
+        await toggleSequenceStatusAction(chatbotId, {
+          sequenceId: sequence.id,
+          active: !sequence.active,
+        })
+        toast.success(
+          t(sequence.active ? "sequences.deactivated" : "sequences.activated"),
+        )
+        router.refresh()
+      } catch (_error) {
+        toast.error(t("messages.unknownError"))
+      }
+    },
+    [chatbotId, t, router],
+  )
 
   const columns = useMemo<ColumnDef<SequenceResource>[]>(
     () => [
       {
         id: "select",
-        header: ({ table }) => (
+        header: ({ table: dataTable }) => (
           <Checkbox
             aria-label="Select all"
             checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
+              dataTable.getIsAllPageRowsSelected() ||
+              (dataTable.getIsSomePageRowsSelected() && "indeterminate")
             }
             className="translate-y-0.5 cursor-default"
             onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(Boolean(value))
+              dataTable.toggleAllPageRowsSelected(Boolean(value))
             }
           />
         ),

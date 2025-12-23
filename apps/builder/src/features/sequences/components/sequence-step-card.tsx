@@ -222,7 +222,21 @@ export function SequenceStepCard({
       setIsSaving(true)
 
       try {
-        const payload: any = {
+        const payload: {
+          stepId?: string
+          sequenceId: string
+          order: number
+          flowId?: string
+          isActive?: boolean
+          delayDays?: number
+          delayMinutes?: number
+          delayUnit?: string
+          specificDateTime?: string
+          anytime?: boolean
+          sendTimeStart?: string | null
+          sendTimeEnd?: string | null
+          sendDays?: string | null
+        } = {
           stepId: step?.id,
           sequenceId,
           order: stepNumber - 1,
@@ -389,7 +403,7 @@ export function SequenceStepCard({
       return
     }
 
-    void handleSave({
+    handleSave({
       anytime: timeOption === "anytime",
       ...(timeOption === "between" && {
         sendTimeStart: startTime,
@@ -427,7 +441,6 @@ export function SequenceStepCard({
                   chatbotId={chatbotId}
                   flows={flows}
                   isActive={isActive}
-                  isNew={isNew}
                   onActiveChange={handleActiveChange}
                   onSelectFlow={handleSelectFlow}
                   selectedFlowId={selectedFlowId}
@@ -445,7 +458,7 @@ export function SequenceStepCard({
                       min={getOneHourFromNowLocal()}
                       onBlur={() => {
                         if (specificDateTime && selectedFlowId) {
-                          void handleSave({ specificDateTime })
+                          handleSave({ specificDateTime })
                         }
                       }}
                       onChange={(e) => setSpecificDateTime(e.target.value)}
@@ -457,7 +470,7 @@ export function SequenceStepCard({
                       onClick={() => {
                         setDelayUnit("days")
                         if (selectedFlowId) {
-                          void handleSave({ delayUnit: "days" })
+                          handleSave({ delayUnit: "days" })
                         }
                       }}
                       size="icon"
@@ -482,7 +495,7 @@ export function SequenceStepCard({
                           }
                           setShowDelayValueError(false)
                           if (selectedFlowId) {
-                            void handleSave({ delayValue })
+                            handleSave({ delayValue })
                           }
                         }}
                         onChange={(e) => {
@@ -501,7 +514,7 @@ export function SequenceStepCard({
                               return
                             }
                             setShowDelayValueError(false)
-                            void handleSave({ delayValue })
+                            handleSave({ delayValue })
                           }
                         }}
                         type="number"
@@ -520,12 +533,12 @@ export function SequenceStepCard({
                           const newDateTime =
                             specificDateTime || getOneHourFromNowLocal()
                           setSpecificDateTime(newDateTime)
-                          void handleSave({
+                          handleSave({
                             delayUnit: unit,
                             specificDateTime: newDateTime,
                           })
                         } else {
-                          void handleSave({ delayUnit: unit })
+                          handleSave({ delayUnit: unit })
                         }
                       }}
                       value={delayUnit}
@@ -601,14 +614,14 @@ export function SequenceStepCard({
                       setTimeOption(newTimeOption)
 
                       if (checked) {
-                        void handleSave({
+                        handleSave({
                           anytime: false,
                           sendTimeStart: startTime,
                           sendTimeEnd: endTime,
                           sendDays: selectedDays,
                         })
                       } else {
-                        void handleSave({
+                        handleSave({
                           anytime: true,
                           sendTimeStart: null,
                           sendTimeEnd: null,
@@ -637,7 +650,7 @@ export function SequenceStepCard({
                           setShowTimeRangeError(false)
                           setStartTime(value)
                           if (selectedFlowId) {
-                            void handleSave({ sendTimeStart: value })
+                            handleSave({ sendTimeStart: value })
                           }
                         }}
                         value={startTime}
@@ -666,7 +679,7 @@ export function SequenceStepCard({
                           setShowTimeRangeError(false)
                           setEndTime(value)
                           if (selectedFlowId) {
-                            void handleSave({ sendTimeEnd: value })
+                            handleSave({ sendTimeEnd: value })
                           }
                         }}
                         value={endTime}
@@ -702,7 +715,7 @@ export function SequenceStepCard({
                                   WEEKDAY_ORDER.indexOf(a) -
                                   WEEKDAY_ORDER.indexOf(b),
                               )
-                              void handleSave({ sendDays: sortedDays })
+                              handleSave({ sendDays: sortedDays })
                             }
                           }
                           setIsDayPopoverOpen(open)
@@ -714,13 +727,17 @@ export function SequenceStepCard({
                             className="w-full justify-start font-normal"
                             variant="outline"
                           >
-                            {selectedDays.length === 7
-                              ? t("sequences.allDays")
-                              : selectedDays.length === 0
-                                ? t("sequences.selectDays")
-                                : selectedDays
-                                    .map((d) => t(`sequences.${d}`))
-                                    .join(", ")}
+                            {(() => {
+                              if (selectedDays.length === 7) {
+                                return t("sequences.allDays")
+                              }
+                              if (selectedDays.length === 0) {
+                                return t("sequences.selectDays")
+                              }
+                              return selectedDays
+                                .map((d) => t(`sequences.${d}`))
+                                .join(", ")
+                            })()}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent align="start" className="w-80">
@@ -744,9 +761,9 @@ export function SequenceStepCard({
                                         )
                                       }
                                       newDays.sort(
-                                        (a, b) =>
-                                          WEEKDAY_ORDER.indexOf(a as any) -
-                                          WEEKDAY_ORDER.indexOf(b as any),
+                                        (a: string, b: string) =>
+                                          WEEKDAY_ORDER.indexOf(a) -
+                                          WEEKDAY_ORDER.indexOf(b),
                                       )
                                       setSelectedDays(newDays)
                                     }}
@@ -769,7 +786,7 @@ export function SequenceStepCard({
                                     : [...WEEKDAY_ORDER]
                                 setSelectedDays(newDays)
                                 setIsDayPopoverOpen(false)
-                                void handleSave({ sendDays: newDays })
+                                handleSave({ sendDays: newDays })
                               }}
                               variant="outline"
                             >
