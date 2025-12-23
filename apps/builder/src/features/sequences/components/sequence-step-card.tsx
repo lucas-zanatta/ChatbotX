@@ -60,7 +60,6 @@ type SequenceStepCardProps = {
   chatbotId: string
   isFirst?: boolean
   isNew?: boolean
-  onCancel?: () => void
   onSaved?: () => void
   previousStepTime?: Date
 }
@@ -72,7 +71,6 @@ export function SequenceStepCard({
   chatbotId,
   isFirst = false,
   isNew = false,
-  onCancel,
   onSaved,
   previousStepTime,
 }: SequenceStepCardProps) {
@@ -153,7 +151,6 @@ export function SequenceStepCard({
   )
   const [isActive, setIsActive] = useState(step?.isActive ?? false)
   const [isSaving, setIsSaving] = useState(false)
-  const [_isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false)
   const [timeOption, setTimeOption] = useState<"anytime" | "between">(
     step?.anytime === false ? "between" : "anytime",
   )
@@ -176,7 +173,6 @@ export function SequenceStepCard({
   const [isTimeOptionsExpanded, setIsTimeOptionsExpanded] = useState(false)
   const [showFlowError, setShowFlowError] = useState(false)
   const [showDelayValueError, setShowDelayValueError] = useState(false)
-  const [_showTimeRangeError, setShowTimeRangeError] = useState(false)
   const isSavingRef = useRef(false)
   const initialSendDaysRef = useRef<string[]>(selectedDays)
 
@@ -230,12 +226,12 @@ export function SequenceStepCard({
           isActive?: boolean
           delayDays?: number
           delayMinutes?: number
-          delayUnit?: string
+          delayUnit?: DelayUnit
           specificDateTime?: string
           anytime?: boolean
           sendTimeStart?: string | null
           sendTimeEnd?: string | null
-          sendDays?: string | null
+          sendDays?: string[]
         } = {
           stepId: step?.id,
           sequenceId,
@@ -356,15 +352,6 @@ export function SequenceStepCard({
     }
   }
 
-  const _handleCancel = () => {
-    if (isNew) {
-      onCancel?.()
-    }
-    // No need to reset values since we're always in edit mode
-  }
-
-  const _selectedFlow = flows.find((f) => f.id === selectedFlowId)
-
   const handleSelectFlow = useCallback(
     async (flowId: string) => {
       setSelectedFlowId(flowId)
@@ -396,39 +383,6 @@ export function SequenceStepCard({
     },
     [step?.id, selectedFlowId, t, handleSave],
   )
-
-  const _handleScheduleSave = useCallback(() => {
-    setIsSchedulePopoverOpen(false)
-    if (!selectedFlowId) {
-      return
-    }
-
-    handleSave({
-      anytime: timeOption === "anytime",
-      ...(timeOption === "between" && {
-        sendTimeStart: startTime,
-        sendTimeEnd: endTime,
-      }),
-      sendDays: selectedDays,
-    })
-  }, [handleSave, selectedFlowId, timeOption, startTime, endTime, selectedDays])
-
-  const _getDelayText = () => {
-    if (delayUnit === "immediate") {
-      return t("sequences.delayUnits.immediate")
-    }
-    if (delayUnit === "specificTime" && specificDateTime) {
-      const date = new Date(specificDateTime)
-      return date.toLocaleString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    }
-    return `${t("sequences.afterText")} ${delayValue} ${t(`sequences.delayUnits.${delayUnit}`)}`
-  }
 
   return (
     <div className="grid">
@@ -526,8 +480,6 @@ export function SequenceStepCard({
                       onValueChange={(value) => {
                         const unit = value as DelayUnit
                         setDelayUnit(unit)
-
-                        console.log({ unit, selectedFlowId })
 
                         if (unit === "specificTime") {
                           const newDateTime =
@@ -644,10 +596,9 @@ export function SequenceStepCard({
                       <Select
                         onValueChange={(value) => {
                           if (value >= endTime) {
-                            setShowTimeRangeError(true)
+                            toast.error(t("sequences.invalidTimeRange"))
                             return
                           }
-                          setShowTimeRangeError(false)
                           setStartTime(value)
                           if (selectedFlowId) {
                             handleSave({ sendTimeStart: value })
@@ -673,10 +624,9 @@ export function SequenceStepCard({
                       <Select
                         onValueChange={(value) => {
                           if (startTime >= value) {
-                            setShowTimeRangeError(true)
+                            toast.error(t("sequences.invalidTimeRange"))
                             return
                           }
-                          setShowTimeRangeError(false)
                           setEndTime(value)
                           if (selectedFlowId) {
                             handleSave({ sendTimeEnd: value })

@@ -139,7 +139,6 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
               <SequenceStepCard
                 chatbotId={chatbotId}
                 isNew
-                onCancel={() => setIsAddingStep(false)}
                 onSaved={() => setIsAddingStep(false)}
                 sequenceId={sequence.id}
                 stepNumber={sequence.steps.length + 1}
