@@ -46,7 +46,7 @@ CREATE TABLE "SequenceStep" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "order" INTEGER NOT NULL,
     "delayDays" INTEGER NOT NULL,
-    "delayHours" INTEGER NOT NULL DEFAULT 0,
+    "delayMinutes" INTEGER NOT NULL DEFAULT 0,
     "delayUnit" TEXT DEFAULT 'days',
     "specificDateTime" TIMESTAMP(3),
     "isActive" BOOLEAN NOT NULL DEFAULT true,

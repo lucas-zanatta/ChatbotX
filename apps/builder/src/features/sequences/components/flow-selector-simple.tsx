@@ -1,6 +1,5 @@
 "use client"
 
-import { InputField } from "@aha.chat/ui/components/form/input-field"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,16 +21,6 @@ import {
   CommandList,
 } from "@aha.chat/ui/components/ui/command"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@aha.chat/ui/components/ui/dialog"
-import { Form } from "@aha.chat/ui/components/ui/form"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -40,13 +29,7 @@ import { Switch } from "@aha.chat/ui/components/ui/switch"
 import { cn } from "@aha.chat/ui/lib/utils"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks"
-import {
-  CheckIcon,
-  Loader2Icon,
-  PencilIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react"
+import { CheckIcon, Trash2Icon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -63,6 +46,7 @@ type FlowSelectorSimpleProps = {
   onActiveChange?: (active: boolean) => void
   onDelete?: () => void
   isNew?: boolean
+  showError?: boolean
 }
 
 export function FlowSelectorSimple({
@@ -74,12 +58,12 @@ export function FlowSelectorSimple({
   onActiveChange,
   onDelete,
   isNew,
+  showError,
 }: FlowSelectorSimpleProps) {
   const t = useTranslations()
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [_createDialogOpen, setCreateDialogOpen] = useState(false)
   const [selectPopoverOpen, setSelectPopoverOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
   const getAllActiveFlows = useFlowStore((state) => state.getAllActiveFlows)
 
   const selectedFlow = flows.find((f) => f.id === selectedFlowId)
@@ -126,135 +110,57 @@ export function FlowSelectorSimple({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex w-full flex-col gap-2">
+      <div className="flex w-full items-center gap-2">
         {isActive !== undefined && onActiveChange && (
           <Switch checked={isActive} onCheckedChange={onActiveChange} />
         )}
 
-        <span className="mr-4 ml-4 text-muted-foreground text-sm">Send</span>
+        <span className="mr-4 ml-4 text-muted-foreground text-sm">
+          {t("sequences.sendLabel")}
+        </span>
 
-        {selectedFlow && !isEditing ? (
-          <div className="flex flex-1 items-center">
-            <span className="font-normal text-sm">{selectedFlow.name}</span>
-          </div>
-        ) : (
-          <>
-            <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>
-              <Button
-                className="flex-1"
-                onClick={() => setCreateDialogOpen(true)}
-                type="button"
-                variant="outline"
-              >
-                {t("sequences.createNewReply")}
-              </Button>
-              <DialogContent className="max-h-screen max-w-sm overflow-y-scroll">
-                <DialogHeader>
-                  <DialogTitle>
-                    {t("messages.createFeature", {
-                      feature: t("fields.flow.label"),
-                    })}
-                  </DialogTitle>
-                  <DialogDescription />
-                </DialogHeader>
-                <Form {...form}>
-                  <form
-                    className="flex-1 space-y-6"
-                    onSubmit={handleSubmitWithAction}
-                  >
-                    <InputField
-                      label={t("fields.name.label")}
-                      name="name"
-                      required
-                    />
-
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button type="button" variant="ghost">
-                          {t("actions.cancel")}
-                        </Button>
-                      </DialogClose>
-                      <Button
-                        disabled={
-                          !form.formState.isValid || form.formState.isSubmitting
-                        }
-                        type="submit"
-                      >
-                        {form.formState.isSubmitting && (
-                          <Loader2Icon className="animate-spin" />
-                        )}
-                        {t("actions.confirm")}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-
-            <Popover
-              onOpenChange={setSelectPopoverOpen}
-              open={selectPopoverOpen}
+        <Popover onOpenChange={setSelectPopoverOpen} open={selectPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              className={cn(
+                "flex-1 justify-start",
+                showError && "border-destructive ring-2 ring-destructive/20",
+              )}
+              type="button"
+              variant="outline"
             >
-              <PopoverTrigger asChild>
-                <Button className="flex-[1.5]" type="button" variant="outline">
-                  {selectedFlow?.name || t("sequences.selectExisting")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-[300px] p-0">
-                <Command>
-                  <CommandInput placeholder={t("sequences.searchFlow")} />
-                  <CommandList>
-                    <CommandEmpty>{t("messages.noItemsFound")}</CommandEmpty>
-                    <CommandGroup>
-                      {flows.map((flow) => (
-                        <CommandItem
-                          key={flow.id}
-                          onSelect={() => handleSelectFlow(flow.id)}
-                          value={flow.name}
-                        >
-                          <CheckIcon
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedFlowId === flow.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          {flow.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </>
-        )}
-
-        {selectedFlow && !isEditing && (
-          <Button
-            className="h-8 w-8 hover:bg-muted"
-            onClick={() => setIsEditing(true)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <PencilIcon className="h-3.5 w-3.5" />
-          </Button>
-        )}
-
-        {isEditing && (
-          <Button
-            className="h-8 w-8 hover:bg-muted"
-            onClick={() => setIsEditing(false)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <XIcon className="h-3.5 w-3.5" />
-          </Button>
-        )}
+              {selectedFlow?.name || t("sequences.selectFlow")}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[400px] p-0">
+            <Command>
+              <CommandInput placeholder={t("sequences.searchFlow")} />
+              <CommandList>
+                <CommandEmpty>{t("messages.noItemsFound")}</CommandEmpty>
+                <CommandGroup>
+                  {flows.map((flow) => (
+                    <CommandItem
+                      key={flow.id}
+                      onSelect={() => handleSelectFlow(flow.id)}
+                      value={flow.name}
+                    >
+                      <CheckIcon
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedFlowId === flow.id
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                      {flow.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
 
         {onDelete && (
           <AlertDialog

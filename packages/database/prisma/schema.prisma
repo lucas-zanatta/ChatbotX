@@ -651,7 +651,7 @@ model SequenceStep {
 
   order            Int
   delayDays        Int
-  delayHours       Int       @default(0)
+  delayMinutes     Int       @default(0)
   delayUnit        String?   @default("days")
   specificDateTime DateTime?
   isActive         Boolean   @default(true)

@@ -28,7 +28,7 @@ export const upsertSequenceStepAction = chatbotActionClient
         sequenceId,
         order,
         delayDays,
-        delayHours,
+        delayMinutes,
         delayUnit,
         specificDateTime,
         flowId,
@@ -47,19 +47,43 @@ export const upsertSequenceStepAction = chatbotActionClient
         },
       })
 
-      const stepData = {
+      const stepData: any = {
         order,
-        delayDays,
-        delayHours,
-        delayUnit,
-        specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
-        ...(flowId && { flowId }),
-        isActive,
-        anytime,
-        sendTimeStart,
-        sendTimeEnd,
-        sendDays: JSON.stringify(sendDays),
         sequenceId,
+      }
+
+      // Chỉ thêm các field được gửi lên (không undefined)
+      if (flowId !== undefined) {
+        stepData.flowId = flowId
+      }
+      if (delayDays !== undefined) {
+        stepData.delayDays = delayDays
+      }
+      if (delayMinutes !== undefined) {
+        stepData.delayMinutes = delayMinutes
+      }
+      if (delayUnit !== undefined) {
+        stepData.delayUnit = delayUnit
+      }
+      if (specificDateTime !== undefined) {
+        stepData.specificDateTime = specificDateTime
+          ? new Date(specificDateTime)
+          : null
+      }
+      if (isActive !== undefined) {
+        stepData.isActive = isActive
+      }
+      if (anytime !== undefined) {
+        stepData.anytime = anytime
+      }
+      if (sendTimeStart !== undefined) {
+        stepData.sendTimeStart = sendTimeStart || null
+      }
+      if (sendTimeEnd !== undefined) {
+        stepData.sendTimeEnd = sendTimeEnd || null
+      }
+      if (sendDays !== undefined) {
+        stepData.sendDays = sendDays ? JSON.stringify(sendDays) : null
       }
 
       let step

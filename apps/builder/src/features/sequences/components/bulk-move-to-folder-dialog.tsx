@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl"
 import React, { useState } from "react"
 import { toast } from "sonner"
 import { moveSequenceToFoldersAction } from "../actions/move-sequence-to-folders.action"
+import type { SequenceResource } from "../schemas/get-sequences-schema"
 
 type Folder = {
   id: string
@@ -27,64 +28,37 @@ type Folder = {
   children?: Folder[]
 }
 
-type MoveToFolderDialogProps = {
+type BulkMoveToFolderDialogProps = {
   chatbotId: string
-  sequence: {
-    id: string
-    name: string
-    sequencesOnFolders?: Array<{ folderId: string }>
-  }
+  sequences: SequenceResource[]
   folders: Folder[]
   open: boolean
   onClose: () => void
 }
 
-export function MoveToFolderDialog({
+export function BulkMoveToFolderDialog({
   chatbotId,
-  sequence,
+  sequences,
   folders,
   open,
   onClose,
-}: MoveToFolderDialogProps) {
+}: BulkMoveToFolderDialogProps) {
   const t = useTranslations()
   const router = useRouter()
 
-  // Get current folder ID from sequence (only first one)
-  const currentFolderId = React.useMemo(
-    () => sequence.sequencesOnFolders?.[0]?.folderId || null,
-    [sequence],
-  )
-
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
-    currentFolderId,
-  )
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set(),
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Auto-expand parent folders when dialog opens with a selected folder
   React.useEffect(() => {
     if (open) {
-      setSelectedFolderId(currentFolderId)
-
-      // Find and expand all parent folders of the current selection
-      if (currentFolderId && folders.length > 0) {
-        const parentIds = new Set<string>()
-        const findParents = (folderId: string) => {
-          const folder = folders.find((f) => f.id === folderId)
-          if (folder?.parentId) {
-            parentIds.add(folder.parentId)
-            findParents(folder.parentId)
-          }
-        }
-        findParents(currentFolderId)
-        setExpandedFolderIds(parentIds)
-      }
+      setSelectedFolderId(null)
+      setExpandedFolderIds(new Set())
     }
-  }, [open, currentFolderId, folders])
+  }, [open])
 
-  // Build hierarchical folder tree
   const folderTree = React.useMemo(() => {
     if (!folders || folders.length === 0) {
       return []
@@ -126,9 +100,13 @@ export function MoveToFolderDialog({
   }
 
   const handleRadioChange = (folderId: string) => {
+    if (selectedFolderId === folderId) {
+      setSelectedFolderId(null)
+      return
+    }
+
     setSelectedFolderId(folderId)
 
-    // Auto-expand parent folders when a folder is selected
     const parentIds = new Set(expandedFolderIds)
     const findParents = (id: string) => {
       const folder = folders.find((f) => f.id === id)
@@ -144,16 +122,22 @@ export function MoveToFolderDialog({
   const handleSave = async () => {
     setIsSubmitting(true)
     try {
-      await moveSequenceToFoldersAction(chatbotId, {
-        sequenceId: sequence.id,
-        folderIds: selectedFolderId ? [selectedFolderId] : [],
-      })
+      await Promise.all(
+        sequences.map((sequence) =>
+          moveSequenceToFoldersAction(chatbotId, {
+            sequenceId: sequence.id,
+            folderIds: selectedFolderId ? [selectedFolderId] : [],
+          }),
+        ),
+      )
 
-      toast.success(t("sequences.folders.movedToFolder"))
+      toast.success(
+        t("sequences.folders.bulkMoved", { count: sequences.length }),
+      )
       router.refresh()
       onClose()
     } catch (error) {
-      console.error("Error moving sequence:", error)
+      console.error("Error moving sequences:", error)
       toast.error(t("messages.unknownError"))
     } finally {
       setIsSubmitting(false)
@@ -161,7 +145,7 @@ export function MoveToFolderDialog({
   }
 
   const handleCancel = () => {
-    setSelectedFolderId(currentFolderId)
+    setSelectedFolderId(null)
     onClose()
   }
 
@@ -169,7 +153,6 @@ export function MoveToFolderDialog({
     folders.map((folder) => {
       const hasChildren = folder.children && folder.children.length > 0
       const isExpanded = expandedFolderIds.has(folder.id)
-      const _isSelected = selectedFolderId === folder.id
 
       return (
         <div
@@ -236,7 +219,9 @@ export function MoveToFolderDialog({
     <Dialog onOpenChange={onClose} open={open}>
       <DialogContent className="max-w-md p-0">
         <DialogHeader className="border-border border-b px-6 pt-4 pb-5">
-          <DialogTitle>{t("sequences.folders.moveToFolder")}</DialogTitle>
+          <DialogTitle>
+            {t("sequences.folders.bulkMoveTitle", { count: sequences.length })}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
@@ -256,16 +241,15 @@ export function MoveToFolderDialog({
         </div>
 
         <DialogFooter className="border-border border-t px-6 pt-4 pb-4">
-          <Button onClick={handleCancel} type="button" variant="outline">
+          <Button
+            disabled={isSubmitting}
+            onClick={handleCancel}
+            variant="outline"
+          >
             {t("actions.cancel")}
           </Button>
-          <Button
-            className="ml-auto"
-            disabled={isSubmitting}
-            onClick={handleSave}
-            type="button"
-          >
-            {t("actions.save")}
+          <Button disabled={isSubmitting} onClick={handleSave}>
+            {isSubmitting ? t("actions.saving") : t("actions.save")}
           </Button>
         </DialogFooter>
       </DialogContent>

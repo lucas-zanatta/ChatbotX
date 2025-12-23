@@ -5,6 +5,7 @@ import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-t
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
 import { Badge } from "@aha.chat/ui/components/ui/badge"
 import { Button } from "@aha.chat/ui/components/ui/button"
+import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,7 @@ import type { listSequences } from "@/features/sequences/queries"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
 import { MoveToFolderDialog } from "./components/move-to-folder-dialog"
 import { SequenceFoldersGrid } from "./components/sequence-folders-grid"
+import { SequencesTableToolbarActions } from "./components/sequences-table-toolbar-actions"
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
@@ -63,6 +65,9 @@ export function SequencesTable({
 
   const [rowAction, setRowAction] =
     useState<DataTableRowAction<SequenceResource> | null>(null)
+  const [bulkDeleteSequences, setBulkDeleteSequences] = useState<
+    SequenceResource[]
+  >([])
 
   const handleToggleStatus = async (sequence: SequenceResource) => {
     try {
@@ -81,6 +86,33 @@ export function SequencesTable({
 
   const columns = useMemo<ColumnDef<SequenceResource>[]>(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            aria-label="Select all"
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            className="translate-y-0.5"
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(Boolean(value))
+            }
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label="Select row"
+            checked={row.getIsSelected()}
+            className="translate-y-0.5"
+            onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
+          />
+        ),
+        size: 50,
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         id: "name",
         header: ({ column }) => (
@@ -201,7 +233,15 @@ export function SequencesTable({
     <>
       <DataTable table={table}>
         <DataTableToolbar table={table}>
-          <div className="flex justify-end">
+          <div className="flex w-full items-center justify-between">
+            <SequencesTableToolbarActions
+              allFolders={allFolders}
+              chatbotId={chatbotId}
+              onBulkDelete={(sequences: SequenceResource[]) =>
+                setBulkDeleteSequences(sequences)
+              }
+              table={table}
+            />
             <Button asChild size="sm">
               <Link href={createUrl}>
                 <PlusIcon />
@@ -247,6 +287,20 @@ export function SequencesTable({
         }}
         open={rowAction?.variant === "delete"}
         sequence={rowAction?.row.original || null}
+      />
+
+      <DeleteSequenceDialog
+        onOpenChange={() => {
+          setBulkDeleteSequences([])
+          table.toggleAllRowsSelected(false)
+        }}
+        onSuccess={() => {
+          setBulkDeleteSequences([])
+          table.toggleAllRowsSelected(false)
+          router.refresh()
+        }}
+        open={bulkDeleteSequences.length > 0}
+        sequence={bulkDeleteSequences[0] || null}
       />
     </>
   )

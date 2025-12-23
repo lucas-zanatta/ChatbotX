@@ -53,12 +53,12 @@ export function SequenceFoldersGrid({
             <Card className="group cursor-pointer border border-input py-2 shadow-none transition-colors hover:bg-muted/40">
               <CardContent className="flex min-h-[30px] items-center justify-between gap-1 px-4 py-0">
                 <div className="group flex flex-1 items-center gap-1.5 overflow-hidden">
-                  <FolderIcon className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-primary" />
+                  <FolderIcon className="h-6 w-6 text-muted-foreground" />
                   <div className="flex-1 overflow-hidden">
                     <CardTitle className="truncate font-medium text-[11px] leading-tight transition-colors group-hover:text-primary">
                       {folder.name}
                     </CardTitle>
-                    <p className="text-[10px] text-muted-foreground transition-colors group-hover:text-primary">
+                    <p className="text-[10px] text-muted-foreground">
                       {folder._count.totalSequences} sequences
                       {folder._count.children
                         ? ` • ${folder._count.children} folders`

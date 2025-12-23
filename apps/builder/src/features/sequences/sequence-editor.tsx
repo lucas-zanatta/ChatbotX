@@ -27,7 +27,7 @@ type SequenceEditorProps = {
       id: string
       order: number
       delayDays: number
-      delayHours: number
+      delayMinutes: number
       flowId: string
       flow: { id: string; name: string }
     }>
@@ -47,7 +47,7 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
         sequenceId: sequence.id,
         order: sequence.steps.length,
         delayDays: 1,
-        delayHours: 0,
+        delayMinutes: 0,
         delayUnit: "days",
         isActive: false,
         anytime: true,
@@ -76,7 +76,7 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
 
   return (
     <FlowStoreProvider autoInitialize={true} chatbotId={chatbotId}>
-      <div className="container mx-1 py-1">
+      <div className="mx- container py-1">
         <Breadcrumb className="mb-4">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -93,22 +93,8 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
           </BreadcrumbList>
         </Breadcrumb>
 
-        <Card className="border-none shadow-none">
-          <CardHeader>
-            <div className="flex items-center justify-end gap-2">
-              {sequence.steps.length > 0 && (
-                <Button className="w-30" onClick={handleAddStep} size="sm">
-                  <PlusIcon className="h-4 w-4" />
-                  {t("sequences.addStep")}
-                </Button>
-              )}
-              {/* <Button asChild className="w-20" size="sm" variant="outline">
-                  <a href={`/chatbots/${chatbotId}/sequences`}>
-                    {t("actions.back")}
-                  </a>
-                </Button> */}
-            </div>
-          </CardHeader>
+        <Card className="mx-auto max-w-5xl border-none py-1 shadow-none">
+          <CardHeader />
 
           <CardContent>
             {sequence.steps.length === 0 && !isAddingStep && (
@@ -135,6 +121,20 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
                   stepNumber={index + 1}
                 />
               ))}
+
+            {!isAddingStep && sequence.steps.length > 0 && (
+              <div className="grid">
+                <div className="mt-2 mb-2 space-y-4 pl-4">
+                  <button
+                    className="mt-2 flex h-10 w-full items-center justify-center rounded-md border border-primary/40 border-dashed font-medium text-primary text-sm hover:bg-primary/5"
+                    onClick={handleAddStep}
+                    type="button"
+                  >
+                    + {t("sequences.addStep")}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {isAddingStep && (
               <SequenceStepCard

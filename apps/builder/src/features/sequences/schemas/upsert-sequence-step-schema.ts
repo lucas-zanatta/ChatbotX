@@ -4,28 +4,18 @@ export const upsertSequenceStepRequest = z.object({
   stepId: z.string().optional(), // If provided, update; otherwise create
   sequenceId: z.string(),
   order: z.number().int().min(0),
-  delayDays: z.number().int().min(0).default(0),
-  delayHours: z.number().int().min(0).default(0),
+  delayDays: z.number().int().min(0).optional(),
+  delayMinutes: z.number().int().min(0).optional(),
   delayUnit: z
     .enum(["immediate", "minutes", "hours", "days", "specificTime"])
-    .default("days"),
+    .optional(),
   specificDateTime: z.string().datetime().optional(),
   flowId: z.string().optional(),
-  isActive: z.boolean().default(true),
-  anytime: z.boolean().default(true),
-  sendTimeStart: z.string().optional(), // HH:mm format
-  sendTimeEnd: z.string().optional(), // HH:mm format
-  sendDays: z
-    .array(z.string())
-    .default([
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-      "sunday",
-    ]),
+  isActive: z.boolean().optional(),
+  anytime: z.boolean().optional(),
+  sendTimeStart: z.string().nullable().optional(), // HH:mm format
+  sendTimeEnd: z.string().nullable().optional(), // HH:mm format
+  sendDays: z.array(z.string()).optional(),
 })
 
 export type UpsertSequenceStepRequest = z.infer<
