@@ -97,7 +97,6 @@ export function SequenceFoldersGrid({
           </Link>
         ))}
 
-        {/* New folder card (only show if allowed for this level) */}
         {canCreateFolder && (
           <CreateSequenceFolderDialog
             chatbotId={chatbotId}

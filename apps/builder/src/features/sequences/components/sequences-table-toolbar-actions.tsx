@@ -2,7 +2,7 @@
 
 import { Button } from "@aha.chat/ui/components/ui/button"
 import type { Table } from "@tanstack/react-table"
-import { FolderIcon, TrashIcon } from "lucide-react"
+import { FolderUpIcon, Trash2Icon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
@@ -22,7 +22,7 @@ export function SequencesTableToolbarActions({
   allFolders,
   onBulkDelete,
 }: SequencesTableToolbarActionsProps) {
-  const t = useTranslations()
+  const _t = useTranslations()
   const router = useRouter()
   const [showMoveDialog, setShowMoveDialog] = useState(false)
 
@@ -35,25 +35,20 @@ export function SequencesTableToolbarActions({
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground text-sm">
-          {t("messages.selectedCount", { count: selectedRows.length })}
-        </span>
+      <div className="flex items-center justify-center gap-2">
         <Button
           onClick={() => setShowMoveDialog(true)}
-          size="sm"
+          size="icon"
           variant="outline"
         >
-          <FolderIcon className="mr-2 h-4 w-4" />
-          {t("sequences.folders.moveToFolder")}
+          <FolderUpIcon className="h-5 w-5" />
         </Button>
         <Button
           onClick={() => onBulkDelete(selectedSequences)}
-          size="sm"
+          size="icon"
           variant="outline"
         >
-          <TrashIcon className="mr-2 h-4 w-4" />
-          {t("actions.delete")}
+          <Trash2Icon className="h-5 w-5" />
         </Button>
       </div>
 

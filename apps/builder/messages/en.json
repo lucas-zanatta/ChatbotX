@@ -1384,6 +1384,7 @@
   },
   "messages": {
     "selectedCount": "{count} selected",
+    "deleteMultipleItems": "Are you sure you want to delete {count} {feature}?",
     "moveFeature": "Move {feature}",
     "poweredBy": "Powered by {name}",
     "noGiphyApiKey": "No GIPHY API key found. Please add a GIPHY API key in the organization settings.",

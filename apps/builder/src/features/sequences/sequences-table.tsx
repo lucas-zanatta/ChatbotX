@@ -12,9 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@aha.chat/ui/components/ui/dropdown-menu"
+import { Input } from "@aha.chat/ui/components/ui/input"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
-import type { DataTableRowAction } from "@aha.chat/ui/types/data-table"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, Row } from "@tanstack/react-table"
 import {
   CheckCircleIcon,
   FolderIcon,
@@ -22,15 +22,19 @@ import {
   PauseCircleIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   TrashIcon,
+  XIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { useQueryState } from "nuqs"
 import React, { useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
+import { BulkDeleteSequenceDialog } from "./bulk-delete-sequence-dialog"
 import { MoveToFolderDialog } from "./components/move-to-folder-dialog"
 import { SequenceFoldersGrid } from "./components/sequence-folders-grid"
 import { SequencesTableToolbarActions } from "./components/sequences-table-toolbar-actions"
@@ -57,14 +61,23 @@ export function SequencesTable({
   currentFolderId,
   canCreateFolder,
 }: SequencesTableProps) {
-  const [{ data, pageCount }] = React.use(promises)
+  const [{ data: initialData, pageCount: initialPageCount }] =
+    React.use(promises)
   const { chatbotId } = useParams<{ chatbotId: string }>()
 
   const t = useTranslations()
   const router = useRouter()
 
-  const [rowAction, setRowAction] =
-    useState<DataTableRowAction<SequenceResource> | null>(null)
+  const [rowAction, setRowAction] = useState<{
+    row: Row<SequenceResource>
+    variant: "rename" | "move" | "delete"
+  } | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
+  const [nameFilter, setNameFilter] = useQueryState("name", {
+    defaultValue: "",
+    throttleMs: 300,
+    shallow: false,
+  })
   const [bulkDeleteSequences, setBulkDeleteSequences] = useState<
     SequenceResource[]
   >([])
@@ -95,7 +108,7 @@ export function SequencesTable({
               table.getIsAllPageRowsSelected() ||
               (table.getIsSomePageRowsSelected() && "indeterminate")
             }
-            className="translate-y-0.5"
+            className="translate-y-0.5 cursor-default"
             onCheckedChange={(value) =>
               table.toggleAllPageRowsSelected(Boolean(value))
             }
@@ -105,7 +118,7 @@ export function SequencesTable({
           <Checkbox
             aria-label="Select row"
             checked={row.getIsSelected()}
-            className="translate-y-0.5"
+            className="translate-y-0.5 cursor-default"
             onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
           />
         ),
@@ -115,93 +128,124 @@ export function SequencesTable({
       },
       {
         id: "name",
+        accessorKey: "name",
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Name" />
         ),
         cell: ({ row }) => (
-          <Link
-            className="font-medium text-primary hover:underline"
-            href={`/chatbots/${chatbotId}/sequences/${row.original.id}`}
-          >
-            {row.original.name ?? ""}
-          </Link>
+          <div className="flex justify-start">
+            <Link
+              className="font-medium text-primary hover:underline"
+              href={`/chatbots/${chatbotId}/sequences/${row.original.id}`}
+            >
+              {row.original.name ?? ""}
+            </Link>
+          </div>
         ),
+        meta: {
+          label: t("fields.name.label"),
+          placeholder: t("fields.name.placeholder"),
+          variant: "text",
+        },
+        size: 300,
+        enableSorting: true,
       },
       {
         id: "subscribers",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Subscribers" />
+          <DataTableColumnHeader
+            className="w-full justify-center"
+            column={column}
+            title="Subscribers"
+          />
         ),
         cell: ({ row }) => (
-          <div>{row.original._count?.contactsOnSequences ?? 0}</div>
+          <div className="text-center">
+            {row.original._count?.contactsOnSequences ?? 0}
+          </div>
         ),
       },
       {
         id: "messages",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Messages" />
+          <DataTableColumnHeader
+            className="w-full justify-center"
+            column={column}
+            title="Messages"
+          />
         ),
-        cell: ({ row }) => <div>{row.original.messages ?? 0}</div>,
+        cell: ({ row }) => (
+          <div className="text-center">{row.original.messages ?? 0}</div>
+        ),
       },
       {
         accessorKey: "status",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Status" />
+          <DataTableColumnHeader
+            className="w-full justify-center"
+            column={column}
+            title="Status"
+          />
         ),
-        cell: ({ row }) =>
-          row.original.active ? (
-            <Badge variant="default">Active</Badge>
-          ) : (
-            <Badge variant="outline">Inactive</Badge>
-          ),
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            {row.original.active ? (
+              <Badge variant="default">Active</Badge>
+            ) : (
+              <Badge variant="outline">Inactive</Badge>
+            )}
+          </div>
+        ),
       },
       {
         id: "actions",
-        header: "Actions",
+        header: () => <div className="w-full text-center">Actions</div>,
         cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost">
-                <MoreHorizontalIcon className="h-4 w-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => handleToggleStatus(row.original)}
-              >
-                {row.original.active ? (
-                  <>
-                    <PauseCircleIcon className="mr-2" />
-                    {t("actions.deactivate")}
-                  </>
-                ) : (
-                  <>
-                    <CheckCircleIcon className="mr-2" />
-                    {t("actions.activate")}
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setRowAction({ row, variant: "rename" })}
-              >
-                <PencilIcon className="mr-2" />
-                {t("actions.rename")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setRowAction({ row, variant: "move" })}
-              >
-                <FolderIcon className="mr-2" />
-                {t("sequences.folders.moveToFolder")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setRowAction({ row, variant: "delete" })}
-              >
-                <TrashIcon className="mr-2" />
-                {t("actions.delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost">
+                  <MoreHorizontalIcon className="h-4 w-4" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => handleToggleStatus(row.original)}
+                >
+                  {row.original.active ? (
+                    <>
+                      <PauseCircleIcon className="mr-2" />
+                      {t("actions.deactivate")}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="mr-2" />
+                      {t("actions.activate")}
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setRowAction({ row, variant: "rename" })}
+                >
+                  <PencilIcon className="mr-2" />
+                  {t("actions.rename")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setRowAction({ row, variant: "move" })}
+                >
+                  <FolderIcon className="mr-2" />
+                  {t("sequences.folders.moveToFolder")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setRowAction({ row, variant: "delete" })}
+                >
+                  <TrashIcon className="mr-2" />
+                  {t("actions.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         ),
         size: 50,
         enableSorting: false,
@@ -212,19 +256,11 @@ export function SequencesTable({
   )
 
   const { table } = useDataTable({
-    data,
+    data: initialData,
     columns,
-    pageCount,
-    initialState: {
-      sorting: [{ id: "createdAt", desc: false }],
-      columnPinning: { right: ["actions"] },
-    },
-    getRowId: (originalRow) => originalRow.id,
-    shallow: false,
-    clearOnDefault: true,
+    pageCount: initialPageCount,
   })
 
-  // Build create URL with folderId if we're in a folder
   const createUrl = currentFolderId
     ? `/chatbots/${chatbotId}/sequences/create?folderId=${currentFolderId}`
     : `/chatbots/${chatbotId}/sequences/create`
@@ -234,14 +270,6 @@ export function SequencesTable({
       <DataTable table={table}>
         <DataTableToolbar table={table}>
           <div className="flex w-full items-center justify-between">
-            <SequencesTableToolbarActions
-              allFolders={allFolders}
-              chatbotId={chatbotId}
-              onBulkDelete={(sequences: SequenceResource[]) =>
-                setBulkDeleteSequences(sequences)
-              }
-              table={table}
-            />
             <Button asChild size="sm">
               <Link href={createUrl}>
                 <PlusIcon />
@@ -260,6 +288,49 @@ export function SequencesTable({
             currentFolderId={currentFolderId ?? selectedFolderId ?? null}
             folders={folders}
           />
+        </div>
+
+        {table.getFilteredSelectedRowModel().rows.length > 0 && (
+          <div className="mt-5 mb-5">
+            <SequencesTableToolbarActions
+              allFolders={allFolders}
+              chatbotId={chatbotId}
+              onBulkDelete={(sequences: SequenceResource[]) =>
+                setBulkDeleteSequences(sequences)
+              }
+              table={table}
+            />
+          </div>
+        )}
+
+        <div>
+          <div className="flex items-center justify-end">
+            {showSearch ? (
+              <div className="flex w-1/3 items-center gap-2">
+                <Input
+                  autoFocus
+                  className="h-8"
+                  onChange={(event) => setNameFilter(event.target.value)}
+                  placeholder={t("fields.name.placeholder")}
+                  value={nameFilter}
+                />
+                <XIcon
+                  className="cursor-pointer text-muted-foreground hover:text-primary"
+                  onClick={() => {
+                    setShowSearch(false)
+                    setNameFilter("")
+                  }}
+                  size={20}
+                />
+              </div>
+            ) : (
+              <SearchIcon
+                className="cursor-pointer text-muted-foreground hover:text-primary"
+                onClick={() => setShowSearch(true)}
+                size={20}
+              />
+            )}
+          </div>
         </div>
       </DataTable>
 
@@ -289,7 +360,7 @@ export function SequencesTable({
         sequence={rowAction?.row.original || null}
       />
 
-      <DeleteSequenceDialog
+      <BulkDeleteSequenceDialog
         onOpenChange={() => {
           setBulkDeleteSequences([])
           table.toggleAllRowsSelected(false)
@@ -300,7 +371,7 @@ export function SequencesTable({
           router.refresh()
         }}
         open={bulkDeleteSequences.length > 0}
-        sequence={bulkDeleteSequences[0] || null}
+        sequences={bulkDeleteSequences}
       />
     </>
   )

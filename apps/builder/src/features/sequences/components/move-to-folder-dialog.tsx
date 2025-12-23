@@ -49,7 +49,6 @@ export function MoveToFolderDialog({
   const t = useTranslations()
   const router = useRouter()
 
-  // Get current folder ID from sequence (only first one)
   const currentFolderId = React.useMemo(
     () => sequence.sequencesOnFolders?.[0]?.folderId || null,
     [sequence],
@@ -63,12 +62,10 @@ export function MoveToFolderDialog({
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Auto-expand parent folders when dialog opens with a selected folder
   React.useEffect(() => {
     if (open) {
       setSelectedFolderId(currentFolderId)
 
-      // Find and expand all parent folders of the current selection
       if (currentFolderId && folders.length > 0) {
         const parentIds = new Set<string>()
         const findParents = (folderId: string) => {
@@ -84,7 +81,6 @@ export function MoveToFolderDialog({
     }
   }, [open, currentFolderId, folders])
 
-  // Build hierarchical folder tree
   const folderTree = React.useMemo(() => {
     if (!folders || folders.length === 0) {
       return []
@@ -128,7 +124,6 @@ export function MoveToFolderDialog({
   const handleRadioChange = (folderId: string) => {
     setSelectedFolderId(folderId)
 
-    // Auto-expand parent folders when a folder is selected
     const parentIds = new Set(expandedFolderIds)
     const findParents = (id: string) => {
       const folder = folders.find((f) => f.id === id)

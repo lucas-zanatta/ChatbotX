@@ -42,7 +42,6 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
 
   const handleAddStep = async () => {
     try {
-      // Create a new step with default values: 1 day delay, inactive
       const result = await upsertSequenceStepAction(chatbotId, {
         sequenceId: sequence.id,
         order: sequence.steps.length,

@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import React, { useState } from "react"
 import { toast } from "sonner"
-import { moveSequenceToFoldersAction } from "../actions/move-sequence-to-folders.action"
+import { bulkMoveSequencesToFoldersAction } from "../actions/move-sequence-to-folders.action"
 import type { SequenceResource } from "../schemas/get-sequences-schema"
 
 type Folder = {
@@ -122,14 +122,12 @@ export function BulkMoveToFolderDialog({
   const handleSave = async () => {
     setIsSubmitting(true)
     try {
-      await Promise.all(
-        sequences.map((sequence) =>
-          moveSequenceToFoldersAction(chatbotId, {
-            sequenceId: sequence.id,
-            folderIds: selectedFolderId ? [selectedFolderId] : [],
-          }),
-        ),
-      )
+      const sequenceIds = sequences.map((s) => s.id)
+
+      await bulkMoveSequencesToFoldersAction(chatbotId, {
+        sequenceIds,
+        folderIds: selectedFolderId ? [selectedFolderId] : [],
+      })
 
       toast.success(
         t("sequences.folders.bulkMoved", { count: sequences.length }),

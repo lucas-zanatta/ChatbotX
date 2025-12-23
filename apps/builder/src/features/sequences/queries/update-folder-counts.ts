@@ -1,11 +1,6 @@
 import { prisma } from "@aha.chat/database"
 
-/**
- * Update totalSequencesCount for a folder and all its parent folders
- * This should be called whenever sequences are added/removed from a folder
- */
 export async function updateFolderSequenceCounts(folderId: string) {
-  // Get the folder to start from
   const folder = await prisma.sequenceFolder.findUnique({
     where: { id: folderId },
     select: { id: true, parentId: true, chatbotId: true },
@@ -15,7 +10,6 @@ export async function updateFolderSequenceCounts(folderId: string) {
     return
   }
 
-  // Get all folders for this chatbot to calculate counts
   const allFolders = await prisma.sequenceFolder.findMany({
     where: { chatbotId: folder.chatbotId },
     select: {
@@ -29,11 +23,9 @@ export async function updateFolderSequenceCounts(folderId: string) {
     },
   })
 
-  // Build a map for quick lookup
   const folderMap = new Map(allFolders.map((f) => [f.id, f]))
   const countCache = new Map<string, number>()
 
-  // Recursive function to calculate total sequences for a folder
   const calculateTotalSequences = (targetFolderId: string): number => {
     if (countCache.has(targetFolderId)) {
       return countCache.get(targetFolderId)!
@@ -44,10 +36,8 @@ export async function updateFolderSequenceCounts(folderId: string) {
       return 0
     }
 
-    // Start with direct sequences
     let total = targetFolder._count.sequencesOnFolders
 
-    // Add sequences from all children
     const children = allFolders.filter((f) => f.parentId === targetFolderId)
     for (const child of children) {
       total += calculateTotalSequences(child.id)
@@ -57,7 +47,6 @@ export async function updateFolderSequenceCounts(folderId: string) {
     return total
   }
 
-  // Update the folder and all its parents
   const foldersToUpdate: string[] = []
   let currentId: string | null = folderId
 
@@ -67,7 +56,6 @@ export async function updateFolderSequenceCounts(folderId: string) {
     currentId = current?.parentId || null
   }
 
-  // Update all folders in a transaction
   await prisma.$transaction(
     foldersToUpdate.map((id) =>
       prisma.sequenceFolder.update({
@@ -78,10 +66,6 @@ export async function updateFolderSequenceCounts(folderId: string) {
   )
 }
 
-/**
- * Recalculate and update counts for all folders in a chatbot
- * Use this for initial setup or data migration
- */
 export async function recalculateAllFolderCounts(chatbotId: string) {
   const allFolders = await prisma.sequenceFolder.findMany({
     where: { chatbotId },
@@ -118,7 +102,6 @@ export async function recalculateAllFolderCounts(chatbotId: string) {
     return total
   }
 
-  // Update all folders
   await prisma.$transaction(
     allFolders.map((folder) =>
       prisma.sequenceFolder.update({

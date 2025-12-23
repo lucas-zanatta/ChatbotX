@@ -39,7 +39,6 @@ export const upsertSequenceStepAction = chatbotActionClient
         sendDays,
       } = parsedInput
 
-      // Verify sequence belongs to chatbot
       await prisma.sequence.findFirstOrThrow({
         where: {
           id: sequenceId,
@@ -52,7 +51,6 @@ export const upsertSequenceStepAction = chatbotActionClient
         sequenceId,
       }
 
-      // Chỉ thêm các field được gửi lên (không undefined)
       if (flowId !== undefined) {
         stepData.flowId = flowId
       }
@@ -88,13 +86,11 @@ export const upsertSequenceStepAction = chatbotActionClient
 
       let step
       if (stepId) {
-        // Update existing step
         step = await prisma.sequenceStep.update({
           where: { id: stepId },
           data: stepData,
         })
       } else {
-        // Create new step
         step = await prisma.sequenceStep.create({
           data: stepData,
         })

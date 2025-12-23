@@ -1,31 +1,37 @@
 import { type Prisma, prisma } from "@aha.chat/database"
-import type { SequenceModel } from "@aha.chat/database/types"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { GetSequencesSchema } from "../schemas/get-sequences-schema"
+import type {
+  GetSequencesSchema,
+  SequenceResource,
+} from "../schemas/get-sequences-schema"
 
 export async function listSequences(
   input: GetSequencesSchema,
-): Promise<{ data: SequenceModel[]; pageCount: number }> {
+): Promise<{ data: SequenceResource[]; pageCount: number }> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
   const where: Prisma.SequenceWhereInput = {
     chatbotId: input.chatbotId,
   }
 
-  // Filter by folderId if provided (through junction table)
   if (input.folderId !== undefined) {
     if (input.folderId === null) {
-      // Show sequences without any folder
       where.sequencesOnFolders = {
         none: {},
       }
     } else {
-      // Show sequences in specific folder
       where.sequencesOnFolders = {
         some: {
           folderId: input.folderId,
         },
       }
+    }
+  }
+
+  if (input.name) {
+    where.name = {
+      contains: input.name,
+      mode: "insensitive",
     }
   }
 

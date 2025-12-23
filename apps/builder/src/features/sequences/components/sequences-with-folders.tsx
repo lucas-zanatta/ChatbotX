@@ -34,7 +34,6 @@ export function SequencesWithFolders({
     initFolderId,
   )
 
-  // Filter sequences by selected folder
   const filteredSequences = selectedFolderId
     ? sequencesData.data.filter((seq) =>
         seq.sequencesOnFolders?.some(
@@ -45,7 +44,7 @@ export function SequencesWithFolders({
 
   const filteredData = {
     data: filteredSequences,
-    pageCount: Math.ceil(filteredSequences.length / 10), // Adjust based on perPage
+    pageCount: Math.ceil(filteredSequences.length / 10),
   }
 
   const handleSelectFolder = (folderId: string | null) => {

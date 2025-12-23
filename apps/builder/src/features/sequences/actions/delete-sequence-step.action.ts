@@ -29,7 +29,6 @@ export const deleteSequenceStepAction = chatbotActionClient
     }) => {
       const { stepId, sequenceId } = parsedInput
 
-      // Verify sequence belongs to chatbot
       await prisma.sequence.findFirstOrThrow({
         where: {
           id: sequenceId,
@@ -37,7 +36,6 @@ export const deleteSequenceStepAction = chatbotActionClient
         },
       })
 
-      // Delete the step
       await prisma.sequenceStep.delete({
         where: { id: stepId },
       })
