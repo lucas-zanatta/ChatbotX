@@ -28,8 +28,8 @@ type SequenceEditorProps = {
       order: number
       delayDays: number
       delayMinutes: number
-      flowId: string
-      flow: { id: string; name: string }
+      flowId: string | null
+      flow: { id: string; name: string } | null
     }>
   }
   chatbotId: string

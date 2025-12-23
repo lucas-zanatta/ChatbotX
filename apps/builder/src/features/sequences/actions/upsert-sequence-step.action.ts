@@ -46,7 +46,7 @@ export const upsertSequenceStepAction = chatbotActionClient
         },
       })
 
-      const stepData = {
+      const stepData: Record<string, any> = {
         order,
         sequenceId,
         delayDays: delayDays ?? 0,
@@ -84,11 +84,11 @@ export const upsertSequenceStepAction = chatbotActionClient
       if (stepId) {
         step = await prisma.sequenceStep.update({
           where: { id: stepId },
-          data: stepData,
+          data: stepData as any,
         })
       } else {
         step = await prisma.sequenceStep.create({
-          data: stepData,
+          data: stepData as any,
         })
       }
 

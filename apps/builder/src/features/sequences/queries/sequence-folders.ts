@@ -95,10 +95,11 @@ export async function getFolderBreadcrumbs(folderId: string) {
   let currentId: string | null = folderId
 
   while (currentId) {
-    const folder = await prisma.sequenceFolder.findUnique({
-      where: { id: currentId },
-      select: { id: true, name: true, parentId: true },
-    })
+    const folder: { id: string; name: string; parentId: string | null } | null =
+      await prisma.sequenceFolder.findUnique({
+        where: { id: currentId },
+        select: { id: true, name: true, parentId: true },
+      })
 
     if (!folder) {
       break

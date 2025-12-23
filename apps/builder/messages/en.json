@@ -100,8 +100,8 @@
     "setTo": "Set to",
     "shareProject": "Share Project",
     "startAnotherFlow": "Start Another Flow",
-    "startAnotherStep": "Start Another Message",
-    "startExternalStep": "Start External Message",
+    "startAnotherStep": "Start Another Step",
+    "startExternalStep": "Start External Step",
     "subscribeBroadcast": "Subscribe Broadcast",
     "synchronize": "Synchronize",
     "testNow": "Test Now",
@@ -306,7 +306,7 @@
       "sentMessage": "Sent message",
       "automatedResponseReceived": "Automated response received",
       "executedFlow": "Executed flow",
-      "executedStep": "Executed message",
+      "executedStep": "Executed step",
       "questionnaireStarted": "Questionnaire started",
       "questionnaireInProgress": "Questionnaire in progress",
       "questionnaireFinished": "Questionnaire finished",
@@ -1276,7 +1276,7 @@
       "spreadsheetGetRandomRow": "Get Random Row",
       "spreadsheetClearRow": "Clear Row"
     },
-    "additionalSteps": "Additional messages",
+    "additionalSteps": "Additional steps",
     "button": {
       "label": "Button Label"
     },

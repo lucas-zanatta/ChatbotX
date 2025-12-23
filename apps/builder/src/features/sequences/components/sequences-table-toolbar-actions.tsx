@@ -1,13 +1,13 @@
 "use client"
 
 import { Button } from "@aha.chat/ui/components/ui/button"
-import type { SequenceFolder } from "@packages/database"
 import type { Table } from "@tanstack/react-table"
 import { FolderUpIcon, Trash2Icon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
 import type { SequenceResource } from "../schemas/get-sequences-schema"
+import type { SequenceFolder } from "../types"
 import { BulkMoveToFolderDialog } from "./bulk-move-to-folder-dialog"
 
 type SequencesTableToolbarActionsProps = {

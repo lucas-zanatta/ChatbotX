@@ -47,8 +47,8 @@ type SequenceStepCardProps = {
     delayMinutes: number
     delayUnit?: string | null
     specificDateTime?: Date | null
-    flowId: string
-    flow: { id: string; name: string }
+    flowId: string | null
+    flow: { id: string; name: string } | null
     isActive?: boolean
     anytime?: boolean
     sendTimeStart?: string | null
