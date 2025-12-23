@@ -154,21 +154,6 @@ export function SequencesTable({
         enableSorting: true,
       },
       {
-        id: "messages",
-        header: ({ column }) => (
-          <DataTableColumnHeader
-            className="w-full justify-center"
-            column={column}
-            title={t("sequences.step")}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="text-center">{row.original._count?.steps ?? 0}</div>
-        ),
-        size: 100,
-        enableSorting: true,
-      },
-      {
         id: "subscribers",
         header: ({ column }) => (
           <DataTableColumnHeader
@@ -189,12 +174,14 @@ export function SequencesTable({
           <DataTableColumnHeader
             className="w-full justify-center"
             column={column}
-            title="Messages"
+            title={t("sequences.step")}
           />
         ),
         cell: ({ row }) => (
-          <div className="text-center">{row.original.messages ?? 0}</div>
+          <div className="text-center">{row.original._count?.steps ?? 0}</div>
         ),
+        size: 100,
+        enableSorting: true,
       },
       {
         accessorKey: "status",

@@ -173,7 +173,15 @@ export function BulkMoveToFolderDialog({
               onClick={() => hasChildren && toggleFolder(folder.id)}
               type="button"
             >
-              <span>{folder.name}</span>
+              <span
+                className="hover:text-primary hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRadioChange(folder.id)
+                }}
+              >
+                {folder.name}
+              </span>
               {hasChildren && (
                 <span className="ml-2 text-muted-foreground text-xs">
                   ({folder.children?.length})
@@ -194,7 +202,7 @@ export function BulkMoveToFolderDialog({
             )}
 
             <RadioGroupItem
-              className="h-4 w-4"
+              className="h-4 w-4 cursor-pointer"
               disabled={isSubmitting}
               id={folder.id}
               onClick={(e) => {
