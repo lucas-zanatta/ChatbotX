@@ -1,5 +1,15 @@
 "use client"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@aha.chat/ui/components/ui/alert-dialog"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import { Card, CardContent } from "@aha.chat/ui/components/ui/card"
 import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
@@ -89,19 +99,16 @@ export function SequenceStepCard({
     return `${year}-${month}-${day}T${hour}:${minute}`
   }
 
-  // Convert existing delay to unit + value
   const getInitialDelayUnit = (): DelayUnit => {
     if (!step) {
       return "days"
     }
-    // Check delayUnit from DB first
     if (step.delayUnit === "specificTime") {
       return "specificTime"
     }
     if (step.delayUnit === "immediate") {
       return "immediate"
     }
-    // Fallback to calculating from delayDays/delayMinutes
     if (step.delayDays > 0) {
       return "days"
     }
@@ -130,12 +137,10 @@ export function SequenceStepCard({
     return 1
   }
 
-  // Always in edit mode - removed isEditing state
   const [delayUnit, setDelayUnit] = useState<DelayUnit>(getInitialDelayUnit())
   const [delayValue, setDelayValue] = useState<number>(getInitialDelayValue())
   const [specificDateTime, setSpecificDateTime] = useState<string>(() => {
     if (step?.specificDateTime) {
-      // Convert UTC from DB to local datetime-local format
       const date = new Date(step.specificDateTime)
       const year = date.getFullYear()
       const month = `${date.getMonth() + 1}`.padStart(2, "0")
@@ -173,6 +178,7 @@ export function SequenceStepCard({
   const [isTimeOptionsExpanded, setIsTimeOptionsExpanded] = useState(false)
   const [showFlowError, setShowFlowError] = useState(false)
   const [showDelayValueError, setShowDelayValueError] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const isSavingRef = useRef(false)
   const initialSendDaysRef = useRef<string[]>(selectedDays)
 
@@ -247,7 +253,6 @@ export function SequenceStepCard({
           payload.isActive = changedFields.isActive
         }
 
-        // Delay fields - nếu có thay đổi delayUnit hoặc delayValue
         if (
           changedFields.delayUnit !== undefined ||
           changedFields.delayValue !== undefined
@@ -271,7 +276,6 @@ export function SequenceStepCard({
         }
 
         if (changedFields.specificDateTime !== undefined) {
-          // Convert local datetime to UTC
           const localDate = new Date(changedFields.specificDateTime)
           payload.specificDateTime = localDate.toISOString()
           payload.delayDays = 0
@@ -363,7 +367,6 @@ export function SequenceStepCard({
 
   const handleActiveChange = useCallback(
     async (checked: boolean) => {
-      // Nếu bật switch mà chưa chọn flow, báo lỗi
       if (checked && !selectedFlowId) {
         toast.error(t("sequences.selectFlowFirst"))
         setShowFlowError(true)
@@ -374,7 +377,6 @@ export function SequenceStepCard({
 
       setIsActive(checked)
 
-      // Chỉ lưu nếu step đã tồn tại
       if (!step?.id) {
         return
       }
@@ -538,7 +540,7 @@ export function SequenceStepCard({
                 {!isNew && step?.id && (
                   <Button
                     className="h-8 w-8 hover:bg-muted hover:text-destructive"
-                    onClick={handleDelete}
+                    onClick={() => setShowDeleteDialog(true)}
                     size="icon"
                     type="button"
                     variant="ghost"
@@ -755,6 +757,30 @@ export function SequenceStepCard({
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("sequences.confirmDeleteStep")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("messages.deleteConfirmation", {
+                feature: t("sequences.step"),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="ml-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              {t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

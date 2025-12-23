@@ -17,13 +17,13 @@ import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
 import type { ColumnDef, Row } from "@tanstack/react-table"
 import {
   CheckCircleIcon,
-  FolderIcon,
+  FolderUpIcon,
   MoreHorizontalIcon,
   PauseCircleIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
-  TrashIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -111,7 +111,7 @@ export function SequencesTable({
               dataTable.getIsAllPageRowsSelected() ||
               (dataTable.getIsSomePageRowsSelected() && "indeterminate")
             }
-            className="translate-y-0.5 cursor-default"
+            className="translate-y-0.5 cursor-pointer"
             onCheckedChange={(value) =>
               dataTable.toggleAllPageRowsSelected(Boolean(value))
             }
@@ -121,7 +121,7 @@ export function SequencesTable({
           <Checkbox
             aria-label="Select row"
             checked={row.getIsSelected()}
-            className="translate-y-0.5 cursor-default"
+            className="translate-y-0.5 cursor-pointer"
             onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
           />
         ),
@@ -239,13 +239,13 @@ export function SequencesTable({
                 <DropdownMenuItem
                   onClick={() => setRowAction({ row, variant: "move" })}
                 >
-                  <FolderIcon className="mr-2" />
+                  <FolderUpIcon className="mr-2" />
                   {t("sequences.folders.moveToFolder")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setRowAction({ row, variant: "delete" })}
                 >
-                  <TrashIcon className="mr-2" />
+                  <Trash2Icon className="mr-2" />
                   {t("actions.delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>

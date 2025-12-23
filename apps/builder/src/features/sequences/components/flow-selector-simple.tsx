@@ -110,7 +110,11 @@ export function FlowSelectorSimple({
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full items-center gap-2">
         {isActive !== undefined && onActiveChange && (
-          <Switch checked={isActive} onCheckedChange={onActiveChange} />
+          <Switch
+            checked={isActive}
+            className="cursor-pointer"
+            onCheckedChange={onActiveChange}
+          />
         )}
 
         <span className="mr-4 ml-4 text-muted-foreground text-sm">

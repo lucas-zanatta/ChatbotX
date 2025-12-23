@@ -104,6 +104,7 @@ export function RenameSequenceDialog({
                   </Button>
                 </DialogClose>
                 <Button
+                  className="ml-auto"
                   disabled={
                     !form.formState.isValid || form.formState.isSubmitting
                   }

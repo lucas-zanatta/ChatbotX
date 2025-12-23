@@ -80,6 +80,7 @@ export function DeleteSequenceFolderDialog({
             {t("actions.cancel")}
           </Button>
           <Button
+            className="ml-auto"
             disabled={isDeleting}
             onClick={handleDelete}
             type="button"

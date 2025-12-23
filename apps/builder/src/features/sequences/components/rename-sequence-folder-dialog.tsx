@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@aha.chat/ui/components/ui/dialog"
 import { Input } from "@aha.chat/ui/components/ui/input"
-import { Label } from "@aha.chat/ui/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useEffect, useState } from "react"
@@ -76,7 +75,6 @@ export function RenameSequenceFolderDialog({
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="folder-name">{t("fields.name.label")}</Label>
             <Input
               id="folder-name"
               onChange={(e) => setName(e.target.value)}
@@ -89,7 +87,11 @@ export function RenameSequenceFolderDialog({
           <Button onClick={onClose} variant="outline">
             {t("actions.cancel")}
           </Button>
-          <Button disabled={isRenaming} onClick={handleRename}>
+          <Button
+            className="ml-auto"
+            disabled={isRenaming}
+            onClick={handleRename}
+          >
             {isRenaming ? t("actions.saving") : t("actions.save")}
           </Button>
         </DialogFooter>
