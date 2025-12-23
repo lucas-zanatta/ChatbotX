@@ -379,9 +379,10 @@ export function SequencesTable({
       />
 
       <BulkDeleteSequenceDialog
-        onOpenChange={() => {
-          setBulkDeleteSequences([])
-          table.toggleAllRowsSelected(false)
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkDeleteSequences([])
+          }
         }}
         onSuccess={() => {
           setBulkDeleteSequences([])

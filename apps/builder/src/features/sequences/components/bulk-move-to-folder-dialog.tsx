@@ -34,6 +34,7 @@ type BulkMoveToFolderDialogProps = {
   folders: Folder[]
   open: boolean
   onClose: () => void
+  onSuccess?: () => void
 }
 
 export function BulkMoveToFolderDialog({
@@ -42,6 +43,7 @@ export function BulkMoveToFolderDialog({
   folders,
   open,
   onClose,
+  onSuccess,
 }: BulkMoveToFolderDialogProps) {
   const t = useTranslations()
   const router = useRouter()
@@ -137,6 +139,7 @@ export function BulkMoveToFolderDialog({
         t("sequences.folders.bulkMoved", { count: sequences.length }),
       )
       router.refresh()
+      onSuccess?.()
       onClose()
     } catch (error) {
       console.error("Error moving sequences:", error)

@@ -58,6 +58,8 @@ export function SequencesTableToolbarActions({
         folders={allFolders}
         onClose={() => {
           setShowMoveDialog(false)
+        }}
+        onSuccess={() => {
           table.toggleAllRowsSelected(false)
           router.refresh()
         }}
