@@ -1108,6 +1108,7 @@
     }
   },
   "sequences": {
+    "subscribers": "Người đăng ký",
     "steps": "Các tin nhắn",
     "step": "Tin nhắn",
     "addStep": "Thêm tin nhắn",

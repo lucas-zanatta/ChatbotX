@@ -133,7 +133,10 @@ export function SequencesTable({
         id: "name",
         accessorKey: "name",
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Name" />
+          <DataTableColumnHeader
+            column={column}
+            title={t("fields.name.label")}
+          />
         ),
         cell: ({ row }) => (
           <div className="flex justify-start">
@@ -154,12 +157,12 @@ export function SequencesTable({
         enableSorting: true,
       },
       {
-        id: "subscribers",
+        accessorKey: "subscribers",
         header: ({ column }) => (
           <DataTableColumnHeader
             className="w-full justify-center"
             column={column}
-            title="Subscribers"
+            title={t("sequences.subscribers")}
           />
         ),
         cell: ({ row }) => (
@@ -169,7 +172,7 @@ export function SequencesTable({
         ),
       },
       {
-        id: "messages",
+        accessorKey: "messages",
         header: ({ column }) => (
           <DataTableColumnHeader
             className="w-full justify-center"
@@ -189,7 +192,7 @@ export function SequencesTable({
           <DataTableColumnHeader
             className="w-full justify-center"
             column={column}
-            title="Status"
+            title={t("fields.status.label")}
           />
         ),
         cell: ({ row }) => (
@@ -204,7 +207,9 @@ export function SequencesTable({
       },
       {
         id: "actions",
-        header: () => <div className="w-full text-center">Actions</div>,
+        header: () => (
+          <div className="w-full text-center">{t("actions.actions")}</div>
+        ),
         cell: ({ row }) => (
           <div className="flex justify-center">
             <DropdownMenu>
