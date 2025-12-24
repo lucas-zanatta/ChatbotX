@@ -413,7 +413,7 @@ export function SequenceStepCard({
                       disabled={isSaving}
                       min={getOneHourFromNowLocal()}
                       onBlur={() => {
-                        if (specificDateTime && selectedFlowId) {
+                        if (specificDateTime) {
                           handleSave({ specificDateTime })
                         }
                       }}
