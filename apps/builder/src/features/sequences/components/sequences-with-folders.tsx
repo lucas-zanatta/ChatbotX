@@ -41,7 +41,7 @@ export function SequencesWithFolders({ promises }: SequencesWithFoldersProps) {
 
   const filteredData = {
     data: filteredSequences,
-    pageCount: Math.ceil(filteredSequences.length / 10),
+    pageCount: sequencesData.pageCount,
   }
 
   const handleSelectFolder = (folderId: string | null) => {

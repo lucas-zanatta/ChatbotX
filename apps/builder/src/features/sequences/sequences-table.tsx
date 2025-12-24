@@ -269,6 +269,8 @@ export function SequencesTable({
     data: initialData,
     columns,
     pageCount: initialPageCount,
+    shallow: false,
+    clearOnDefault: true,
   })
 
   const createUrl = currentFolderId
