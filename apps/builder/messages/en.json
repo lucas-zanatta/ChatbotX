@@ -1116,6 +1116,14 @@
     }
   },
   "sequences": {
+    "heading": {
+      "title": "Sequences"
+    },
+    "field": {
+      "placeholder": "Select",
+      "searchPlaceholder": "Search",
+      "emptyMessage": "Not found"
+    },
     "steps": "Messages",
     "step": "Message",
     "addStep": "Add Message",

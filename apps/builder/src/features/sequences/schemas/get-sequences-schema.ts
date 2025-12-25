@@ -1,6 +1,7 @@
 import type { SequenceModel } from "@aha.chat/database/types"
 import {
   createSearchParamsCache,
+  parseAsBoolean,
   parseAsInteger,
   parseAsString,
 } from "nuqs/server"
@@ -9,6 +10,7 @@ export const getSequencesSearchParamsCache = createSearchParamsCache({
   page: parseAsInteger.withDefault(1),
   perPage: parseAsInteger.withDefault(10),
   name: parseAsString.withDefault(""),
+  active: parseAsBoolean,
 })
 
 export type GetSequencesSchema = Awaited<

@@ -35,6 +35,10 @@ export async function listSequences(
     }
   }
 
+  if (input.active !== undefined && input.active !== null) {
+    where.active = input.active
+  }
+
   const [data, total] = await prisma.$transaction([
     prisma.sequence.findMany({
       skip: (input.page - 1) * input.perPage,
