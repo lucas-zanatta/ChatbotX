@@ -18,7 +18,7 @@ import type { ContactResource } from "../contacts/schemas/resource"
 import { SequenceStoreProvider } from "../sequences/provider/sequence-store-context"
 import UpdateContactSequenceField from "./update-contact-sequence-field"
 
-type sequencesModules = {
+type sequencesList = {
   readonly keyName: string
   readonly content: ReactNode
 }
@@ -52,7 +52,7 @@ export function ContactSequencesManage({
     }
   }, [activeConversationId, conversations])
 
-  const sequencesModules: sequencesModules[] = contact
+  const sequencesModules: sequencesList[] = contact
     ? [
         {
           keyName: t("sequences.heading.title"),

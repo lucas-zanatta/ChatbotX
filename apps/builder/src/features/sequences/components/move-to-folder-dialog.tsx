@@ -184,15 +184,16 @@ export function MoveToFolderDialog({
               onClick={() => hasChildren && toggleFolder(folder.id)}
               type="button"
             >
-              <span
+              <button
                 className="hover:text-primary hover:underline"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleRadioChange(folder.id)
                 }}
+                type="button"
               >
                 {folder.name}
-              </span>
+              </button>
               {hasChildren && (
                 <span className="ml-2 text-muted-foreground text-xs">
                   ({folder.children?.length})

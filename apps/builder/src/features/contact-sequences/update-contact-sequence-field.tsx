@@ -40,35 +40,34 @@ export default function UpdateContactSequenceField({
         .filter((name): name is string => !!name) ?? [],
   )
 
-  const { form, handleSubmitWithAction, resetFormAndAction } =
-    useHookFormAction(
-      updateContactSequenceAction.bind(null, chatbotId),
-      zodResolver(updateContactSequenceRequest),
-      {
-        actionProps: {
-          onSuccess: ({ data: updatedSequences }) => {
-            onSuccess(
-              updatedSequences as (ContactsOnSequenceModel & {
-                sequence: SequenceModel
-              })[],
-            )
-          },
-          onError: ({ error }) => {
-            if (error.serverError) {
-              toast.error(error.serverError)
-            }
-          },
+  const { form, handleSubmitWithAction } = useHookFormAction(
+    updateContactSequenceAction.bind(null, chatbotId),
+    zodResolver(updateContactSequenceRequest),
+    {
+      actionProps: {
+        onSuccess: ({ data: updatedSequences }) => {
+          onSuccess(
+            updatedSequences as (ContactsOnSequenceModel & {
+              sequence: SequenceModel
+            })[],
+          )
         },
-        formProps: {
-          mode: "onChange",
-          defaultValues: {
-            contactId: contact?.id ?? "",
-            sequences: currentSequencesName,
-          },
+        onError: ({ error }) => {
+          if (error.serverError) {
+            toast.error(error.serverError)
+          }
         },
-        errorMapProps: {},
       },
-    )
+      formProps: {
+        mode: "onChange",
+        defaultValues: {
+          contactId: contact?.id ?? "",
+          sequences: currentSequencesName,
+        },
+      },
+      errorMapProps: {},
+    },
+  )
 
   return (
     <Form {...form}>

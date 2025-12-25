@@ -1,6 +1,6 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { type Prisma, prisma } from "@aha.chat/database"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -46,36 +46,26 @@ export const upsertSequenceStepAction = chatbotActionClient
         },
       })
 
-      const stepData: Record<string, any> = {
+      const baseData = {
         order,
-        sequenceId,
         delayDays: delayDays ?? 0,
         delayMinutes: delayMinutes ?? 0,
         delayUnit: delayUnit ?? "days",
-      }
-
-      if (flowId !== undefined) {
-        stepData.flowId = flowId
-      }
-      if (specificDateTime !== undefined) {
-        stepData.specificDateTime = specificDateTime
-          ? new Date(specificDateTime)
-          : null
-      }
-      if (isActive !== undefined) {
-        stepData.isActive = isActive
-      }
-      if (anytime !== undefined) {
-        stepData.anytime = anytime
-      }
-      if (sendTimeStart !== undefined) {
-        stepData.sendTimeStart = sendTimeStart || null
-      }
-      if (sendTimeEnd !== undefined) {
-        stepData.sendTimeEnd = sendTimeEnd || null
-      }
-      if (sendDays !== undefined) {
-        stepData.sendDays = sendDays ? JSON.stringify(sendDays) : null
+        ...(flowId !== undefined && { flowId }),
+        ...(specificDateTime !== undefined && {
+          specificDateTime: specificDateTime
+            ? new Date(specificDateTime)
+            : null,
+        }),
+        ...(isActive !== undefined && { isActive }),
+        ...(anytime !== undefined && { anytime }),
+        ...(sendTimeStart !== undefined && {
+          sendTimeStart: sendTimeStart || null,
+        }),
+        ...(sendTimeEnd !== undefined && { sendTimeEnd: sendTimeEnd || null }),
+        ...(sendDays !== undefined && {
+          sendDays: sendDays ? JSON.stringify(sendDays) : null,
+        }),
       }
 
       let step:
@@ -84,11 +74,14 @@ export const upsertSequenceStepAction = chatbotActionClient
       if (stepId) {
         step = await prisma.sequenceStep.update({
           where: { id: stepId },
-          data: stepData as any,
+          data: baseData satisfies Prisma.SequenceStepUpdateInput,
         })
       } else {
         step = await prisma.sequenceStep.create({
-          data: stepData as any,
+          data: {
+            ...baseData,
+            sequenceId,
+          } satisfies Prisma.SequenceStepUncheckedCreateInput,
         })
       }
 

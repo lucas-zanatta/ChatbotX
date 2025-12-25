@@ -425,9 +425,7 @@ export function SequenceStepCard({
                       className="h-7 w-7 hover:bg-muted hover:text-primary"
                       onClick={() => {
                         setDelayUnit("days")
-                        if (selectedFlowId) {
-                          handleSave({ delayUnit: "days" })
-                        }
+                        handleSave({ delayUnit: "days" })
                       }}
                       size="icon"
                       type="button"
@@ -450,9 +448,7 @@ export function SequenceStepCard({
                             return
                           }
                           setShowDelayValueError(false)
-                          if (selectedFlowId) {
-                            handleSave({ delayValue })
-                          }
+                          handleSave({ delayValue })
                         }}
                         onChange={(e) => {
                           const value = Number(e.target.value)
