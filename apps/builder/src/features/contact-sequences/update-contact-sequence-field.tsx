@@ -32,12 +32,16 @@ export default function UpdateContactSequenceField({
   const t = useTranslations()
 
   const sequenceOptions = useSequenceOptions()
+  const sequenceSelectOptions = sequenceOptions.map((sequence) => ({
+    label: sequence.name,
+    value: sequence.id,
+  }))
 
-  const [currentSequencesName, setCurrentSequencesName] = useState<string[]>(
+  const [currentSequencesIds, setCurrentSequencesIds] = useState<string[]>(
     () =>
       sequences
-        ?.map((cos) => cos.sequence.name)
-        .filter((name): name is string => !!name) ?? [],
+        ?.map((cos) => cos.sequence.id)
+        .filter((id): id is string => !!id) ?? [],
   )
 
   const { form, handleSubmitWithAction } = useHookFormAction(
@@ -62,7 +66,7 @@ export default function UpdateContactSequenceField({
         mode: "onChange",
         defaultValues: {
           contactId: contact?.id ?? "",
-          sequences: currentSequencesName,
+          sequences: currentSequencesIds,
         },
       },
       errorMapProps: {},
@@ -76,11 +80,12 @@ export default function UpdateContactSequenceField({
           emptyMessage={t("sequences.field.emptyMessage")}
           label=""
           name="sequences"
-          onSelect={(value: string[]) => {
-            setCurrentSequencesName(value)
+          onSelect={async (selectedTags) => {
+            const ids = selectedTags.map((tag) => tag.value)
+            setCurrentSequencesIds(ids)
             handleSubmitWithAction()
           }}
-          options={sequenceOptions}
+          options={sequenceSelectOptions}
           placeholder={t("sequences.field.placeholder")}
           searchPlaceholder={t("sequences.field.searchPlaceholder")}
         />

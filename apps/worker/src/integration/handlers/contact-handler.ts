@@ -9,6 +9,8 @@ import type {
   OptInEmailStepSchema,
   OptOutEmailStepSchema,
   SetCustomFieldStepSchema,
+  SubscribeSequenceStepSchema,
+  UnsubscribeSequenceStepSchema,
 } from "@aha.chat/flow-config"
 import type { FlowStepProps } from "./step-handler"
 
@@ -149,6 +151,47 @@ export async function removeContactTag({
     },
     where: {
       id: conversation.contactId,
+    },
+  })
+}
+
+export async function addContactSequence({
+  conversation,
+  step,
+}: FlowStepProps<SubscribeSequenceStepSchema>) {
+  if (!step.sequenceId) {
+    return
+  }
+
+  await prisma.contactsOnSequence.upsert({
+    where: {
+      contactId_sequenceId: {
+        contactId: conversation.contactId,
+        sequenceId: step.sequenceId,
+      },
+    },
+    create: {
+      contactId: conversation.contactId,
+      sequenceId: step.sequenceId,
+      chatbotId: conversation.chatbotId,
+    },
+    update: {},
+  })
+}
+
+export async function removeContactSequence({
+  conversation,
+  step,
+}: FlowStepProps<UnsubscribeSequenceStepSchema>) {
+  if (!step.sequenceId) {
+    return
+  }
+
+  await prisma.contactsOnSequence.deleteMany({
+    where: {
+      contactId: conversation.contactId,
+      sequenceId: step.sequenceId,
+      chatbotId: conversation.chatbotId,
     },
   })
 }

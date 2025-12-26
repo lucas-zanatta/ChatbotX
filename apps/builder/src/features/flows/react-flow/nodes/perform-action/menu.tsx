@@ -9,6 +9,9 @@ import {
   CircleEllipsisIcon,
   CodeIcon,
   CogIcon,
+  Layers,
+  Layers2,
+  LayersPlus,
   MailIcon,
   MessageCircleMoreIcon,
   MessageCirclePlusIcon,
@@ -166,6 +169,23 @@ export const performActionMenus = (t: TranslationFn): MenuItem[] => [
         label: t("flows.actions.unsubscribeBroadcast"),
         icon: BellOffIcon,
         stepType: StepType.unsubscribeBroadcast,
+      },
+    ],
+  },
+  {
+    label: t("flows.actions.sequenceActions"),
+    icon: Layers,
+    stepType: null,
+    children: [
+      {
+        label: t("flows.actions.subscribeSequence"),
+        icon: LayersPlus,
+        stepType: StepType.subscribeSequence,
+      },
+      {
+        label: t("flows.actions.unsubscribeSequence"),
+        icon: Layers2,
+        stepType: StepType.unsubscribeSequence,
       },
     ],
   },

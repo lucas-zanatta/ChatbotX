@@ -28,6 +28,8 @@ import {
   PopoverTrigger,
 } from "@aha.chat/ui/components/ui/popover";
 
+type optionsType = { label: string; value: string };
+
 interface SelectTagsInputFieldProps<TFieldValues extends FieldValues> {
   name: Path<TFieldValues>;
   beautifyName?: string;
@@ -39,10 +41,10 @@ interface SelectTagsInputFieldProps<TFieldValues extends FieldValues> {
   maxTags?: number;
   startIcon?: ReactNode;
   endIcon?: ReactNode;
-  options: string[];
+  options: optionsType[];
   variant?: "default" | "enterprise" | "minimal";
   tagVariant?: "default" | "secondary" | "outline" | "destructive";
-  onSelect?: (tags: string[]) => void;
+  onSelect?: (tags: optionsType[]) => void;
   searchPlaceholder?: string;
   emptyMessage?: string;
 }
@@ -76,7 +78,12 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
   ) => {
     const newTags = currentTags.filter((_, i) => i !== index);
     onChange(newTags);
-    onSelect && onSelect(newTags);
+    if (onSelect) {
+      const selectedObjects = newTags
+        .map((val) => options.find((opt) => opt.value === val))
+        .filter(Boolean) as optionsType[];
+      onSelect(selectedObjects);
+    }
   };
 
   const addTag = (
@@ -87,12 +94,22 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
     if (currentTags.includes(tag)) {
       const newTags = currentTags.filter((t) => t !== tag);
       onChange(newTags);
-      onSelect && onSelect(newTags);
+      if (onSelect) {
+        const selectedObjects = newTags
+          .map((val) => options.find((opt) => opt.value === val))
+          .filter(Boolean) as optionsType[];
+        onSelect(selectedObjects);
+      }
     } else {
       if (maxTags && currentTags.length >= maxTags) return;
       const newTags = [...currentTags, tag];
       onChange(newTags);
-      onSelect && onSelect(newTags);
+      if (onSelect) {
+        const selectedObjects = newTags
+          .map((val) => options.find((opt) => opt.value === val))
+          .filter(Boolean) as optionsType[];
+        onSelect(selectedObjects);
+      }
     }
   };
 
@@ -163,40 +180,47 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
                       )}
 
                       <AnimatePresence>
-                        {tags.map((tag: string, index: number) => (
-                          <motion.div
-                            key={`${tag}-${index}`}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0 }}
-                          >
-                            <Badge
-                              variant={tagVariant}
-                              className={cn(
-                                "flex items-center gap-1 pr-1 group transition-colors",
-                                variant === "enterprise" &&
-                                  "bg-primary border-primary/20"
-                              )}
+                        {tags.map((tag: string, index: number) => {
+                          const option = options.find(
+                            (opt) => opt.value === tag
+                          );
+                          const displayLabel = option?.label || tag;
+
+                          return (
+                            <motion.div
+                              key={`${tag}-${index}`}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0 }}
                             >
-                              <span className="max-w-[150px] truncate">
-                                {tag}
-                              </span>
-                              {!disabled && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    removeTag(index, tags, field.onChange);
-                                  }}
-                                  className="ml-1 hover:bg-destructive/20 rounded-full p-0.5 transition-colors"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </Badge>
-                          </motion.div>
-                        ))}
+                              <Badge
+                                variant={tagVariant}
+                                className={cn(
+                                  "flex items-center gap-1 pr-1 group transition-colors",
+                                  variant === "enterprise" &&
+                                    "bg-primary border-primary/20"
+                                )}
+                              >
+                                <span className="max-w-[150px] truncate">
+                                  {displayLabel}
+                                </span>
+                                {!disabled && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeTag(index, tags, field.onChange);
+                                    }}
+                                    className="ml-1 hover:bg-destructive/20 rounded-full p-0.5 transition-colors"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </Badge>
+                            </motion.div>
+                          );
+                        })}
                       </AnimatePresence>
 
                       <AnimatePresence mode="wait">
@@ -237,17 +261,17 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
                         <CommandGroup>
                           {options.map((option) => {
-                            const isSelected = tags.includes(option);
+                            const isSelected = tags.includes(option.value);
                             return (
                               <CommandItem
                                 className="p-2 px-5"
-                                key={option}
-                                value={option}
+                                key={option.value}
+                                value={option.value}
                                 onSelect={() =>
-                                  addTag(option, tags, field.onChange)
+                                  addTag(option.value, tags, field.onChange)
                                 }
                               >
-                                {option}
+                                {option.label}
                                 {isSelected && (
                                   <Check className="h-4 w-4 ml-auto text-primary" />
                                 )}

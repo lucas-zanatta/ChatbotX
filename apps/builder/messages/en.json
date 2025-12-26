@@ -1282,7 +1282,10 @@
       "spreadsheetUpdateRow": "Update Row",
       "spreadsheetSendData": "Send Data",
       "spreadsheetGetRandomRow": "Get Random Row",
-      "spreadsheetClearRow": "Clear Row"
+      "spreadsheetClearRow": "Clear Row",
+      "sequenceActions": "Sequence Actions",
+      "subscribeSequence": "Subscribe Sequence",
+      "unsubscribeSequence": "Unsubscribe Sequence"
     },
     "additionalSteps": "Additional steps",
     "button": {

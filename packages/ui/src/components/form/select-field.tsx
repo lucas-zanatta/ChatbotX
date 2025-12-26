@@ -1,4 +1,5 @@
 import { logger } from "@aha.chat/ui/lib/logger"
+import { cn } from "@aha.chat/ui/lib/utils"
 import type { SelectProps } from "@radix-ui/react-select"
 import ky from "ky"
 import type { LucideIcon } from "lucide-react"
@@ -68,6 +69,7 @@ export const SelectField = <T extends FieldValues>(
     allowClear,
     triggerValueChange,
     disableValues,
+    className,
     ...rest
   } = props
 
@@ -149,7 +151,7 @@ export const SelectField = <T extends FieldValues>(
             value={field.value ?? ""}
             {...rest}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className={cn("w-full", className)}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>

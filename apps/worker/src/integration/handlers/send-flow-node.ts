@@ -93,25 +93,23 @@ export async function generateRunFlowNode(
   // biome-ignore lint/suspicious/noExplicitAny: wip
   steps: any[],
 ) {
-  const gen = runFlowNode(conversation, flowVersionId, steps)
-  let result = await gen.next()
-
-  while (!result.done) {
-    result = await gen.next()
-  }
+  await runFlowNode(conversation, flowVersionId, steps)
 }
 
-function* runFlowNode(
+async function runFlowNode(
   conversation: ConversationModel,
   flowVersionId: string,
   // biome-ignore lint/suspicious/noExplicitAny: wip
   steps: any[],
 ) {
   for (const step of steps) {
-    yield flowStepHandlers[step.stepType as StepType]?.({
-      conversation,
-      flowVersionId,
-      step,
-    })
+    const handler = flowStepHandlers[step.stepType as StepType]
+    if (handler) {
+      await handler({
+        conversation,
+        flowVersionId,
+        step,
+      })
+    }
   }
 }

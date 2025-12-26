@@ -1275,7 +1275,10 @@
       "spreadsheetUpdateRow": "Cập nhật hàng",
       "spreadsheetSendData": "Gửi dữ liệu",
       "spreadsheetGetRandomRow": "Lấy hàng ngẫu nhiên",
-      "spreadsheetClearRow": "Xóa hàng"
+      "spreadsheetClearRow": "Xóa hàng",
+      "sequenceActions": "Hành động chăm sóc",
+      "subscribeSequence": "Đăng ký chăm sóc",
+      "unsubscribeSequence": "Hủy đăng ký chăm sóc"
     },
     "additionalSteps": "Các bước bổ sung",
     "button": {

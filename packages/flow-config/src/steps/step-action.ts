@@ -87,6 +87,10 @@ export const StepType = {
   spreadsheetGetRandomRow: "G03",
   spreadsheetUpdateRow: "G04",
   spreadsheetClearRow: "G05",
+
+  // Sequence Operations (Q_)
+  subscribeSequence: "Q01",
+  unsubscribeSequence: "Q02",
 } as const
 
 export type StepType = (typeof StepType)[keyof typeof StepType]

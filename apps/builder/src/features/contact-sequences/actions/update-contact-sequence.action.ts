@@ -30,26 +30,45 @@ export const updateContactSequenceAction = chatbotActionClient
       })
 
       const returnedSequences = await prisma.$transaction(async (tx) => {
-        const sequences = await tx.sequence.findMany({
-          where: {
-            name: {
-              in: parsedInput.sequences,
-            },
-            chatbotId,
-          },
-        })
-
-        await tx.contactsOnSequence.deleteMany({
+        // Get current sequences for this contact
+        const currentContactSequences = await tx.contactsOnSequence.findMany({
           where: {
             contactId: contact.id,
           },
+          select: {
+            sequenceId: true,
+          },
         })
 
-        if (sequences.length > 0) {
-          await tx.contactsOnSequence.createMany({
-            data: sequences.map((s) => ({
+        const currentSequenceIds = new Set(
+          currentContactSequences.map((cos) => cos.sequenceId),
+        )
+        const newSequenceIds = new Set(parsedInput.sequences)
+
+        const sequencesToAdd = parsedInput.sequences.filter(
+          (id) => !currentSequenceIds.has(id),
+        )
+
+        const sequencesToRemove = currentContactSequences
+          .map((cos) => cos.sequenceId)
+          .filter((id) => !newSequenceIds.has(id))
+
+        if (sequencesToRemove.length > 0) {
+          await tx.contactsOnSequence.deleteMany({
+            where: {
               contactId: contact.id,
-              sequenceId: s.id,
+              sequenceId: {
+                in: sequencesToRemove,
+              },
+            },
+          })
+        }
+
+        if (sequencesToAdd.length > 0) {
+          await tx.contactsOnSequence.createMany({
+            data: sequencesToAdd.map((sequenceId) => ({
+              contactId: contact.id,
+              sequenceId,
               chatbotId,
             })),
           })
