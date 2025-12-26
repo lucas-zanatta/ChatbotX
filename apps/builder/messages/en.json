@@ -19,6 +19,7 @@
     "addMore": "Add more",
     "addTag": "Add Tag",
     "addTextReply": "Add text reply",
+    "addSequence": "Add Sequence",
     "appendToEnd": "Append to the end",
     "archive": "Archive",
     "archiveConversation": "Archive Conversation",
@@ -78,6 +79,7 @@
     "reconnect": "Reconnect",
     "removeContactTag": "Remove Contact Tag",
     "removeTag": "Remove Tag",
+    "removeSequence": "Remove Sequence",
     "rename": "Rename",
     "activate": "Activate",
     "deactivate": "Deactivate",
@@ -1212,6 +1214,28 @@
       "bulkMoved": "{count} sequences moved successfully",
       "bulkMoveTitle": "Move {count} sequences to folder",
       "selectMultipleHint": "Select multiple folders by checking the checkboxes"
+    },
+    "addContactSequenceDialog": {
+      "title": "Add Sequence",
+      "description": "Add sequences to selected contacts",
+      "sequencesField": {
+        "label": "Sequences",
+        "placeholder": "Select sequences"
+      },
+      "submit": "Add Sequence",
+      "success": "Sequence added successfully",
+      "error": "Failed to add sequence"
+    },
+    "removeContactSequenceDialog": {
+      "title": "Remove Sequence",
+      "description": "Remove sequences from selected contacts",
+      "sequencesField": {
+        "label": "Sequences",
+        "placeholder": "Select sequences"
+      },
+      "submit": "Remove Sequence",
+      "success": "Sequence removed successfully",
+      "error": "Failed to remove sequence"
     }
   },
   "flows": {

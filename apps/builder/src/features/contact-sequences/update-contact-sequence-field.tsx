@@ -80,7 +80,7 @@ export default function UpdateContactSequenceField({
           emptyMessage={t("sequences.field.emptyMessage")}
           label=""
           name="sequences"
-          onSelect={async (selectedTags) => {
+          onSelect={(selectedTags) => {
             const ids = selectedTags.map((tag) => tag.value)
             setCurrentSequencesIds(ids)
             handleSubmitWithAction()

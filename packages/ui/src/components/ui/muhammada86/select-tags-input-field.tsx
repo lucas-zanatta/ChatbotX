@@ -34,7 +34,7 @@ interface SelectTagsInputFieldProps<TFieldValues extends FieldValues> {
   name: Path<TFieldValues>;
   beautifyName?: string;
   description?: string;
-  label: string;
+  label?: string;
   placeholder?: string;
   disabled?: boolean;
   className?: string;

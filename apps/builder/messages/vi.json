@@ -26,6 +26,7 @@
     "addMore": "Thêm nữa",
     "addTag": "Thêm thẻ",
     "addTextReply": "Thêm phản hồi văn bản",
+    "addSequence": "Thêm chăm sóc",
     "appendToEnd": "Thêm vào cuối",
     "archive": "Lưu trữ",
     "archiveConversation": "Lưu trữ cuộc trò chuyện",
@@ -85,6 +86,7 @@
     "reconnect": "Kết nối lại",
     "removeContactTag": "Xóa thẻ liên hệ",
     "removeTag": "Xóa thẻ",
+    "removeSequence": "Xóa chăm sóc",
     "rename": "Đổi tên",
     "activate": "Kích hoạt",
     "deactivate": "Tắt",
@@ -1205,6 +1207,28 @@
       "bulkMoved": "Đã di chuyển {count} chăm sóc thành công",
       "bulkMoveTitle": "Di chuyển {count} chăm sóc vào thư mục",
       "selectMultipleHint": "Chọn nhiều thư mục bằng cách tick vào checkbox"
+    },
+    "addContactSequenceDialog": {
+      "title": "Thêm chăm sóc",
+      "description": "Thêm chăm sóc vào các liên hệ đã chọn",
+      "sequencesField": {
+        "label": "Chăm sóc",
+        "placeholder": "Chọn chăm sóc"
+      },
+      "submit": "Thêm chăm sóc",
+      "success": "Đã thêm chăm sóc thành công",
+      "error": "Không thể thêm chăm sóc"
+    },
+    "removeContactSequenceDialog": {
+      "title": "Xóa chăm sóc",
+      "description": "Xóa chăm sóc khỏi các liên hệ đã chọn",
+      "sequencesField": {
+        "label": "Chăm sóc",
+        "placeholder": "Chọn chăm sóc"
+      },
+      "submit": "Xóa chăm sóc",
+      "success": "Đã xóa chăm sóc thành công",
+      "error": "Không thể xóa chăm sóc"
     }
   },
   "flows": {
