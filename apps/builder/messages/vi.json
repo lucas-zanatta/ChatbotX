@@ -1146,6 +1146,14 @@
     },
     "specificDateTime": "Ngày & Giờ",
     "timeValidation": "Thời gian tin nhắn này phải sau tin nhắn trước",
+    "validation": {
+      "exception": "Lỗi xác thực",
+      "nameExists": "Tên chuỗi chăm sóc đã tồn tại",
+      "folderNameExists": "Tên thư mục đã tồn tại",
+      "maxDepthExceeded": "Vượt quá độ sâu thư mục tối đa ({depth} cấp)"
+    },
+    "maxOneFolder": "Một chuỗi chăm sóc chỉ có thể trong một thư mục",
+    "minOneSequenceRequired": "Cần ít nhất một chuỗi chăm sóc",
     "activated": "Kích hoạt chăm sóc thành công",
     "deactivated": "Tắt chăm sóc thành công",
     "noFlowSelected": "Chưa chọn kịch bản",

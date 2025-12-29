@@ -1,6 +1,7 @@
 "use server"
 
 import { Prisma, prisma } from "@aha.chat/database"
+import { getTranslations } from "next-intl/server"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -43,9 +44,12 @@ export const createSequenceFolderAction = chatbotActionClient
           depth = parent.depth + 1
 
           if (depth > MAX_FOLDER_DEPTH) {
+            const t = await getTranslations()
             return returnValidationErrors(createSequenceFolderRequest, {
               _errors: [
-                `Maximum folder depth (${MAX_FOLDER_DEPTH} levels) exceeded`,
+                t("sequences.validation.maxDepthExceeded", {
+                  depth: MAX_FOLDER_DEPTH,
+                }),
               ],
             })
           }
@@ -84,10 +88,11 @@ export const createSequenceFolderAction = chatbotActionClient
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === "P2002"
         ) {
+          const t = await getTranslations()
           return returnValidationErrors(createSequenceFolderRequest, {
-            _errors: ["Validation Exception"],
+            _errors: [t("sequences.validation.exception")],
             name: {
-              _errors: ["Folder name already exists"],
+              _errors: [t("sequences.validation.folderNameExists")],
             },
           })
         }

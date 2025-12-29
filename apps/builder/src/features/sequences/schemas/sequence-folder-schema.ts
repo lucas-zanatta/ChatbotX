@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const createSequenceFolderRequest = z.object({
-  name: z.string().min(1, "Folder name is required"),
+  name: z.string().min(1, "validation.required"),
   parentId: z.string().nullable().optional(),
 })
 
@@ -11,7 +11,7 @@ export type CreateSequenceFolderRequest = z.infer<
 
 export const renameSequenceFolderRequest = z.object({
   folderId: z.string(),
-  name: z.string().min(1, "Folder name is required"),
+  name: z.string().min(1, "validation.required"),
 })
 
 export type RenameSequenceFolderRequest = z.infer<

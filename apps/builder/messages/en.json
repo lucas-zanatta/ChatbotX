@@ -1153,6 +1153,14 @@
     },
     "specificDateTime": "Date & Time",
     "timeValidation": "Message time must be after the previous message",
+    "validation": {
+      "exception": "Validation Exception",
+      "nameExists": "Sequence name already exists",
+      "folderNameExists": "Folder name already exists",
+      "maxDepthExceeded": "Maximum folder depth ({depth} levels) exceeded"
+    },
+    "maxOneFolder": "A sequence can only be in one folder",
+    "minOneSequenceRequired": "At least one sequence is required",
     "activated": "Sequence activated successfully",
     "deactivated": "Sequence deactivated successfully",
     "noFlowSelected": "No flow selected",

@@ -12,14 +12,14 @@ import { updateFolderSequenceCounts } from "../queries/update-folder-counts"
 
 const moveSequenceToFoldersSchema = z.object({
   sequenceId: z.string(),
-  folderIds: z.array(z.string()).max(1, "A sequence can only be in one folder"),
+  folderIds: z.array(z.string()).max(1, "sequences.maxOneFolder"),
 })
 
 type MoveSequenceToFoldersRequest = z.infer<typeof moveSequenceToFoldersSchema>
 
 const bulkMoveSequencesToFoldersSchema = z.object({
-  sequenceIds: z.array(z.string()).min(1, "At least one sequence is required"),
-  folderIds: z.array(z.string()).max(1, "A sequence can only be in one folder"),
+  sequenceIds: z.array(z.string()).min(1, "sequences.minOneSequenceRequired"),
+  folderIds: z.array(z.string()).max(1, "sequences.maxOneFolder"),
 })
 
 type BulkMoveSequencesToFoldersRequest = z.infer<

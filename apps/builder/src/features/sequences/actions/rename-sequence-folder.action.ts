@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { getTranslations } from "next-intl/server"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -24,6 +25,8 @@ export const renameSequenceFolderAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: RenameSequenceFolderRequest
     }) => {
+      const t = await getTranslations()
+
       // Check if folder name already exists (excluding current folder)
       const existingFolder = await prisma.sequenceFolder.findFirst({
         select: {
@@ -40,9 +43,9 @@ export const renameSequenceFolderAction = chatbotActionClient
 
       if (existingFolder) {
         return returnValidationErrors(renameSequenceFolderRequest, {
-          _errors: ["Validation Exception"],
+          _errors: [t("sequences.validation.exception")],
           name: {
-            _errors: ["Folder name already exists"],
+            _errors: [t("sequences.validation.folderNameExists")],
           },
         })
       }

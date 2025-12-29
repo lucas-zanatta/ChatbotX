@@ -1,6 +1,7 @@
 "use server"
 
 import { Prisma, prisma } from "@aha.chat/database"
+import { getTranslations } from "next-intl/server"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -24,6 +25,8 @@ export const createSequenceAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: CreateSequenceRequest
     }) => {
+      const t = await getTranslations()
+
       try {
         const sequence = await prisma.sequence.create({
           data: {
@@ -48,9 +51,9 @@ export const createSequenceAction = chatbotActionClient
           error.code === "P2002"
         ) {
           return returnValidationErrors(createSequenceRequest, {
-            _errors: ["Validation Exception"],
+            _errors: [t("sequences.validation.exception")],
             name: {
-              _errors: ["Sequence name already exists"],
+              _errors: [t("sequences.validation.nameExists")],
             },
           })
         }
