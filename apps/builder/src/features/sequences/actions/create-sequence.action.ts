@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { Prisma, prisma } from "@aha.chat/database"
+import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -23,22 +24,38 @@ export const createSequenceAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: CreateSequenceRequest
     }) => {
-      const sequence = await prisma.sequence.create({
-        data: {
-          chatbotId,
-          name: parsedInput.name,
-          ...(parsedInput.folderId && {
-            sequencesOnFolders: {
-              create: {
-                folderId: parsedInput.folderId,
+      try {
+        const sequence = await prisma.sequence.create({
+          data: {
+            chatbotId,
+            name: parsedInput.name,
+            ...(parsedInput.folderId && {
+              sequencesOnFolders: {
+                create: {
+                  folderId: parsedInput.folderId,
+                },
               },
+            }),
+          },
+        })
+
+        revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
+
+        return { sequenceId: sequence.id }
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          return returnValidationErrors(createSequenceRequest, {
+            _errors: ["Validation Exception"],
+            name: {
+              _errors: ["Sequence name already exists"],
             },
-          }),
-        },
-      })
+          })
+        }
 
-      revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
-
-      return { sequenceId: sequence.id }
+        throw new Error("Failed to create sequence")
+      }
     },
   )

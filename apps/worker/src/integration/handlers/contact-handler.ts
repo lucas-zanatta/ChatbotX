@@ -13,6 +13,7 @@ import type {
   UnsubscribeSequenceStepSchema,
 } from "@aha.chat/flow-config"
 import type { FlowStepProps } from "./step-handler"
+import { calculateNextRunAt } from "./utils/calculate-next-run-at"
 
 export async function setContactCustomField({
   conversation,
@@ -163,6 +164,9 @@ export async function addContactSequence({
     return
   }
 
+  const now = new Date()
+  const nextRunAt = await calculateNextRunAt(step.sequenceId, now)
+
   await prisma.contactsOnSequence.upsert({
     where: {
       contactId_sequenceId: {
@@ -174,8 +178,18 @@ export async function addContactSequence({
       contactId: conversation.contactId,
       sequenceId: step.sequenceId,
       chatbotId: conversation.chatbotId,
+      currentStep: 0,
+      status: "active",
+      nextRunAt,
+      enrolledAt: now,
     },
-    update: {},
+    update: {
+      // Re-activate if already exists
+      status: "active",
+      currentStep: 0,
+      nextRunAt,
+      enrolledAt: now,
+    },
   })
 }
 

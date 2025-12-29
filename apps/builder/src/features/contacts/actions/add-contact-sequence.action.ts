@@ -5,6 +5,7 @@ import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
+import { calculateNextRunAtBulk } from "@/features/contact-sequences/utils/calculate-next-run-at"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
@@ -25,6 +26,13 @@ export const addContactSequenceAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: AddContactSequenceRequest
     }) => {
+      // Calculate nextRunAt for all sequences in bulk
+      const now = new Date()
+      const nextRunAtMap = await calculateNextRunAtBulk(
+        parsedInput.sequences,
+        now,
+      )
+
       // Process contacts in chunks to avoid memory issues
       for (let i = 0; i < parsedInput.ids.length; i += CHUNK_SIZE) {
         const contactIdChunk = parsedInput.ids.slice(i, i + CHUNK_SIZE)
@@ -47,11 +55,22 @@ export const addContactSequenceAction = chatbotActionClient
 
         // Create all combinations of contactId x sequenceId for this chunk
         const records = contacts.flatMap((contact) =>
-          parsedInput.sequences.map((sequenceId) => ({
-            contactId: contact.id,
-            sequenceId,
-            chatbotId,
-          })),
+          parsedInput.sequences.map((sequenceId) => {
+            const result = nextRunAtMap.get(sequenceId) ?? {
+              nextRunAt: now,
+              nextStepId: null,
+            }
+            return {
+              contactId: contact.id,
+              sequenceId,
+              chatbotId,
+              currentStep: 0,
+              status: "active",
+              nextRunAt: result.nextRunAt,
+              nextStepId: result.nextStepId,
+              enrolledAt: now,
+            }
+          }),
         )
 
         await prisma.contactsOnSequence.createMany({

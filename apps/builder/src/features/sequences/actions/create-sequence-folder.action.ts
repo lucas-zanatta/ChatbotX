@@ -8,6 +8,7 @@ import {
 } from "@/features/common/schemas"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
+import { MAX_FOLDER_DEPTH } from "../constants/folder-constants"
 import {
   type CreateSequenceFolderRequest,
   createSequenceFolderRequest,
@@ -41,9 +42,11 @@ export const createSequenceFolderAction = chatbotActionClient
         if (parent) {
           depth = parent.depth + 1
 
-          if (depth > 3) {
+          if (depth > MAX_FOLDER_DEPTH) {
             return returnValidationErrors(createSequenceFolderRequest, {
-              _errors: ["Maximum folder depth (3 levels) exceeded"],
+              _errors: [
+                `Maximum folder depth (${MAX_FOLDER_DEPTH} levels) exceeded`,
+              ],
             })
           }
         }
@@ -73,8 +76,6 @@ export const createSequenceFolderAction = chatbotActionClient
           },
         })
 
-        console.log("[Action] Folder created:", folder)
-
         revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
 
         return { folderId: folder.id }
@@ -91,7 +92,6 @@ export const createSequenceFolderAction = chatbotActionClient
           })
         }
 
-        console.error("[Action] Error creating folder:", error)
         throw new Error("Failed to create folder")
       }
     },

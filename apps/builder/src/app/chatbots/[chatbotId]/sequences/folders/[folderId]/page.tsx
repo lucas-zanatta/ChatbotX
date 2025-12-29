@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import type { SearchParams } from "nuqs/server"
 import { Suspense } from "react"
 import { FolderBreadcrumb } from "@/features/sequences/components/folder-breadcrumb"
+import { MAX_FOLDER_DEPTH } from "@/features/sequences/constants/folder-constants"
 import { listSequences } from "@/features/sequences/queries"
 import {
   getSequenceFolder,
@@ -26,7 +27,7 @@ export default async function FolderPage(props: {
   }
 
   // Use depth field from folder to determine if we can create subfolders
-  const canCreateFolder = folder.depth < 3
+  const canCreateFolder = folder.depth < MAX_FOLDER_DEPTH
 
   const [sequences, subfolders, allFolders] = await Promise.all([
     listSequences({

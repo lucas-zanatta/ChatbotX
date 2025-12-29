@@ -70,6 +70,8 @@ CREATE TABLE "ContactsOnSequence" (
     "currentStep" INTEGER NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'active',
     "nextRunAt" TIMESTAMP(3),
+    "lastStepId" TEXT,
+    "nextStepId" TEXT,
     "lockedAt" TIMESTAMP(3),
     "lockOwner" TEXT,
     "errorCount" INTEGER NOT NULL DEFAULT 0,
@@ -94,7 +96,7 @@ CREATE INDEX "SequenceFolder_parentId_idx" ON "SequenceFolder"("parentId");
 CREATE INDEX "SequenceFolder_chatbotId_parentId_position_idx" ON "SequenceFolder"("chatbotId", "parentId", "position");
 
 -- CreateIndex
-CREATE INDEX "Sequence_chatbotId_idx" ON "Sequence"("chatbotId");
+CREATE UNIQUE INDEX "Sequence_chatbotId_name_key" ON "Sequence"("chatbotId", "name");
 
 -- CreateIndex
 CREATE INDEX "SequenceStep_sequenceId_idx" ON "SequenceStep"("sequenceId");

@@ -6,6 +6,7 @@ import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
+import { recalculateAllContactsInSequence } from "@/features/contact-sequences/utils/calculate-next-run-at"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 
@@ -15,6 +16,21 @@ const deleteSequenceStepRequest = z.object({
 })
 
 type DeleteSequenceStepRequest = z.infer<typeof deleteSequenceStepRequest>
+
+async function validateSequenceOwnership(
+  sequenceId: string,
+  chatbotId: string,
+) {
+  await prisma.sequence.findFirstOrThrow({
+    where: { id: sequenceId, chatbotId },
+  })
+}
+
+async function deleteStep(stepId: string) {
+  await prisma.sequenceStep.delete({
+    where: { id: stepId },
+  })
+}
 
 export const deleteSequenceStepAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdRequestParams)
@@ -29,16 +45,9 @@ export const deleteSequenceStepAction = chatbotActionClient
     }) => {
       const { stepId, sequenceId } = parsedInput
 
-      await prisma.sequence.findFirstOrThrow({
-        where: {
-          id: sequenceId,
-          chatbotId,
-        },
-      })
-
-      await prisma.sequenceStep.delete({
-        where: { id: stepId },
-      })
+      await validateSequenceOwnership(sequenceId, chatbotId)
+      await deleteStep(stepId)
+      await recalculateAllContactsInSequence(sequenceId)
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
 

@@ -769,7 +769,7 @@ export function SequenceStepCard({
           <AlertDialogFooter>
             <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              className="ml-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="ml-auto bg-destructive hover:bg-destructive/90"
               onClick={handleDelete}
             >
               {t("actions.delete")}

@@ -5,12 +5,135 @@ import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
+import { recalculateAllContactsInSequence } from "@/features/contact-sequences/utils/calculate-next-run-at"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
   type UpsertSequenceStepRequest,
   upsertSequenceStepRequest,
 } from "../schemas/upsert-sequence-step-schema"
+
+async function validateSequenceOwnership(
+  sequenceId: string,
+  chatbotId: string,
+) {
+  await prisma.sequence.findFirstOrThrow({
+    where: {
+      id: sequenceId,
+      chatbotId,
+    },
+  })
+}
+
+function buildUpdateData(
+  parsedInput: UpsertSequenceStepRequest,
+): Prisma.SequenceStepUpdateInput {
+  const {
+    order,
+    delayDays,
+    delayMinutes,
+    delayUnit,
+    flowId,
+    specificDateTime,
+    isActive,
+    anytime,
+    sendTimeStart,
+    sendTimeEnd,
+    sendDays,
+  } = parsedInput
+
+  return {
+    order,
+    ...(delayDays !== undefined && { delayDays }),
+    ...(delayMinutes !== undefined && { delayMinutes }),
+    ...(delayUnit !== undefined && { delayUnit }),
+    ...(flowId !== undefined && { flowId }),
+    ...(specificDateTime !== undefined && {
+      specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
+    }),
+    ...(isActive !== undefined && { isActive }),
+    ...(anytime !== undefined && { anytime }),
+    ...(sendTimeStart !== undefined && {
+      sendTimeStart: sendTimeStart || null,
+    }),
+    ...(sendTimeEnd !== undefined && { sendTimeEnd: sendTimeEnd || null }),
+    ...(sendDays !== undefined && {
+      sendDays: sendDays ? JSON.stringify(sendDays) : null,
+    }),
+  }
+}
+
+function buildCreateData(
+  parsedInput: UpsertSequenceStepRequest,
+  sequenceId: string,
+): Prisma.SequenceStepCreateInput {
+  const {
+    order,
+    delayDays,
+    delayMinutes,
+    delayUnit,
+    flowId,
+    specificDateTime,
+    isActive,
+    anytime,
+    sendTimeStart,
+    sendTimeEnd,
+    sendDays,
+  } = parsedInput
+
+  return {
+    order,
+    delayDays: delayDays ?? 1,
+    delayMinutes: delayMinutes ?? 0,
+    delayUnit: delayUnit ?? "days",
+    sequence: {
+      connect: { id: sequenceId },
+    },
+    ...(flowId !== undefined && {
+      flow: { connect: { id: flowId } },
+    }),
+    ...(specificDateTime !== undefined && {
+      specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
+    }),
+    ...(isActive !== undefined && { isActive }),
+    ...(anytime !== undefined && { anytime }),
+    ...(sendTimeStart !== undefined && {
+      sendTimeStart: sendTimeStart || null,
+    }),
+    ...(sendTimeEnd !== undefined && { sendTimeEnd: sendTimeEnd || null }),
+    ...(sendDays !== undefined && {
+      sendDays: sendDays ? JSON.stringify(sendDays) : null,
+    }),
+  }
+}
+
+function shouldRecalculate(parsedInput: UpsertSequenceStepRequest): boolean {
+  const { delayDays, delayMinutes, delayUnit, isActive, order } = parsedInput
+
+  return (
+    delayDays !== undefined ||
+    delayMinutes !== undefined ||
+    delayUnit !== undefined ||
+    isActive !== undefined ||
+    order !== undefined
+  )
+}
+
+async function updateSequenceStep(
+  stepId: string,
+  updateData: Prisma.SequenceStepUpdateInput,
+) {
+  return prisma.sequenceStep.update({
+    where: { id: stepId },
+    data: updateData,
+  })
+}
+
+async function createSequenceStep(createData: Prisma.SequenceStepCreateInput) {
+  return prisma.sequenceStep.create({
+    data: createData,
+  })
+}
 
 export const upsertSequenceStepAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdRequestParams)
@@ -23,66 +146,26 @@ export const upsertSequenceStepAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: UpsertSequenceStepRequest
     }) => {
-      const {
-        stepId,
-        sequenceId,
-        order,
-        delayDays,
-        delayMinutes,
-        delayUnit,
-        specificDateTime,
-        flowId,
-        isActive,
-        anytime,
-        sendTimeStart,
-        sendTimeEnd,
-        sendDays,
-      } = parsedInput
+      const { stepId, sequenceId } = parsedInput
 
-      await prisma.sequence.findFirstOrThrow({
-        where: {
-          id: sequenceId,
-          chatbotId,
-        },
-      })
-
-      const baseData = {
-        order,
-        delayDays: delayDays ?? 0,
-        delayMinutes: delayMinutes ?? 0,
-        delayUnit: delayUnit ?? "days",
-        ...(flowId !== undefined && { flowId }),
-        ...(specificDateTime !== undefined && {
-          specificDateTime: specificDateTime
-            ? new Date(specificDateTime)
-            : null,
-        }),
-        ...(isActive !== undefined && { isActive }),
-        ...(anytime !== undefined && { anytime }),
-        ...(sendTimeStart !== undefined && {
-          sendTimeStart: sendTimeStart || null,
-        }),
-        ...(sendTimeEnd !== undefined && { sendTimeEnd: sendTimeEnd || null }),
-        ...(sendDays !== undefined && {
-          sendDays: sendDays ? JSON.stringify(sendDays) : null,
-        }),
-      }
+      await validateSequenceOwnership(sequenceId, chatbotId)
 
       let step:
         | Awaited<ReturnType<typeof prisma.sequenceStep.create>>
         | Awaited<ReturnType<typeof prisma.sequenceStep.update>>
+
       if (stepId) {
-        step = await prisma.sequenceStep.update({
-          where: { id: stepId },
-          data: baseData satisfies Prisma.SequenceStepUpdateInput,
-        })
+        const updateData = buildUpdateData(parsedInput)
+        step = await updateSequenceStep(stepId, updateData)
+
+        if (shouldRecalculate(parsedInput)) {
+          await recalculateAllContactsInSequence(sequenceId)
+        }
       } else {
-        step = await prisma.sequenceStep.create({
-          data: {
-            ...baseData,
-            sequenceId,
-          } satisfies Prisma.SequenceStepUncheckedCreateInput,
-        })
+        const createData = buildCreateData(parsedInput, sequenceId)
+        step = await createSequenceStep(createData)
+
+        await recalculateAllContactsInSequence(sequenceId)
       }
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])

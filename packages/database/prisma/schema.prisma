@@ -641,7 +641,7 @@ model Sequence {
   events               SequenceEvent[]
   dispatches           SequenceDispatch[]
 
-  @@index([chatbotId])
+  @@unique([chatbotId, name])
 }
 
 model SequenceStep {
@@ -684,6 +684,8 @@ model ContactsOnSequence {
   currentStep  Int       @default(0)
   status       String    @default("active")
   nextRunAt    DateTime?
+  lastStepId   String?
+  nextStepId   String?
   lockedAt     DateTime?
   lockOwner    String?
   errorCount   Int       @default(0)
