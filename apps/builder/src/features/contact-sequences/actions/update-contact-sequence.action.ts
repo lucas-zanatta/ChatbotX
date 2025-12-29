@@ -66,7 +66,7 @@ async function addContactSequences(
   }
 
   const now = new Date()
-  const nextRunAtMap = await calculateNextRunAtBulk(sequenceIds, now, tx as any)
+  const nextRunAtMap = await calculateNextRunAtBulk(sequenceIds, now, tx)
 
   await tx.contactsOnSequence.createMany({
     data: sequenceIds.map((sequenceId) => {

@@ -123,14 +123,14 @@ async function updateSequenceStep(
   stepId: string,
   updateData: Prisma.SequenceStepUpdateInput,
 ) {
-  return prisma.sequenceStep.update({
+  return await prisma.sequenceStep.update({
     where: { id: stepId },
     data: updateData,
   })
 }
 
 async function createSequenceStep(createData: Prisma.SequenceStepCreateInput) {
-  return prisma.sequenceStep.create({
+  return await prisma.sequenceStep.create({
     data: createData,
   })
 }

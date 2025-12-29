@@ -110,7 +110,7 @@ async function getActiveStepsForSequence(
   sequenceId: string,
   client: PrismaClient,
 ) {
-  return client.sequenceStep.findMany({
+  return await client.sequenceStep.findMany({
     where: {
       sequenceId,
       isActive: true,
@@ -145,7 +145,12 @@ async function getActiveStepsCumulativeDelay(
   }
 
   const targetStep = stepsUpToTarget.at(-1)
-  if (targetStep.delayUnit === "specificTime" && targetStep.specificDateTime) {
+
+  if (
+    targetStep &&
+    targetStep.delayUnit === "specificTime" &&
+    targetStep.specificDateTime
+  ) {
     return targetStep.specificDateTime
   }
 
@@ -174,13 +179,20 @@ async function getNextActiveStep(
   return nextStep
 }
 
+type UpdateContactsNextRunAtParams = {
+  sequenceId: string
+  currentStepOrder: number
+  delayMsOrDate: number | Date
+  nextStepId: string | null
+  client: PrismaClient
+}
+
 async function updateContactsNextRunAt(
-  sequenceId: string,
-  currentStepOrder: number,
-  delayMsOrDate: number | Date,
-  nextStepId: string | null,
-  client: PrismaClient,
+  params: UpdateContactsNextRunAtParams,
 ): Promise<void> {
+  const { sequenceId, currentStepOrder, delayMsOrDate, nextStepId, client } =
+    params
+
   if (delayMsOrDate === -1) {
     await client.$executeRaw`
       UPDATE "ContactsOnSequence"
@@ -206,7 +218,7 @@ async function updateContactsNextRunAt(
   } else {
     await client.$executeRaw`
       UPDATE "ContactsOnSequence"
-      SET "nextRunAt" = "enrolledAt" + (${delayMsOrDate} || ' milliseconds')::interval,
+      SET "nextRunAt" = NOW() + INTERVAL '${delayMsOrDate} milliseconds',
           "nextStepId" = ${nextStepId},
           "updatedAt" = NOW()
       WHERE "sequenceId" = ${sequenceId}
@@ -238,7 +250,13 @@ async function recalculateNextRunAtForStep(
       client,
     )
     if (nextActiveStep === null) {
-      await updateContactsNextRunAt(sequenceId, stepOrder, -1, null, client)
+      await updateContactsNextRunAt({
+        sequenceId,
+        currentStepOrder: stepOrder,
+        delayMsOrDate: -1,
+        nextStepId: null,
+        client,
+      })
       return
     }
     targetOrder = nextActiveStep.order
@@ -251,13 +269,13 @@ async function recalculateNextRunAtForStep(
     client,
   )
 
-  await updateContactsNextRunAt(
+  await updateContactsNextRunAt({
     sequenceId,
-    stepOrder,
-    cumulativeDelay,
+    currentStepOrder: stepOrder,
+    delayMsOrDate: cumulativeDelay,
     nextStepId,
     client,
-  )
+  })
 }
 
 export async function recalculateAllContactsInSequence(
