@@ -64,10 +64,11 @@ export async function listAllSequenceFolders(chatbotId: string) {
   return folders
 }
 
-export async function getSequenceFolder(folderId: string) {
+export async function getSequenceFolder(folderId: string, chatbotId?: string) {
   const folder = await prisma.sequenceFolder.findUnique({
     where: {
       id: folderId,
+      ...(chatbotId && { chatbotId }),
     },
     select: {
       id: true,
@@ -90,16 +91,23 @@ export async function getSequenceFolder(folderId: string) {
   return folder
 }
 
-export async function getFolderBreadcrumbs(folderId: string) {
+export async function getFolderBreadcrumbs(
+  folderId: string,
+  chatbotId?: string,
+) {
   const breadcrumbs: Array<{ id: string; name: string }> = []
   let currentId: string | null = folderId
 
   while (currentId) {
-    const folder: { id: string; name: string; parentId: string | null } | null =
-      await prisma.sequenceFolder.findUnique({
-        where: { id: currentId },
-        select: { id: true, name: true, parentId: true },
-      })
+    const folder: {
+      id: string
+      name: string
+      parentId: string | null
+      chatbotId: string
+    } | null = await prisma.sequenceFolder.findUnique({
+      where: { id: currentId, ...(chatbotId && { chatbotId }) },
+      select: { id: true, name: true, parentId: true, chatbotId: true },
+    })
 
     if (!folder) {
       break

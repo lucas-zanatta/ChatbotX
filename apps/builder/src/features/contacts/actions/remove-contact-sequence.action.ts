@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { cancelPendingDispatches } from "@aha.chat/sequence-scheduler"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -25,14 +26,31 @@ export const removeContactSequenceAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: RemoveContactSequenceRequest
     }) => {
-      // Process contacts in chunks to avoid memory issues
       for (let i = 0; i < parsedInput.ids.length; i += CHUNK_SIZE) {
         const contactIdChunk = parsedInput.ids.slice(i, i + CHUNK_SIZE)
 
-        await prisma.contactsOnSequence.deleteMany({
+        const enrollments = await prisma.contactsOnSequence.findMany({
           where: {
             contactId: { in: contactIdChunk },
             sequenceId: { in: parsedInput.sequences },
+            chatbotId,
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        for (const enrollment of enrollments) {
+          await cancelPendingDispatches({
+            enrollmentId: enrollment.id,
+            chatbotId,
+            reason: "enrollment_removed",
+          })
+        }
+
+        await prisma.contactsOnSequence.deleteMany({
+          where: {
+            id: { in: enrollments.map((e) => e.id) },
             chatbotId,
           },
         })

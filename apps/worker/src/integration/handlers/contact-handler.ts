@@ -12,6 +12,10 @@ import type {
   SubscribeSequenceStepSchema,
   UnsubscribeSequenceStepSchema,
 } from "@aha.chat/flow-config"
+import {
+  cancelPendingDispatches,
+  enrollContactInSequence,
+} from "@aha.chat/sequence-scheduler"
 import type { FlowStepProps } from "./step-handler"
 import { calculateNextRunAt } from "./utils/calculate-next-run-at"
 
@@ -164,32 +168,41 @@ export async function addContactSequence({
     return
   }
 
-  const now = new Date()
-  const nextRunAt = await calculateNextRunAt(step.sequenceId, now)
-
-  await prisma.contactsOnSequence.upsert({
+  const existing = await prisma.contactsOnSequence.findUnique({
     where: {
       contactId_sequenceId: {
         contactId: conversation.contactId,
         sequenceId: step.sequenceId,
       },
     },
-    create: {
-      contactId: conversation.contactId,
+    select: { id: true },
+  })
+
+  if (existing) {
+    return
+  }
+
+  const now = new Date()
+  const nextRunAt = await calculateNextRunAt(step.sequenceId, now)
+
+  const firstStep = await prisma.sequenceStep.findFirst({
+    where: {
       sequenceId: step.sequenceId,
-      chatbotId: conversation.chatbotId,
-      currentStep: 0,
-      status: "active",
-      nextRunAt,
-      enrolledAt: now,
+      order: 0,
+      isActive: true,
     },
-    update: {
-      // Re-activate if already exists
-      status: "active",
-      currentStep: 0,
-      nextRunAt,
-      enrolledAt: now,
+    select: {
+      id: true,
     },
+  })
+
+  await enrollContactInSequence({
+    chatbotId: conversation.chatbotId,
+    contactId: conversation.contactId,
+    sequenceId: step.sequenceId,
+    nextRunAt,
+    nextStepId: firstStep?.id ?? null,
+    enrolledAt: now,
   })
 }
 
@@ -201,13 +214,31 @@ export async function removeContactSequence({
     return
   }
 
-  await prisma.contactsOnSequence.deleteMany({
+  const enrollments = await prisma.contactsOnSequence.findMany({
     where: {
       contactId: conversation.contactId,
       sequenceId: step.sequenceId,
       chatbotId: conversation.chatbotId,
     },
+    select: {
+      id: true,
+    },
   })
+
+  await prisma.contactsOnSequence.deleteMany({
+    where: {
+      id: { in: enrollments.map((e) => e.id) },
+      chatbotId: conversation.chatbotId,
+    },
+  })
+
+  for (const enrollment of enrollments) {
+    await cancelPendingDispatches({
+      enrollmentId: enrollment.id,
+      chatbotId: conversation.chatbotId,
+      reason: "unsubscribed_via_flow",
+    })
+  }
 }
 
 export async function deleteContact({

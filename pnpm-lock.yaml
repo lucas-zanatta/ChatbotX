@@ -68,9 +68,15 @@ importers:
       '@aha.chat/partysocket-config':
         specifier: workspace:*
         version: link:../../packages/partysocket-config
+      '@aha.chat/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
       '@aha.chat/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@aha.chat/sequence-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/sequence-scheduler
       '@aha.chat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -346,9 +352,15 @@ importers:
       '@aha.chat/partysocket-config':
         specifier: workspace:*
         version: link:../../packages/partysocket-config
+      '@aha.chat/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
       '@aha.chat/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@aha.chat/sequence-scheduler':
+        specifier: workspace:*
+        version: link:../../packages/sequence-scheduler
       '@aha.chat/worker-config':
         specifier: workspace:*
         version: link:../../packages/worker-config
@@ -385,12 +397,18 @@ importers:
       ioredis:
         specifier: ^5.8.2
         version: 5.8.2
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
       ky:
         specifier: ^1.14.2
         version: 1.14.2
       mammoth:
         specifier: ^1.11.0
         version: 1.11.0
+      p-limit:
+        specifier: ^7.2.0
+        version: 7.2.0
       pdf-parse-new:
         specifier: ^2.0.0
         version: 2.0.0
@@ -761,6 +779,22 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/scheduler:
+    dependencies:
+      '@aha.chat/logger':
+        specifier: workspace:*
+        version: link:../logger
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.8.2
+    devDependencies:
+      '@aha.chat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/sdk:
     dependencies:
       '@aha.chat/flow-config':
@@ -778,6 +812,22 @@ importers:
         version: link:../typescript-config
       typescript:
         specifier: 5.9.3
+        version: 5.9.3
+
+  packages/sequence-scheduler:
+    dependencies:
+      '@aha.chat/database':
+        specifier: workspace:*
+        version: link:../database
+      '@aha.chat/scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
+    devDependencies:
+      '@aha.chat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.7.2
         version: 5.9.3
 
   packages/typescript-config:
@@ -5815,6 +5865,10 @@ packages:
   jws@4.0.1:
     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
 
+  kafkajs@2.2.4:
+    resolution: {integrity: sha512-j/YeapB1vfPT2iOIUn/vxdyKEuhuY2PxMBvf5JWux6iSaukAccrMtXEY/Lb7OvavDhOWME589bpLrEdnVHjfjA==}
+    engines: {node: '>=14.0.0'}
+
   kleur@3.0.3:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
@@ -6358,6 +6412,10 @@ packages:
 
   oxc-resolver@11.16.2:
     resolution: {integrity: sha512-Uy76u47vwhhF7VAmVY61Srn+ouiOobf45MU9vGct9GD2ARy6hKoqEElyHDB0L+4JOM6VLuZ431KiLwyjI/A21g==}
+
+  p-limit@7.2.0:
+    resolution: {integrity: sha512-ATHLtwoTNDloHRFFxFJdHnG6n2WUeFjaR8XQMFdKIv0xkXjrER8/iG9iu265jOM95zXHAfv9oTkqhrfbIzosrQ==}
+    engines: {node: '>=20'}
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
@@ -7649,6 +7707,10 @@ packages:
   yargs@17.7.2:
     resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
     engines: {node: '>=12'}
+
+  yocto-queue@1.2.2:
+    resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
+    engines: {node: '>=12.20'}
 
   yoctocolors@2.1.2:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
@@ -12573,6 +12635,8 @@ snapshots:
       jwa: 2.0.1
       safe-buffer: 5.2.1
 
+  kafkajs@2.2.4: {}
+
   kleur@3.0.3: {}
 
   knip@5.77.4(@types/node@24.10.4)(typescript@5.9.3):
@@ -13098,6 +13162,10 @@ snapshots:
       '@oxc-resolver/binding-win32-arm64-msvc': 11.16.2
       '@oxc-resolver/binding-win32-ia32-msvc': 11.16.2
       '@oxc-resolver/binding-win32-x64-msvc': 11.16.2
+
+  p-limit@7.2.0:
+    dependencies:
+      yocto-queue: 1.2.2
 
   package-json-from-dist@1.0.1: {}
 
@@ -14519,6 +14587,8 @@ snapshots:
       string-width: 4.2.3
       y18n: 5.0.8
       yargs-parser: 21.1.1
+
+  yocto-queue@1.2.2: {}
 
   yoctocolors@2.1.2: {}
 

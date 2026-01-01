@@ -170,7 +170,6 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
                       className={cn(
                         "min-h-[3.5rem] p-2 rounded-md flex flex-wrap gap-2 items-center cursor-pointer",
                         styles.container,
-                        disabled && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       {startIcon && (
@@ -205,18 +204,19 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
                                 <span className="max-w-[150px] truncate">
                                   {displayLabel}
                                 </span>
-                                {!disabled && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
+
+                                      if (disabled) return;
+
                                       removeTag(index, tags, field.onChange);
                                     }}
                                     className="ml-1 hover:bg-destructive/20 rounded-full p-0.5 transition-colors"
                                   >
                                     <X className="w-3 h-3" />
                                   </button>
-                                )}
                               </Badge>
                             </motion.div>
                           );
@@ -267,9 +267,12 @@ const SelectTagsInputFieldBase = <TFieldValues extends FieldValues>({
                                 className="p-2 px-5"
                                 key={option.value}
                                 value={option.value}
-                                onSelect={() =>
-                                  addTag(option.value, tags, field.onChange)
-                                }
+                                disabled={disabled}
+                                onSelect={() => {
+                                  if (!disabled) {
+                                    addTag(option.value, tags, field.onChange);
+                                  }
+                                }}
                               >
                                 {option.label}
                                 {isSelected && (

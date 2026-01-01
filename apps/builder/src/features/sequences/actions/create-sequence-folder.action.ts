@@ -36,7 +36,7 @@ export const createSequenceFolderAction = chatbotActionClient
 
       if (parsedInput.parentId) {
         const parent = await prisma.sequenceFolder.findUnique({
-          where: { id: parsedInput.parentId },
+          where: { id: parsedInput.parentId, chatbotId },
           select: { depth: true },
         })
 

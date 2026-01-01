@@ -159,13 +159,13 @@ export const upsertSequenceStepAction = chatbotActionClient
         step = await updateSequenceStep(stepId, updateData)
 
         if (shouldRecalculate(parsedInput)) {
-          await recalculateAllContactsInSequence(sequenceId)
+          await recalculateAllContactsInSequence(sequenceId, chatbotId)
         }
       } else {
         const createData = buildCreateData(parsedInput, sequenceId)
         step = await createSequenceStep(createData)
 
-        await recalculateAllContactsInSequence(sequenceId)
+        await recalculateAllContactsInSequence(sequenceId, chatbotId)
       }
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])

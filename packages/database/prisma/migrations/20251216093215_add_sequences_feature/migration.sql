@@ -263,7 +263,8 @@ CREATE TABLE "SequenceDispatch" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "runAt" TIMESTAMP(3) NOT NULL,
+    "runAtMs" BIGINT NOT NULL DEFAULT 0,
+    "bucket" SMALLINT NOT NULL DEFAULT 0,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "idempotencyKey" TEXT NOT NULL,
     "attempt" INTEGER NOT NULL DEFAULT 0,
@@ -347,7 +348,8 @@ CREATE TABLE "SequenceDispatch_p62" PARTITION OF "SequenceDispatch" FOR VALUES W
 CREATE TABLE "SequenceDispatch_p63" PARTITION OF "SequenceDispatch" FOR VALUES WITH (MODULUS 64, REMAINDER 63);
 
 -- CreateIndex for SequenceDispatch (critical for scheduler)
-CREATE INDEX "SequenceDispatch_status_runAt_idx" ON "SequenceDispatch"("status", "runAt") WHERE "status" IN ('pending', 'running');
-CREATE INDEX "SequenceDispatch_chatbotId_status_runAt_idx" ON "SequenceDispatch"("chatbotId", "status", "runAt") WHERE "status" IN ('pending', 'running');
+CREATE INDEX "SequenceDispatch_status_runAtMs_idx" ON "SequenceDispatch"("status", "runAtMs") WHERE "status" IN ('pending', 'running');
+CREATE INDEX "SequenceDispatch_chatbotId_status_runAtMs_idx" ON "SequenceDispatch"("chatbotId", "status", "runAtMs") WHERE "status" IN ('pending', 'running');
 CREATE UNIQUE INDEX "SequenceDispatch_idempotencyKey_key" ON "SequenceDispatch"("idempotencyKey", "chatbotId");
 CREATE INDEX "SequenceDispatch_enrollmentId_idx" ON "SequenceDispatch"("enrollmentId");
+CREATE INDEX "SequenceDispatch_bucket_status_runAtMs_idx" ON "SequenceDispatch"("bucket", "status", "runAtMs");

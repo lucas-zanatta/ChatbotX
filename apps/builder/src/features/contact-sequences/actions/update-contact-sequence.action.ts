@@ -2,6 +2,10 @@
 
 import { prisma } from "@aha.chat/database"
 import {
+  cancelPendingDispatches,
+  enrollContactInSequence,
+} from "@aha.chat/sequence-scheduler"
+import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
@@ -17,9 +21,13 @@ type PrismaTransaction = Parameters<
   Parameters<typeof prisma.$transaction>[0]
 >[0]
 
-async function getCurrentSequenceIds(contactId: string, tx: PrismaTransaction) {
+async function getCurrentSequenceIds(
+  contactId: string,
+  chatbotId: string,
+  tx: PrismaTransaction,
+) {
   const sequences = await tx.contactsOnSequence.findMany({
-    where: { contactId },
+    where: { contactId, chatbotId },
     select: { sequenceId: true },
   })
   return sequences.map((s) => s.sequenceId)
@@ -41,16 +49,37 @@ function calculateSequenceDiff(
 async function removeContactSequences(
   contactId: string,
   sequenceIds: string[],
+  chatbotId: string,
   tx: PrismaTransaction,
 ) {
   if (sequenceIds.length === 0) {
     return
   }
 
-  await tx.contactsOnSequence.deleteMany({
+  const enrollments = await tx.contactsOnSequence.findMany({
     where: {
       contactId,
       sequenceId: { in: sequenceIds },
+      chatbotId,
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  for (const enrollment of enrollments) {
+    await cancelPendingDispatches({
+      enrollmentId: enrollment.id,
+      chatbotId,
+      reason: "enrollment_removed",
+      client: tx,
+    })
+  }
+
+  await tx.contactsOnSequence.deleteMany({
+    where: {
+      id: { in: enrollments.map((e) => e.id) },
+      chatbotId,
     },
   })
 }
@@ -68,24 +97,22 @@ async function addContactSequences(
   const now = new Date()
   const nextRunAtMap = await calculateNextRunAtBulk(sequenceIds, now, tx)
 
-  await tx.contactsOnSequence.createMany({
-    data: sequenceIds.map((sequenceId) => {
-      const result = nextRunAtMap.get(sequenceId) ?? {
-        nextRunAt: now,
-        nextStepId: null,
-      }
-      return {
-        contactId,
-        sequenceId,
-        chatbotId,
-        currentStep: 0,
-        status: "active",
-        nextRunAt: result.nextRunAt,
-        nextStepId: result.nextStepId,
-        enrolledAt: now,
-      }
-    }),
-  })
+  for (const sequenceId of sequenceIds) {
+    const result = nextRunAtMap.get(sequenceId) ?? {
+      nextRunAt: now,
+      nextStepId: null,
+    }
+
+    await enrollContactInSequence({
+      chatbotId,
+      contactId,
+      sequenceId,
+      nextRunAt: result.nextRunAt,
+      nextStepId: result.nextStepId,
+      enrolledAt: now,
+      client: tx,
+    })
+  }
 }
 
 export const updateContactSequenceAction = chatbotActionClient
@@ -100,21 +127,25 @@ export const updateContactSequenceAction = chatbotActionClient
       parsedInput: UpdateContactSequenceRequest
     }) => {
       const contact = await prisma.contact.findFirstOrThrow({
-        where: { id: parsedInput.contactId },
+        where: { id: parsedInput.contactId, chatbotId },
       })
 
       const returnedSequences = await prisma.$transaction(async (tx) => {
-        const currentIds = await getCurrentSequenceIds(contact.id, tx)
+        const currentIds = await getCurrentSequenceIds(
+          contact.id,
+          chatbotId,
+          tx,
+        )
         const { toAdd, toRemove } = calculateSequenceDiff(
           currentIds,
           parsedInput.sequences,
         )
 
-        await removeContactSequences(contact.id, toRemove, tx)
+        await removeContactSequences(contact.id, toRemove, chatbotId, tx)
         await addContactSequences(contact.id, toAdd, chatbotId, tx)
 
         return tx.contactsOnSequence.findMany({
-          where: { contactId: contact.id },
+          where: { contactId: contact.id, chatbotId },
           include: { sequence: true },
         })
       })

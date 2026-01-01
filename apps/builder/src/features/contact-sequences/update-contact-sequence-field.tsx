@@ -77,6 +77,7 @@ export default function UpdateContactSequenceField({
     <Form {...form}>
       <form className="flex flex-1 flex-col gap-2">
         <SelectTagsInputField
+          disabled={form.formState.isSubmitting}
           emptyMessage={t("sequences.field.emptyMessage")}
           label=""
           name="sequences"

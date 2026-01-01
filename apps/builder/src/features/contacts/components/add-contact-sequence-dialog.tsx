@@ -60,9 +60,7 @@ export default function AddContactSequenceDialog({
           },
           onError: ({ error }) => {
             if (error.serverError) {
-              toast.error(
-                t("messages.error", { feature: t("fields.sequences.label") }),
-              )
+              toast.error(error.serverError)
             }
           },
         },

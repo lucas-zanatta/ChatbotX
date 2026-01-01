@@ -755,14 +755,15 @@ model SequenceDispatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  runAt           DateTime
-  status          String   @default("pending")
-  idempotencyKey  String
-  attempt         Int      @default(0)
-  lastError       String?
-  lockedAt        DateTime?
-  lockOwner       String?
-  completedAt     DateTime?
+  runAtMs        BigInt   @default(0)
+  bucket         Int      @default(0) @db.SmallInt
+  status         String   @default("pending")
+  idempotencyKey String
+  attempt        Int      @default(0)
+  lastError      String?
+  lockedAt       DateTime?
+  lockOwner      String?
+  completedAt    DateTime?
 
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
@@ -779,9 +780,10 @@ model SequenceDispatch {
   enrollment   ContactsOnSequence @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
   @@unique([idempotencyKey, chatbotId])
-  @@index([status, runAt])
-  @@index([chatbotId, status, runAt])
+  @@index([status, runAtMs])
+  @@index([chatbotId, status, runAtMs])
   @@index([enrollmentId])
+  @@index([bucket, status, runAtMs], map: "SequenceDispatch_bucket_status_runAtMs_idx")
 }
 
 enum AIEmbeddingStatus {

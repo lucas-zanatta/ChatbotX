@@ -181,6 +181,7 @@ async function getNextActiveStep(
 
 type UpdateContactsNextRunAtParams = {
   sequenceId: string
+  chatbotId: string
   currentStepOrder: number
   delayMsOrDate: number | Date
   nextStepId: string | null
@@ -190,8 +191,14 @@ type UpdateContactsNextRunAtParams = {
 async function updateContactsNextRunAt(
   params: UpdateContactsNextRunAtParams,
 ): Promise<void> {
-  const { sequenceId, currentStepOrder, delayMsOrDate, nextStepId, client } =
-    params
+  const {
+    sequenceId,
+    chatbotId,
+    currentStepOrder,
+    delayMsOrDate,
+    nextStepId,
+    client,
+  } = params
 
   if (delayMsOrDate === -1) {
     await client.$executeRaw`
@@ -200,6 +207,7 @@ async function updateContactsNextRunAt(
           "nextStepId" = ${nextStepId},
           "updatedAt" = NOW()
       WHERE "sequenceId" = ${sequenceId}
+        AND "chatbotId" = ${chatbotId}
         AND "currentStep" = ${currentStepOrder}
         AND "status" = 'active'
         AND "completedAt" IS NULL
@@ -211,6 +219,7 @@ async function updateContactsNextRunAt(
           "nextStepId" = ${nextStepId},
           "updatedAt" = NOW()
       WHERE "sequenceId" = ${sequenceId}
+        AND "chatbotId" = ${chatbotId}
         AND "currentStep" = ${currentStepOrder}
         AND "status" = 'active'
         AND "completedAt" IS NULL
@@ -222,6 +231,7 @@ async function updateContactsNextRunAt(
           "nextStepId" = ${nextStepId},
           "updatedAt" = NOW()
       WHERE "sequenceId" = ${sequenceId}
+        AND "chatbotId" = ${chatbotId}
         AND "currentStep" = ${currentStepOrder}
         AND "status" = 'active'
         AND "completedAt" IS NULL
@@ -231,6 +241,7 @@ async function updateContactsNextRunAt(
 
 async function recalculateNextRunAtForStep(
   sequenceId: string,
+  chatbotId: string,
   stepOrder: number,
   client: PrismaClient,
 ): Promise<void> {
@@ -252,6 +263,7 @@ async function recalculateNextRunAtForStep(
     if (nextActiveStep === null) {
       await updateContactsNextRunAt({
         sequenceId,
+        chatbotId,
         currentStepOrder: stepOrder,
         delayMsOrDate: -1,
         nextStepId: null,
@@ -271,6 +283,7 @@ async function recalculateNextRunAtForStep(
 
   await updateContactsNextRunAt({
     sequenceId,
+    chatbotId,
     currentStepOrder: stepOrder,
     delayMsOrDate: cumulativeDelay,
     nextStepId,
@@ -280,6 +293,7 @@ async function recalculateNextRunAtForStep(
 
 export async function recalculateAllContactsInSequence(
   sequenceId: string,
+  chatbotId: string,
   tx?: PrismaClient,
 ): Promise<void> {
   const client = tx ?? prisma
@@ -287,6 +301,7 @@ export async function recalculateAllContactsInSequence(
   const uniqueSteps = await client.contactsOnSequence.findMany({
     where: {
       sequenceId,
+      chatbotId,
       status: "active",
       completedAt: null,
     },
@@ -297,6 +312,11 @@ export async function recalculateAllContactsInSequence(
   })
 
   for (const { currentStep } of uniqueSteps) {
-    await recalculateNextRunAtForStep(sequenceId, currentStep, client)
+    await recalculateNextRunAtForStep(
+      sequenceId,
+      chatbotId,
+      currentStep,
+      client,
+    )
   }
 }

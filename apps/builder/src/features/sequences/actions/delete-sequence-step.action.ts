@@ -47,7 +47,7 @@ export const deleteSequenceStepAction = chatbotActionClient
 
       await validateSequenceOwnership(sequenceId, chatbotId)
       await deleteStep(stepId)
-      await recalculateAllContactsInSequence(sequenceId)
+      await recalculateAllContactsInSequence(sequenceId, chatbotId)
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
 

@@ -22,6 +22,8 @@
     "@aha.chat/logger": "workspace:*",
     "@aha.chat/mail": "workspace:*",
     "@aha.chat/partysocket-config": "workspace:*",
+    "@aha.chat/scheduler": "workspace:*",
+    "@aha.chat/sequence-scheduler": "workspace:*",
     "@aha.chat/sdk": "workspace:*",
     "@aha.chat/ui": "workspace:*",
     "@aha.chat/worker-config": "workspace:*",

@@ -39,6 +39,11 @@ export const moveSequenceToFoldersAction = chatbotActionClient
     }) => {
       const { sequenceId, folderIds } = parsedInput
 
+      // Validate sequence ownership
+      await prisma.sequence.findFirstOrThrow({
+        where: { id: sequenceId, chatbotId },
+      })
+
       // Get old folder IDs before deletion
       const oldFolders = await prisma.sequencesOnFolders.findMany({
         where: { sequenceId },
@@ -89,6 +94,15 @@ export const bulkMoveSequencesToFoldersAction = chatbotActionClient
       parsedInput: BulkMoveSequencesToFoldersRequest
     }) => {
       const { sequenceIds, folderIds } = parsedInput
+
+      // Validate all sequences belong to this chatbot
+      const sequences = await prisma.sequence.findMany({
+        where: { id: { in: sequenceIds }, chatbotId },
+        select: { id: true },
+      })
+      if (sequences.length !== sequenceIds.length) {
+        throw new Error("Some sequences do not belong to this chatbot")
+      }
 
       // Get all existing folder associations for the sequences
       const existingAssociations = await prisma.sequencesOnFolders.findMany({
