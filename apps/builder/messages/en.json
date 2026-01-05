@@ -18,6 +18,8 @@
     "addFlowReply": "Add flow reply",
     "addMore": "Add more",
     "addTag": "Add Tag",
+    "addAction": "Add Action",
+    "addCondition": "Add Condition",
     "addTextReply": "Add text reply",
     "appendToEnd": "Append to the end",
     "archive": "Archive",
@@ -407,6 +409,27 @@
     "condition": {
       "label": "Condition"
     },
+    "actions": {
+      "label": "Actions"
+    },
+    "tags": {
+      "label": "Tags"
+    },
+    "customFields": {
+      "label": "Custom Fields"
+    },
+    "pipelines": {
+      "label": "Pipelines"
+    },
+    "sequences": {
+      "label": "Sequences"
+    },
+    "ecommerce": {
+      "label": "Ecommerce"
+    },
+    "entryPointLink": {
+      "label": "Entry Point Link"
+    },
     "assignedId": {
       "label": "Assign To"
     },
@@ -552,6 +575,9 @@
     },
     "broadcasts": {
       "label": "Broadcasts"
+    },
+    "trigger": {
+      "label": "Trigger"
     },
     "button": {
       "label": "Button",
@@ -1539,5 +1565,63 @@
     "heading": {
       "title": "Error Logs"
     }
+  },
+  "trigger": {
+    "when": "When this happens",
+    "conditions": {
+      "tagApplied": "Tag Applied",
+      "tagRemoved": "Tag Removed",
+      "dateTimeBasedTrigger": "DateTime Based Trigger",
+      "customFieldValueChanged": "Custom Field Changed",
+      "conversationTransferredToHuman": "Conversation transferred to human",
+      "conversationTransferredToBot": "Conversation transferred to bot",
+      "newContact": "New Contact",
+      "contactUnsubscribedFormBroadcast": "Contact Unsubscribed From Broadcast",
+      "archived": "Archived",
+      "followUp": "Follow Up",
+      "conversationAssigned": "Conversation Assigned",
+      "conversationUnassigned": "Conversation Unassigned",
+      "incomingCall": "Incoming Call",
+      "missedAudioCall": "Missed Audio Call",
+      "callEnded": "Call Ended",
+      "ticketCreated": "Ticket Created",
+      "ticketMovedToStage": "Ticket Moved To Stage",
+      "ticketValueChanged": "Ticket Value Changed",
+      "ticketStatusChanged": "Ticket Status Changed",
+      "ticketPriorityChanged": "Ticket Priority Changed",
+      "subscribedToSequence": "Subscribed To Sequence",
+      "unsubscribedFromSequence": "Unsubscribed From Sequence",
+      "WhatsappShoppingCartSent": "Whatsapp Shopping Cart Sent",
+      "userAskedAboutProduct": "User Asked About Product",
+      "cartAbandoned": "Cart Abandoned",
+      "newOrder": "New Order",
+      "orderAccepted": "Order Accepted",
+      "orderShipped": "Order Shipped",
+      "orderConcluded": "Order Concluded",
+      "orderCancelled": "Order Cancelled",
+      "categoryAddedToCart": "Category Added To Cart",
+      "productAddedToCart": "Product Added To Cart",
+      "productRemovedFromCart": "Product Removed From Cart",
+      "productOrdered": "Product Ordered",
+      "contactReferredANewContact": "Contact Referred A New Contact",
+      "contactReferredExistingContact": "Contact Referred Existing Contact"
+    },
+    "actions": {
+      "addTag": "Add Tag",
+      "removeTag": "Remove Tag",
+      "setCustomField": "Set Custom Field",
+      "clearCustomField": "Clear Custom Field",
+      "startAnotherFlow": "Start Another Flow",
+      "notifyAdmins": "Notify Admins",
+      "transferConversationToHuman": "Transfer Conversation to Human"
+    },
+    "triggerGoesOff": "Trigger goes off",
+    "before": "Before",
+    "after": "After",
+    "atTheDayOf": "At the day of",
+    "day": "Day",
+    "hour": "Hour",
+    "minute": "Minute",
+    "at": "At"
   }
 }

@@ -24,7 +24,7 @@ import { Loader2Icon } from "lucide-react"
 import { useParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { type ReactElement, useMemo, useState } from "react"
-import { useWatch } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import {
   CustomFieldOperationSelect,
@@ -46,8 +46,6 @@ export default function AddContactCustomFieldDialog({
   const t = useTranslations()
   const [open, setOpen] = useState(false)
   const { chatbotId } = useParams<{ chatbotId: string }>()
-
-  const customFields = useCustomFieldStore((state) => state.customFields)
 
   const { form, handleSubmitWithAction } = useHookFormAction(
     addContactCustomFieldAction.bind(null, chatbotId),
@@ -82,21 +80,6 @@ export default function AddContactCustomFieldDialog({
     },
   )
 
-  const watchCustomFieldId = useWatch({
-    control: form.control,
-    name: "customFieldId",
-  })
-
-  const selectedCustomFieldType = useMemo(() => {
-    if (!watchCustomFieldId) {
-      return null
-    }
-    const selectedCustomField = customFields.find(
-      (field) => field.id === watchCustomFieldId,
-    )
-    return selectedCustomField?.customFieldType ?? null
-  }, [watchCustomFieldId, customFields])
-
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen)
     if (!isOpen) {
@@ -119,40 +102,7 @@ export default function AddContactCustomFieldDialog({
             className="flex flex-col gap-6"
             onSubmit={handleSubmitWithAction}
           >
-            <CustomFieldSelect name="customFieldId" />
-
-            <CustomFieldOperationSelect
-              customFieldType={selectedCustomFieldType}
-              name="operation"
-            />
-
-            <div className="flex flex-col gap-2">
-              <Label>{t("fields.value.label")}</Label>
-
-              {selectedCustomFieldType === CustomFieldType.longText && (
-                <TextareaField name="value" />
-              )}
-
-              {selectedCustomFieldType === CustomFieldType.shortText && (
-                <InputField name="value" />
-              )}
-
-              {selectedCustomFieldType === CustomFieldType.number && (
-                <InputField name="value" type="number" />
-              )}
-
-              {selectedCustomFieldType === CustomFieldType.date && (
-                <DateTimePickerField
-                  dateTimeFormat="yyyy-MM-dd"
-                  granularity="day"
-                  name="value"
-                />
-              )}
-
-              {selectedCustomFieldType === CustomFieldType.datetime && (
-                <DateTimePickerField name="value" />
-              )}
-            </div>
+            <SetCustomField />
 
             <DialogFooter>
               <DialogClose asChild>
@@ -175,5 +125,80 @@ export default function AddContactCustomFieldDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+export const SetCustomField = ({ parentName }: { parentName?: string }) => {
+  const form = useFormContext()
+  const t = useTranslations()
+  const customFields = useCustomFieldStore((state) => state.customFields)
+
+  const getFieldName = (field: string) => {
+    if (!parentName) {
+      return field
+    }
+    return `${parentName}.${field}`
+  }
+
+  const watchCustomFieldId = useWatch({
+    control: form.control,
+    name: getFieldName("customFieldId"),
+  })
+
+  const selectedCustomFieldType = useMemo(() => {
+    if (!watchCustomFieldId) {
+      return null
+    }
+    const selectedCustomField = customFields.find(
+      (field) => field.id === watchCustomFieldId,
+    )
+    return selectedCustomField?.customFieldType ?? null
+  }, [watchCustomFieldId, customFields])
+
+  return (
+    <>
+      <CustomFieldSelect
+        name={getFieldName("customFieldId")}
+        onValueChange={() => {
+          form.resetField(getFieldName("value"))
+        }}
+        required
+      />
+
+      <CustomFieldOperationSelect
+        customFieldType={selectedCustomFieldType}
+        name={getFieldName("operation")}
+        required
+      />
+
+      <div className="flex flex-col gap-2">
+        <Label>{t("fields.value.label")}</Label>
+
+        {selectedCustomFieldType === CustomFieldType.longText && (
+          <TextareaField name={getFieldName("value")} required />
+        )}
+
+        {selectedCustomFieldType === CustomFieldType.shortText && (
+          <InputField name={getFieldName("value")} required />
+        )}
+
+        {selectedCustomFieldType === CustomFieldType.number && (
+          <InputField name={getFieldName("value")} type="number" />
+        )}
+
+        {selectedCustomFieldType === CustomFieldType.date && (
+          <DateTimePickerField
+            dateTimeFormat="yyyy-MM-dd"
+            granularity="day"
+            name={getFieldName("value")}
+            required
+          />
+        )}
+
+        {selectedCustomFieldType === CustomFieldType.datetime && (
+          <DateTimePickerField name={getFieldName("value")} required />
+        )}
+      </div>
+    </>
   )
 }

@@ -53,3 +53,70 @@ export const InboxStatus = {
   disconnected: "disconnected",
 } as const
 export type InboxStatus = (typeof InboxStatus)[keyof typeof InboxStatus]
+
+export const TriggerCondition = {
+  tagApplied: "T01",
+  tagRemoved: "T02",
+
+  customFieldValueChanged: "CF01",
+  dateTimeBasedTrigger: "CF02",
+  conversationTransferredToHuman: "CF03",
+  conversationTransferredToBot: "CF04",
+  newContact: "CF05",
+  contactUnsubscribedFormBroadcast: "CF06",
+  archived: "CF07",
+  followUp: "CF08",
+  conversationAssigned: "CF09",
+  conversationUnassigned: "CF10",
+
+  incomingCall: "WA01",
+  missedAudioCall: "WA02",
+  callEnded: "WA03",
+
+  ticketCreated: "PP01",
+  ticketMovedToStage: "PP02",
+  ticketValueChanged: "PP03",
+  ticketStatusChanged: "PP04",
+  ticketPriorityChanged: "PP05",
+
+  subscribedToSequence: "SQ01",
+  unsubscribedFromSequence: "SQ02",
+
+  WhatsappShoppingCartSent: "EC01",
+  userAskedAboutProduct: "EC02",
+  cartAbandoned: "EC03",
+  newOrder: "EC04",
+  orderAccepted: "EC05",
+  orderShipped: "EC06",
+  orderConcluded: "EC07",
+  orderCancelled: "EC08",
+  categoryAddedToCart: "EC09",
+  productAddedToCart: "EC10",
+  productRemovedFromCart: "EC11",
+  productOrdered: "EC12",
+
+  contactReferredANewContact: "RF01",
+  contactReferredExistingContact: "RF02",
+} as const
+export type TriggerCondition =
+  (typeof TriggerCondition)[keyof typeof TriggerCondition]
+
+export const TriggerAction = {
+  startAnotherFlow: "A01",
+  startExternalStep: "A02",
+  addTag: "A03",
+  removeTag: "A04",
+  setCustomField: "A05",
+  clearCustomField: "A06",
+  transferConversationToHuman: "A07",
+  runGoogleSheet: "A08",
+} as const
+export type TriggerAction = (typeof TriggerAction)[keyof typeof TriggerAction]
+
+export const DateTimeTriggerType = {
+  atTheDayOf: "atTheDayOf",
+  before: "before",
+  after: "after",
+} as const
+export type DateTimeTriggerType =
+  (typeof DateTimeTriggerType)[keyof typeof DateTimeTriggerType]

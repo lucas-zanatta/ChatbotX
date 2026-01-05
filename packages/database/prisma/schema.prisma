@@ -166,6 +166,7 @@ model Chatbot {
   chatbotUsage             ChatbotUsage?
 
   invitations Invitation[]
+  triggers    Trigger[]
 }
 
 model ChatbotMember {
@@ -293,12 +294,13 @@ model Folder {
   isTrash    Boolean    @default(false)
   paths      String[]   @default([])
 
-  parent   Folder?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: Cascade)
-  children Folder[] @relation("ParentChild")
-  chatbot  Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  parent   Folder?   @relation("ParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[]  @relation("ParentChild")
+  chatbot  Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
   tags     Tag[]
   fields   Field[]
   flows    Flow[]
+  triggers Trigger[]
 
   @@index([chatbotId])
   @@index([parentId])
@@ -952,6 +954,27 @@ model ContactsOnBroadcasts {
   @@id([broadcastId, contactId])
 }
 
+model Trigger {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name     String
+  active   Boolean @default(true)
+  folderId String?
+
+  conditions Json @default("{}")
+  actions Json @default("{}")
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  folder Folder? @relation(fields: [folderId], references: [id])
+
+  @@index([chatbotId])
+  @@index([folderId])
+}
+
 model AutomatedResponse {
   id        String   @id @default(cuid(2))
   createdAt DateTime @default(now())
@@ -1053,6 +1076,7 @@ enum FolderType {
   flow
   customField
   automatedResponse
+  trigger
 }
 
 enum ChatbotMemberRole {
