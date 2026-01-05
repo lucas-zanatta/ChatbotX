@@ -14,6 +14,8 @@ const MAX_WAIT_TIME_IN_MS = 100
 const SESSION_TIMEOUT_IN_MS = 30_000
 const HEARTBEAT_INTERVAL_IN_MS = 3000
 const MAX_PROCESS = 10
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY_MS = 60_000
 
 interface ConsumerConfig {
   groupId: string
@@ -99,7 +101,7 @@ export class DispatchConsumer {
       return
     }
 
-    logger.info("Starting dispatch comsumer...")
+    logger.info("Starting dispatch consumer...")
 
     await this.consumer.connect()
     await this.consumer.subscribe({
@@ -224,6 +226,7 @@ export class DispatchConsumer {
           dispatch.chatbotId,
           "step_inactive",
         )
+        await this.dragonfly.releaseLock(dispatch.bucket, dispatch.id)
         return
       }
 
@@ -264,18 +267,41 @@ export class DispatchConsumer {
 
       await this.dragonfly.releaseLock(dispatch.bucket, dispatch.id)
     } catch (error) {
-      logger.error({ error, dispatchId: dispatch.id }, "Error executing step")
+      logger.error(
+        { error, dispatchId: dispatch.id, attempt: dispatch.attempt },
+        "Error executing step",
+      )
 
       try {
-        await this.markDispatchFailed(
-          dispatch.id,
-          dispatch.chatbotId,
-          error instanceof Error ? error.message : "Unknown error",
-        )
-      } catch (markError) {
+        if (dispatch.attempt < MAX_RETRIES) {
+          await this.scheduleRetry(dispatch, error)
+        } else {
+          await this.markDispatchFailed(
+            dispatch.id,
+            dispatch.chatbotId,
+            error instanceof Error ? error.message : "Unknown error",
+          )
+
+          await prisma.sequenceEvent.create({
+            data: {
+              chatbotId: dispatch.chatbotId,
+              sequenceId: dispatch.sequenceId,
+              contactId: dispatch.contactId,
+              stepId: dispatch.stepId,
+              dispatchId: dispatch.id,
+              eventType: "dispatch_failed",
+              payload: {
+                attempt: dispatch.attempt,
+                error: error instanceof Error ? error.message : "Unknown error",
+              },
+              occurredAt: new Date(),
+            },
+          })
+        }
+      } catch (retryError) {
         logger.error(
-          { markError, dispatchId: dispatch.id },
-          "Failed to mark dispatch as failed",
+          { retryError, dispatchId: dispatch.id },
+          "Failed to handle dispatch error",
         )
       }
 
@@ -481,6 +507,60 @@ export class DispatchConsumer {
     logger.info({ dispatchId, reason }, "Dispatch marked as canceled")
   }
 
+  private async scheduleRetry(
+    dispatch: DispatchWithRelations,
+    error: unknown,
+  ): Promise<void> {
+    const nextAttempt = dispatch.attempt + 1
+    const retryDelayMs = this.calculateRetryDelay(dispatch.attempt)
+    const retryAtMs = Date.now() + retryDelayMs
+
+    await prisma.sequenceDispatch.update({
+      where: { id: dispatch.id, chatbotId: dispatch.chatbotId },
+      data: {
+        status: "pending",
+        attempt: nextAttempt,
+        updatedAt: new Date(),
+      },
+    })
+
+    await this.dragonfly.addToRetry(dispatch.bucket, dispatch.id, retryAtMs)
+
+    await prisma.sequenceEvent.create({
+      data: {
+        chatbotId: dispatch.chatbotId,
+        sequenceId: dispatch.sequenceId,
+        contactId: dispatch.contactId,
+        stepId: dispatch.stepId,
+        dispatchId: dispatch.id,
+        eventType: "dispatch_retry_scheduled",
+        payload: {
+          attempt: dispatch.attempt,
+          nextAttempt,
+          retryAtMs,
+          retryDelayMs,
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+        occurredAt: new Date(),
+      },
+    })
+
+    logger.info(
+      {
+        dispatchId: dispatch.id,
+        attempt: dispatch.attempt,
+        nextAttempt,
+        retryAtMs: new Date(retryAtMs),
+        retryDelayMs,
+      },
+      "Dispatch scheduled for retry",
+    )
+  }
+
+  private calculateRetryDelay(attempt: number): number {
+    return RETRY_BASE_DELAY_MS * 2 ** attempt
+  }
+
   async stop(): Promise<void> {
     if (!this.running) {
       return
@@ -502,19 +582,3 @@ export function getDispatchConsumer() {
   }
   return dispatchConsumer
 }
-
-process.on("SIGINT", async () => {
-  logger.info("SIGINT received, shutting down dispatch consumer...")
-
-  if (dispatchConsumer) {
-    await dispatchConsumer.stop()
-  }
-})
-
-process.on("SIGTERM", async () => {
-  logger.info("SIGTERM received, shutting down dispatch consumer...")
-
-  if (dispatchConsumer) {
-    await dispatchConsumer.stop()
-  }
-})

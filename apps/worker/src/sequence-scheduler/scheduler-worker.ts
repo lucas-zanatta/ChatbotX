@@ -206,7 +206,6 @@ export class SchedulerWorker {
     const bucketRange = process.env.SCHEDULER_BUCKET_RANGE
 
     if (bucketRange) {
-      // Format: "0-63" or "0,1,2,3"
       if (bucketRange.includes(",")) {
         return bucketRange.split(",").map(Number)
       }
