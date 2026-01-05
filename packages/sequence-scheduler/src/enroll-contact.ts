@@ -15,9 +15,7 @@ export interface EnrollContactParams {
   enrolledAt?: Date
   client?: PrismaTransactionClient
 }
-export async function enrollContactInSequence(
-  params: EnrollContactParams,
-): Promise<void> {
+export async function enrollContactInSequence(params: EnrollContactParams) {
   const {
     chatbotId,
     contactId,
@@ -82,7 +80,7 @@ export interface EnrollContactsBulkParams {
 }
 export async function enrollContactsInSequenceBulk(
   params: EnrollContactsBulkParams,
-): Promise<void> {
+) {
   const { chatbotId, enrollments, enrolledAt = new Date() } = params
   const createdEnrollments = await prisma.$transaction(async (tx) => {
     await tx.contactsOnSequence.createMany({

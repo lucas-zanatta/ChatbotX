@@ -180,7 +180,7 @@ export class BootstrapJob {
     logger.info("Bootstrap job stopped")
   }
 
-  async cleanupOrphans(): Promise<void> {
+  async cleanupOrphans() {
     const startTime = Date.now()
     logger.info("Starting orphan cleanup...")
 

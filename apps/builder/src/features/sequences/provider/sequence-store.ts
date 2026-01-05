@@ -12,8 +12,8 @@ export type SequenceState = {
 }
 
 export type SequenceActions = {
-  initialize: () => Promise<void>
-  getAllActiveSequences: (chatbotId: string) => Promise<void>
+  initialize: () => void
+  getAllActiveSequences: (chatbotId: string) => void
 }
 
 export type SequenceStore = SequenceState & SequenceActions

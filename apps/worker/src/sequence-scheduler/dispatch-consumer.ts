@@ -507,10 +507,7 @@ export class DispatchConsumer {
     logger.info({ dispatchId, reason }, "Dispatch marked as canceled")
   }
 
-  private async scheduleRetry(
-    dispatch: DispatchWithRelations,
-    error: unknown,
-  ): Promise<void> {
+  private async scheduleRetry(dispatch: DispatchWithRelations, error: unknown) {
     const nextAttempt = dispatch.attempt + 1
     const retryDelayMs = this.calculateRetryDelay(dispatch.attempt)
     const retryAtMs = Date.now() + retryDelayMs
@@ -561,7 +558,7 @@ export class DispatchConsumer {
     return RETRY_BASE_DELAY_MS * 2 ** attempt
   }
 
-  async stop(): Promise<void> {
+  async stop() {
     if (!this.running) {
       return
     }
