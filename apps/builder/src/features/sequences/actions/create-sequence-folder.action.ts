@@ -26,11 +26,6 @@ export const createSequenceFolderAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: CreateSequenceFolderRequest
     }) => {
-      console.log("[Action] Creating folder:", {
-        chatbotId,
-        parsedInput,
-      })
-
       let depth = 1
       let position = 0
 

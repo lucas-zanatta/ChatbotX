@@ -1568,6 +1568,8 @@
     "maxSize": "File size exceeds maximum limit",
     "maxValue": "Maximum value is {max}",
     "minLength": "Minimum length is {min} characters",
+    "minOneContactRequired": "At least one contact is required",
+    "minOneSequenceRequired": "At least one sequence is required",
     "minValue": "Minimum value is {min}",
     "passwordMismatch": "Passwords do not match",
     "required": "This field is required"

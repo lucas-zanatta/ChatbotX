@@ -26,7 +26,16 @@ async function validateSequenceOwnership(
   })
 }
 
-async function deleteStep(stepId: string) {
+async function deleteStep(stepId: string, chatbotId: string) {
+  const step = await prisma.sequenceStep.findFirstOrThrow({
+    where: { id: stepId },
+    include: { sequence: true },
+  })
+
+  if (step.sequence.chatbotId !== chatbotId) {
+    throw new Error("Unauthorized: Step does not belong to this chatbot")
+  }
+
   await prisma.sequenceStep.delete({
     where: { id: stepId },
   })
@@ -46,7 +55,7 @@ export const deleteSequenceStepAction = chatbotActionClient
       const { stepId, sequenceId } = parsedInput
 
       await validateSequenceOwnership(sequenceId, chatbotId)
-      await deleteStep(stepId)
+      await deleteStep(stepId, chatbotId)
       await recalculateAllContactsInSequence(sequenceId, chatbotId)
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])

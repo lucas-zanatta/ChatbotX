@@ -2,7 +2,7 @@ import { z } from "zod"
 
 export const createSequenceFolderRequest = z.object({
   name: z.string().min(1, "validation.required"),
-  parentId: z.string().nullable().optional(),
+  parentId: z.cuid2().nullable().optional(),
 })
 
 export type CreateSequenceFolderRequest = z.infer<
@@ -10,7 +10,7 @@ export type CreateSequenceFolderRequest = z.infer<
 >
 
 export const renameSequenceFolderRequest = z.object({
-  folderId: z.string(),
+  folderId: z.cuid2(),
   name: z.string().min(1, "validation.required"),
 })
 
@@ -19,18 +19,9 @@ export type RenameSequenceFolderRequest = z.infer<
 >
 
 export const deleteSequenceFolderRequest = z.object({
-  folderId: z.string(),
+  folderId: z.cuid2(),
 })
 
 export type DeleteSequenceFolderRequest = z.infer<
   typeof deleteSequenceFolderRequest
->
-
-export const moveSequenceToFolderRequest = z.object({
-  sequenceId: z.string(),
-  folderId: z.string().nullable(),
-})
-
-export type MoveSequenceToFolderRequest = z.infer<
-  typeof moveSequenceToFolderRequest
 >

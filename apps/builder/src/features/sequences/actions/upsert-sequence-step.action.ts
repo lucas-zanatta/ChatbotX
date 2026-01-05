@@ -122,7 +122,17 @@ function shouldRecalculate(parsedInput: UpsertSequenceStepRequest): boolean {
 async function updateSequenceStep(
   stepId: string,
   updateData: Prisma.SequenceStepUpdateInput,
+  chatbotId: string,
 ) {
+  const step = await prisma.sequenceStep.findFirstOrThrow({
+    where: { id: stepId },
+    include: { sequence: true },
+  })
+
+  if (step.sequence.chatbotId !== chatbotId) {
+    throw new Error("Unauthorized: Step does not belong to this chatbot")
+  }
+
   return await prisma.sequenceStep.update({
     where: { id: stepId },
     data: updateData,
@@ -156,7 +166,7 @@ export const upsertSequenceStepAction = chatbotActionClient
 
       if (stepId) {
         const updateData = buildUpdateData(parsedInput)
-        step = await updateSequenceStep(stepId, updateData)
+        step = await updateSequenceStep(stepId, updateData, chatbotId)
 
         if (shouldRecalculate(parsedInput)) {
           await recalculateAllContactsInSequence(sequenceId, chatbotId)

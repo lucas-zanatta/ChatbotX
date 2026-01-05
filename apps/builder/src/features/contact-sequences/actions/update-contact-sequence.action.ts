@@ -67,14 +67,16 @@ async function removeContactSequences(
     },
   })
 
-  for (const enrollment of enrollments) {
-    await cancelPendingDispatches({
-      enrollmentId: enrollment.id,
-      chatbotId,
-      reason: "enrollment_removed",
-      client: tx,
-    })
-  }
+  await Promise.all(
+    enrollments.map((enrollment) =>
+      cancelPendingDispatches({
+        enrollmentId: enrollment.id,
+        chatbotId,
+        reason: "enrollment_removed",
+        client: tx,
+      }),
+    ),
+  )
 
   await tx.contactsOnSequence.deleteMany({
     where: {

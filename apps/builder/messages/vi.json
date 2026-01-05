@@ -1564,6 +1564,8 @@
     "maxSize": "Kích thước tệp vượt quá giới hạn tối đa",
     "maxValue": "Giá trị tối đa là {max}",
     "minLength": "Độ dài tối thiểu là {min} ký tự",
+    "minOneContactRequired": "Cần ít nhất một liên hệ",
+    "minOneSequenceRequired": "Cần ít nhất một chuỗi chăm sóc",
     "minValue": "Giá trị tối thiểu là {min}",
     "passwordMismatch": "Mật khẩu không khớp",
     "required": "Trường này là bắt buộc"

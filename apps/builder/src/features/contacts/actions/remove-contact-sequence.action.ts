@@ -40,13 +40,15 @@ export const removeContactSequenceAction = chatbotActionClient
           },
         })
 
-        for (const enrollment of enrollments) {
-          await cancelPendingDispatches({
-            enrollmentId: enrollment.id,
-            chatbotId,
-            reason: "enrollment_removed",
-          })
-        }
+        await Promise.all(
+          enrollments.map((enrollment) =>
+            cancelPendingDispatches({
+              enrollmentId: enrollment.id,
+              chatbotId,
+              reason: "enrollment_removed",
+            }),
+          ),
+        )
 
         await prisma.contactsOnSequence.deleteMany({
           where: {
