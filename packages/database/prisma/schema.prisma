@@ -675,7 +675,7 @@ model SequenceStep {
 }
 
 model ContactsOnSequence {
-  id        String   @id @default(cuid(2))
+  id        String   @default(cuid(2))
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -702,7 +702,8 @@ model ContactsOnSequence {
 
   dispatches SequenceDispatch[]
 
-  @@unique([contactId, sequenceId])
+  @@id([id, chatbotId])
+  @@unique([contactId, sequenceId, chatbotId])
   @@index([sequenceId])
   @@index([contactId])
   @@index([chatbotId])
@@ -726,7 +727,7 @@ model SequencesOnFolders {
 }
 
 model SequenceEvent {
-  id         String   @id @default(cuid(2))
+  id         String   @default(cuid(2))
   createdAt  DateTime @default(now())
   occurredAt DateTime @default(now())
 
@@ -745,13 +746,14 @@ model SequenceEvent {
   stepId     String?
   dispatchId String?
 
+  @@id([id, chatbotId])
   @@index([chatbotId, occurredAt])
   @@index([contactId, occurredAt])
   @@index([sequenceId, eventType])
 }
 
 model SequenceDispatch {
-  id        String   @id @default(cuid(2))
+  id        String   @default(cuid(2))
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -777,8 +779,9 @@ model SequenceDispatch {
   stepId String
 
   enrollmentId String
-  enrollment   ContactsOnSequence @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment   ContactsOnSequence @relation(fields: [enrollmentId, chatbotId], references: [id, chatbotId], onDelete: Cascade)
 
+  @@id([id, chatbotId])
   @@unique([idempotencyKey, chatbotId])
   @@index([status, runAtMs])
   @@index([chatbotId, status, runAtMs])

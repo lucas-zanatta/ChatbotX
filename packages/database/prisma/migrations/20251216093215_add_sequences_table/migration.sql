@@ -60,7 +60,7 @@ CREATE TABLE "SequenceStep" (
     CONSTRAINT "SequenceStep_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+-- CreateTable: ContactsOnSequence (partitioned by HASH on chatbotId, 64 buckets)
 CREATE TABLE "ContactsOnSequence" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -80,8 +80,74 @@ CREATE TABLE "ContactsOnSequence" (
     "sequenceId" TEXT NOT NULL,
     "chatbotId" TEXT NOT NULL,
 
-    CONSTRAINT "ContactsOnSequence_pkey" PRIMARY KEY ("id")
-);
+    CONSTRAINT "ContactsOnSequence_pkey" PRIMARY KEY ("id", "chatbotId")
+) PARTITION BY HASH ("chatbotId");
+
+-- Create 64 partitions for ContactsOnSequence
+CREATE TABLE "ContactsOnSequence_p00" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 0);
+CREATE TABLE "ContactsOnSequence_p01" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 1);
+CREATE TABLE "ContactsOnSequence_p02" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 2);
+CREATE TABLE "ContactsOnSequence_p03" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 3);
+CREATE TABLE "ContactsOnSequence_p04" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 4);
+CREATE TABLE "ContactsOnSequence_p05" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 5);
+CREATE TABLE "ContactsOnSequence_p06" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 6);
+CREATE TABLE "ContactsOnSequence_p07" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 7);
+CREATE TABLE "ContactsOnSequence_p08" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 8);
+CREATE TABLE "ContactsOnSequence_p09" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 9);
+CREATE TABLE "ContactsOnSequence_p10" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 10);
+CREATE TABLE "ContactsOnSequence_p11" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 11);
+CREATE TABLE "ContactsOnSequence_p12" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 12);
+CREATE TABLE "ContactsOnSequence_p13" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 13);
+CREATE TABLE "ContactsOnSequence_p14" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 14);
+CREATE TABLE "ContactsOnSequence_p15" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 15);
+CREATE TABLE "ContactsOnSequence_p16" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 16);
+CREATE TABLE "ContactsOnSequence_p17" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 17);
+CREATE TABLE "ContactsOnSequence_p18" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 18);
+CREATE TABLE "ContactsOnSequence_p19" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 19);
+CREATE TABLE "ContactsOnSequence_p20" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 20);
+CREATE TABLE "ContactsOnSequence_p21" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 21);
+CREATE TABLE "ContactsOnSequence_p22" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 22);
+CREATE TABLE "ContactsOnSequence_p23" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 23);
+CREATE TABLE "ContactsOnSequence_p24" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 24);
+CREATE TABLE "ContactsOnSequence_p25" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 25);
+CREATE TABLE "ContactsOnSequence_p26" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 26);
+CREATE TABLE "ContactsOnSequence_p27" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 27);
+CREATE TABLE "ContactsOnSequence_p28" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 28);
+CREATE TABLE "ContactsOnSequence_p29" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 29);
+CREATE TABLE "ContactsOnSequence_p30" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 30);
+CREATE TABLE "ContactsOnSequence_p31" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 31);
+CREATE TABLE "ContactsOnSequence_p32" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 32);
+CREATE TABLE "ContactsOnSequence_p33" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 33);
+CREATE TABLE "ContactsOnSequence_p34" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 34);
+CREATE TABLE "ContactsOnSequence_p35" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 35);
+CREATE TABLE "ContactsOnSequence_p36" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 36);
+CREATE TABLE "ContactsOnSequence_p37" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 37);
+CREATE TABLE "ContactsOnSequence_p38" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 38);
+CREATE TABLE "ContactsOnSequence_p39" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 39);
+CREATE TABLE "ContactsOnSequence_p40" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 40);
+CREATE TABLE "ContactsOnSequence_p41" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 41);
+CREATE TABLE "ContactsOnSequence_p42" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 42);
+CREATE TABLE "ContactsOnSequence_p43" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 43);
+CREATE TABLE "ContactsOnSequence_p44" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 44);
+CREATE TABLE "ContactsOnSequence_p45" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 45);
+CREATE TABLE "ContactsOnSequence_p46" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 46);
+CREATE TABLE "ContactsOnSequence_p47" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 47);
+CREATE TABLE "ContactsOnSequence_p48" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 48);
+CREATE TABLE "ContactsOnSequence_p49" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 49);
+CREATE TABLE "ContactsOnSequence_p50" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 50);
+CREATE TABLE "ContactsOnSequence_p51" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 51);
+CREATE TABLE "ContactsOnSequence_p52" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 52);
+CREATE TABLE "ContactsOnSequence_p53" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 53);
+CREATE TABLE "ContactsOnSequence_p54" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 54);
+CREATE TABLE "ContactsOnSequence_p55" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 55);
+CREATE TABLE "ContactsOnSequence_p56" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 56);
+CREATE TABLE "ContactsOnSequence_p57" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 57);
+CREATE TABLE "ContactsOnSequence_p58" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 58);
+CREATE TABLE "ContactsOnSequence_p59" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 59);
+CREATE TABLE "ContactsOnSequence_p60" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 60);
+CREATE TABLE "ContactsOnSequence_p61" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 61);
+CREATE TABLE "ContactsOnSequence_p62" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 62);
+CREATE TABLE "ContactsOnSequence_p63" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 63);
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SequenceFolder_chatbotId_name_key" ON "SequenceFolder"("chatbotId", "name");
@@ -119,8 +185,8 @@ CREATE INDEX "ContactsOnSequence_status_nextRunAt_idx" ON "ContactsOnSequence"("
 -- CreateIndex (for scheduler by chatbot)
 CREATE INDEX "ContactsOnSequence_chatbotId_status_nextRunAt_idx" ON "ContactsOnSequence"("chatbotId", "status", "nextRunAt") WHERE "nextRunAt" IS NOT NULL;
 
--- CreateIndex
-CREATE UNIQUE INDEX "ContactsOnSequence_contactId_sequenceId_key" ON "ContactsOnSequence"("contactId", "sequenceId");
+-- CreateIndex (UNIQUE constraint must include partition key chatbotId)
+CREATE UNIQUE INDEX "ContactsOnSequence_contactId_sequenceId_chatbotId_key" ON "ContactsOnSequence"("contactId", "sequenceId", "chatbotId");
 
 -- AddForeignKey
 ALTER TABLE "SequenceFolder" ADD CONSTRAINT "SequenceFolder_chatbotId_fkey" FOREIGN KEY ("chatbotId") REFERENCES "Chatbot"("id") ON DELETE CASCADE ON UPDATE CASCADE;

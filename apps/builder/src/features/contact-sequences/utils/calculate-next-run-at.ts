@@ -425,75 +425,82 @@ async function reactivateCompletedContactsForNewStep(
 
     // Process chunk in parallel
     await Promise.all(
-      chunk.map(async (contact) => {
-        // Find the next active step at or after currentStep
-        // currentStep represents the NEXT step order to process
-        // Use >= because if currentStep=3, we want to find step with order=3
-        const nextActiveStep = activeSteps.find(
-          (step) => step.order >= contact.currentStep,
-        )
+      chunk.map(
+        async (contact: {
+          id: string
+          contactId: string
+          currentStep: number
+          enrolledAt: Date
+        }) => {
+          // Find the next active step at or after currentStep
+          // currentStep represents the NEXT step order to process
+          // Use >= because if currentStep=3, we want to find step with order=3
+          const nextActiveStep = activeSteps.find(
+            (step) => step.order >= contact.currentStep,
+          )
 
-        if (!nextActiveStep) {
-          // No next step available, keep them completed
-          return
-        }
+          if (!nextActiveStep) {
+            // No next step available, keep them completed
+            return
+          }
 
-        // Calculate cumulative delay to the next step
-        // Filter steps up to target order (0-based)
-        const stepsUpToTarget = activeSteps.filter(
-          (s) => s.order <= nextActiveStep.order,
-        )
+          // Calculate cumulative delay to the next step
+          // Filter steps up to target order (0-based)
+          const stepsUpToTarget = activeSteps.filter(
+            (s) => s.order <= nextActiveStep.order,
+          )
 
-        // Check for specificDateTime
-        const targetStep = stepsUpToTarget.at(-1)
-        let nextRunAt: Date | null = null
+          // Check for specificDateTime
+          const targetStep = stepsUpToTarget.at(-1)
+          let nextRunAt: Date | null = null
 
-        if (
-          targetStep?.delayUnit === "specificTime" &&
-          targetStep.specificDateTime
-        ) {
-          nextRunAt = targetStep.specificDateTime
-        } else {
-          // Calculate cumulative delay
-          let totalDelayMs = 0
-          for (const step of stepsUpToTarget) {
-            totalDelayMs += calculateDelayInMs(
-              step.delayDays,
-              step.delayMinutes,
+          if (
+            targetStep?.delayUnit === "specificTime" &&
+            targetStep.specificDateTime
+          ) {
+            nextRunAt = targetStep.specificDateTime
+          } else {
+            // Calculate cumulative delay
+            let totalDelayMs = 0
+            for (const step of stepsUpToTarget) {
+              totalDelayMs += calculateDelayInMs(
+                step.delayDays,
+                step.delayMinutes,
+              )
+            }
+
+            if (totalDelayMs > 0) {
+              nextRunAt = new Date(contact.enrolledAt.getTime() + totalDelayMs)
+            }
+          }
+
+          // Reactivate the contact
+          await client.contactsOnSequence.update({
+            where: { id: contact.id, chatbotId },
+            data: {
+              status: "active",
+              completedAt: null,
+              nextStepId: nextActiveStep.id,
+              nextRunAt,
+            },
+          })
+
+          // Create and schedule dispatch for the reactivated contact
+          if (nextRunAt) {
+            await createAndScheduleDispatch(
+              {
+                chatbotId,
+                sequenceId,
+                contactId: contact.contactId,
+                stepId: nextActiveStep.id,
+                enrollmentId: contact.id,
+                runAt: nextRunAt,
+              },
+              client,
             )
           }
-
-          if (totalDelayMs > 0) {
-            nextRunAt = new Date(contact.enrolledAt.getTime() + totalDelayMs)
-          }
-        }
-
-        // Reactivate the contact
-        await client.contactsOnSequence.update({
-          where: { id: contact.id },
-          data: {
-            status: "active",
-            completedAt: null,
-            nextStepId: nextActiveStep.id,
-            nextRunAt,
-          },
-        })
-
-        // Create and schedule dispatch for the reactivated contact
-        if (nextRunAt) {
-          await createAndScheduleDispatch(
-            {
-              chatbotId,
-              sequenceId,
-              contactId: contact.contactId,
-              stepId: nextActiveStep.id,
-              enrollmentId: contact.id,
-              runAt: nextRunAt,
-            },
-            client,
-          )
-        }
-      }),
+        },
+      ),
     )
   }
 }
@@ -558,7 +565,7 @@ export async function handleStepCreationImpact(
   // Recalculate nextRunAt for each affected currentStep position (0-based)
   // Use Promise.all for parallel processing to improve performance
   await Promise.all(
-    affectedSteps.map(({ currentStep }) =>
+    affectedSteps.map(({ currentStep }: { currentStep: number }) =>
       recalculateNextRunAtForStep(sequenceId, chatbotId, currentStep, client),
     ),
   )
@@ -670,7 +677,9 @@ export async function handleStepUpdateImpact(
     ...contactsBeforeStep,
   ].reduce(
     (acc, { currentStep }) => {
-      if (!acc.some((s) => s.currentStep === currentStep)) {
+      if (
+        !acc.some((s: { currentStep: number }) => s.currentStep === currentStep)
+      ) {
         acc.push({ currentStep })
       }
       return acc
@@ -681,7 +690,7 @@ export async function handleStepUpdateImpact(
   // Recalculate nextRunAt for each affected currentStep position
   // Use Promise.all for parallel processing to improve performance
   await Promise.all(
-    allAffectedSteps.map(({ currentStep }) =>
+    allAffectedSteps.map(({ currentStep }: { currentStep: number }) =>
       recalculateNextRunAtForStep(sequenceId, chatbotId, currentStep, client),
     ),
   )

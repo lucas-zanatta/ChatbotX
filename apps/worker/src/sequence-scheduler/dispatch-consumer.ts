@@ -129,7 +129,7 @@ export class DispatchConsumer {
     const startTime = Date.now()
 
     try {
-      const dispatch = (await prisma.sequenceDispatch.findUnique({
+      const dispatch = (await prisma.sequenceDispatch.findFirst({
         where: { id: payload.dispatchId },
         include: {
           sequence: true,
@@ -238,7 +238,10 @@ export class DispatchConsumer {
 
       await prisma.sequenceDispatch.update({
         where: {
-          id: dispatch.id,
+          id_chatbotId: {
+            id: dispatch.id,
+            chatbotId: dispatch.chatbotId,
+          },
         },
         data: {
           status: "completed",
@@ -324,8 +327,10 @@ export class DispatchConsumer {
     await prisma.$transaction(async (tx) => {
       const enrollment = await tx.contactsOnSequence.findUnique({
         where: {
-          id: dispatch.enrollmentId,
-          chatbotId: dispatch.chatbotId,
+          id_chatbotId: {
+            id: dispatch.enrollmentId,
+            chatbotId: dispatch.chatbotId,
+          },
         },
       })
 
@@ -367,7 +372,12 @@ export class DispatchConsumer {
 
       if (!nextStep) {
         await tx.contactsOnSequence.update({
-          where: { id: dispatch.enrollmentId, chatbotId: dispatch.chatbotId },
+          where: {
+            id_chatbotId: {
+              id: dispatch.enrollmentId,
+              chatbotId: dispatch.chatbotId,
+            },
+          },
           data: {
             status: "completed",
             completedAt: sentAt,
@@ -390,7 +400,12 @@ export class DispatchConsumer {
       const nextRunAt = this.calculateNextRunAt(nextStep, sentAt)
 
       await tx.contactsOnSequence.update({
-        where: { id: dispatch.enrollmentId, chatbotId: dispatch.chatbotId },
+        where: {
+          id_chatbotId: {
+            id: dispatch.enrollmentId,
+            chatbotId: dispatch.chatbotId,
+          },
+        },
         data: {
           currentStep: nextStep.order,
           lastStepId: step.id,
@@ -481,7 +496,12 @@ export class DispatchConsumer {
     errorMessage: string,
   ) {
     await prisma.sequenceDispatch.update({
-      where: { id: dispatchId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: dispatchId,
+          chatbotId,
+        },
+      },
       data: {
         status: "failed",
         updatedAt: new Date(),
@@ -497,7 +517,12 @@ export class DispatchConsumer {
     reason: string,
   ) {
     await prisma.sequenceDispatch.update({
-      where: { id: dispatchId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: dispatchId,
+          chatbotId,
+        },
+      },
       data: {
         status: "canceled",
         updatedAt: new Date(),
@@ -513,7 +538,12 @@ export class DispatchConsumer {
     const retryAtMs = Date.now() + retryDelayMs
 
     await prisma.sequenceDispatch.update({
-      where: { id: dispatch.id, chatbotId: dispatch.chatbotId },
+      where: {
+        id_chatbotId: {
+          id: dispatch.id,
+          chatbotId: dispatch.chatbotId,
+        },
+      },
       data: {
         status: "pending",
         attempt: nextAttempt,
