@@ -199,8 +199,10 @@ export async function rescheduleEnrollment(
     if (currentDispatch && currentDispatch.status === "pending") {
       await tx.sequenceDispatch.update({
         where: {
-          id: currentDispatch.id,
-          chatbotId,
+          id_chatbotId: {
+            id: currentDispatch.id,
+            chatbotId,
+          },
           status: "pending",
         },
         data: {

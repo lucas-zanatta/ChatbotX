@@ -20,7 +20,7 @@ async function getExistingEnrollments(
   chatbotId: string,
   contactIds: string[],
   sequenceIds: string[],
-) {
+): Promise<Set<string>> {
   const enrollments = await prisma.contactsOnSequence.findMany({
     where: {
       chatbotId,
@@ -33,7 +33,12 @@ async function getExistingEnrollments(
     },
   })
 
-  return new Set(enrollments.map((e) => `${e.contactId}-${e.sequenceId}`))
+  return new Set<string>(
+    enrollments.map(
+      (e: { contactId: string; sequenceId: string }) =>
+        `${e.contactId}-${e.sequenceId}`,
+    ),
+  )
 }
 
 function getValidContacts(chatbotId: string, contactIds: string[]) {

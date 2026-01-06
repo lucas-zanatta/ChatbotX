@@ -30,7 +30,7 @@ async function getCurrentSequenceIds(
     where: { contactId, chatbotId },
     select: { sequenceId: true },
   })
-  return sequences.map((s) => s.sequenceId)
+  return sequences.map((s: { sequenceId: string }) => s.sequenceId)
 }
 
 function calculateSequenceDiff(
@@ -68,7 +68,7 @@ async function removeContactSequences(
   })
 
   await Promise.all(
-    enrollments.map((enrollment) =>
+    enrollments.map((enrollment: { id: string }) =>
       cancelPendingDispatches({
         enrollmentId: enrollment.id,
         chatbotId,
@@ -80,7 +80,7 @@ async function removeContactSequences(
 
   await tx.contactsOnSequence.deleteMany({
     where: {
-      id: { in: enrollments.map((e) => e.id) },
+      id: { in: enrollments.map((e: { id: string }) => e.id) },
       chatbotId,
     },
   })
