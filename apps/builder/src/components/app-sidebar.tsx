@@ -10,6 +10,7 @@ import {
   AtomIcon,
   BrainIcon,
   ChartPieIcon,
+  ChevronsRight,
   MessageCircleMoreIcon,
   RadioIcon,
   SlidersHorizontalIcon,
@@ -78,6 +79,11 @@ export function AppSidebar({
         title: t("fields.broadcasts.label"),
         url: `/chatbots/${chatbotId}/broadcasts`,
         icon: RadioIcon,
+      },
+      {
+        title: t("fields.sequences.label"),
+        url: `/chatbots/${chatbotId}/sequences`,
+        icon: ChevronsRight,
       },
       // {
       //   title: t("fields.tools.label"),

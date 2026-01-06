@@ -28,6 +28,20 @@ export const listConversations = async (
       contact: {
         include: {
           contactCustomFields: true,
+          contactNotes: {
+            include: {
+              createdBy: true,
+            },
+          },
+          tags: true,
+          contactsOnSequences: {
+            include: {
+              sequence: true,
+            },
+            orderBy: {
+              enrolledAt: "desc",
+            },
+          },
         },
       },
       inbox: true,
@@ -71,9 +85,15 @@ export const listConversations = async (
     {} as Record<string, MessageModel[]>,
   )
 
-  // Mapping last message to conversation
+  // Mapping last message to conversation and sequences
   for (const conversation of conversations) {
     conversation.messages = lastMessagesGroup[conversation.id] ?? []
+
+    // Map contactsOnSequences to sequences array for easier access
+    if (conversation.contact?.contactsOnSequences) {
+      conversation.contact.sequences =
+        conversation.contact.contactsOnSequences.map((cos) => cos.sequence)
+    }
   }
 
   if (conversations.length === 0) {

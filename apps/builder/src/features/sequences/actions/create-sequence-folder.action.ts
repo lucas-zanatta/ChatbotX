@@ -1,0 +1,98 @@
+"use server"
+
+import { Prisma, prisma } from "@aha.chat/database"
+import { getTranslations } from "next-intl/server"
+import { returnValidationErrors } from "next-safe-action"
+import {
+  type ChatbotIdRequestParams,
+  chatbotIdRequestParams,
+} from "@/features/common/schemas"
+import { revalidateCacheTags } from "@/lib/cache-helper"
+import { chatbotActionClient } from "@/lib/safe-action"
+import { MAX_FOLDER_DEPTH } from "../constants/folder-constants"
+import {
+  type CreateSequenceFolderRequest,
+  createSequenceFolderRequest,
+} from "../schemas/sequence-folder-schema"
+
+export const createSequenceFolderAction = chatbotActionClient
+  .bindArgsSchemas(chatbotIdRequestParams)
+  .inputSchema(createSequenceFolderRequest)
+  .action(
+    async ({
+      bindArgsParsedInputs: [chatbotId],
+      parsedInput,
+    }: {
+      bindArgsParsedInputs: ChatbotIdRequestParams
+      parsedInput: CreateSequenceFolderRequest
+    }) => {
+      let depth = 1
+      let position = 0
+
+      if (parsedInput.parentId) {
+        const parent = await prisma.sequenceFolder.findUnique({
+          where: { id: parsedInput.parentId, chatbotId },
+          select: { depth: true },
+        })
+
+        if (parent) {
+          depth = parent.depth + 1
+
+          if (depth > MAX_FOLDER_DEPTH) {
+            const t = await getTranslations()
+            return returnValidationErrors(createSequenceFolderRequest, {
+              _errors: [
+                t("sequences.validation.maxDepthExceeded", {
+                  depth: MAX_FOLDER_DEPTH,
+                }),
+              ],
+            })
+          }
+        }
+      }
+
+      try {
+        const lastFolder = await prisma.sequenceFolder.findFirst({
+          where: {
+            chatbotId,
+            parentId: parsedInput.parentId ?? null,
+          },
+          orderBy: { position: "desc" },
+          select: { position: true },
+        })
+
+        if (lastFolder) {
+          position = lastFolder.position + 1
+        }
+
+        const folder = await prisma.sequenceFolder.create({
+          data: {
+            name: parsedInput.name,
+            chatbotId,
+            parentId: parsedInput.parentId ?? null,
+            depth,
+            position,
+          },
+        })
+
+        revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
+
+        return { folderId: folder.id }
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          const t = await getTranslations()
+          return returnValidationErrors(createSequenceFolderRequest, {
+            _errors: [t("sequences.validation.exception")],
+            name: {
+              _errors: [t("sequences.validation.folderNameExists")],
+            },
+          })
+        }
+
+        throw new Error("Failed to create folder")
+      }
+    },
+  )

@@ -164,6 +164,11 @@ model Chatbot {
   integrationGemini        IntegrationGemini?
   aiEmbeddings             AIEmbedding[]
   chatbotUsage             ChatbotUsage?
+  sequences                Sequence[]
+  sequenceFolders          SequenceFolder[]
+  contactsOnSequences      ContactsOnSequence[]
+  sequenceEvents           SequenceEvent[]
+  sequenceDispatches       SequenceDispatch[]
 
   invitations Invitation[]
 }
@@ -277,6 +282,9 @@ model Contact {
   tags                Tag[]
   contactNotes        ContactNote[]
   contactCustomFields ContactCustomField[]
+  contactsOnSequences ContactsOnSequence[]
+  sequenceEvents      SequenceEvent[]
+  sequenceDispatches  SequenceDispatch[]
 
   @@unique([chatbotId, sourceId])
 }
@@ -586,6 +594,198 @@ model AIEmbedding {
   @@index([chatbotId])
 }
 
+model SequenceFolder {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name                 String
+  depth                Int @default(1)
+  position             Int @default(0)
+  totalSequencesCount  Int @default(0)
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  parentId String?
+  parent   SequenceFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children SequenceFolder[] @relation("FolderHierarchy")
+
+  sequencesOnFolders SequencesOnFolders[]
+
+  @@unique([chatbotId, name])
+  @@index([chatbotId])
+  @@index([parentId])
+  @@index([chatbotId, parentId, position])
+}
+
+model Sequence {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  active      Boolean @default(true)
+  subscribers Int     @default(0)
+  messages    Int     @default(0)
+  openRate    Float   @default(0)
+  ctr         Float   @default(0)
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  sequencesOnFolders SequencesOnFolders[]
+
+  steps                SequenceStep[]
+  contactsOnSequences  ContactsOnSequence[]
+  events               SequenceEvent[]
+  dispatches           SequenceDispatch[]
+
+  @@unique([chatbotId, name])
+}
+
+model SequenceStep {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order            Int
+  delayDays        Int
+  delayMinutes     Int       @default(0)
+  delayUnit        String?   @default("days")
+  specificDateTime DateTime?
+  isActive         Boolean   @default(true)
+
+  // Time window settings
+  anytime        Boolean @default(true)
+  sendTimeStart  String? // HH:mm format
+  sendTimeEnd    String? // HH:mm format
+
+  // Day selection (JSON array of weekday strings)
+  sendDays String? @default("[\"monday\",\"tuesday\",\"wednesday\",\"thursday\",\"friday\",\"saturday\",\"sunday\"]")
+
+  flowId           String?
+  flow             Flow?     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  sequenceId String
+  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  @@index([sequenceId])
+  @@index([flowId])
+}
+
+model ContactsOnSequence {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrolledAt   DateTime  @default(now())
+  completedAt  DateTime?
+  currentStep  Int       @default(0)
+  status       String    @default("active")
+  nextRunAt    DateTime?
+  lastStepId   String?
+  nextStepId   String?
+  lockedAt     DateTime?
+  lockOwner    String?
+  errorCount   Int       @default(0)
+  lastError    String?
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  sequenceId String
+  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  dispatches SequenceDispatch[]
+
+  @@unique([contactId, sequenceId])
+  @@index([sequenceId])
+  @@index([contactId])
+  @@index([chatbotId])
+  @@index([status, nextRunAt])
+  @@index([chatbotId, status, nextRunAt])
+}
+
+model SequencesOnFolders {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+
+  sequenceId String
+  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  folderId String
+  folder   SequenceFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, folderId])
+  @@index([sequenceId])
+  @@index([folderId])
+}
+
+model SequenceEvent {
+  id         String   @id @default(cuid(2))
+  createdAt  DateTime @default(now())
+  occurredAt DateTime @default(now())
+
+  eventType   String
+  payload     Json?
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  sequenceId String
+  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  stepId     String?
+  dispatchId String?
+
+  @@index([chatbotId, occurredAt])
+  @@index([contactId, occurredAt])
+  @@index([sequenceId, eventType])
+}
+
+model SequenceDispatch {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runAtMs        BigInt   @default(0)
+  bucket         Int      @default(0) @db.SmallInt
+  status         String   @default("pending")
+  idempotencyKey String
+  attempt        Int      @default(0)
+  lastError      String?
+  lockedAt       DateTime?
+  lockOwner      String?
+  completedAt    DateTime?
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  sequenceId String
+  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  stepId String
+
+  enrollmentId String
+  enrollment   ContactsOnSequence @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([idempotencyKey, chatbotId])
+  @@index([status, runAtMs])
+  @@index([chatbotId, status, runAtMs])
+  @@index([enrollmentId])
+  @@index([bucket, status, runAtMs], map: "SequenceDispatch_bucket_status_runAtMs_idx")
+}
+
 enum AIEmbeddingStatus {
   pending
   processing
@@ -870,6 +1070,7 @@ model Flow {
   integrationWebchats   IntegrationWebchat[]
   integrationMessengers IntegrationMessenger[]
   integrationZalos      IntegrationZalo[]
+  sequenceSteps         SequenceStep[]
 }
 
 model FlowVersion {

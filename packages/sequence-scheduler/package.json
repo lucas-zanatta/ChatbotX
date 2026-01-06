@@ -1,0 +1,17 @@
+{
+  "name": "@aha.chat/sequence-scheduler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aha.chat/database": "workspace:*",
+    "@aha.chat/scheduler": "workspace:*"
+  },
+  "devDependencies": {
+    "@aha.chat/typescript-config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

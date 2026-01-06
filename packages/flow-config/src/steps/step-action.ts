@@ -14,6 +14,7 @@ export const StepType = {
   sendMessengerOtn: "S07", // One time notification
   sendAudio: "S08",
   sendFile: "S09",
+  sendQuickReply: "S10",
 
   // Wait/Timing (W_)
   waitUserReply: "W01",
@@ -86,6 +87,10 @@ export const StepType = {
   spreadsheetGetRandomRow: "G03",
   spreadsheetUpdateRow: "G04",
   spreadsheetClearRow: "G05",
+
+  // Sequence Operations (Q_)
+  subscribeSequence: "Q01",
+  unsubscribeSequence: "Q02",
 } as const
 
 export type StepType = (typeof StepType)[keyof typeof StepType]

@@ -40,26 +40,29 @@ export const createFlowAction = chatbotActionClient
         },
       })
 
-      await prisma.$transaction(async (tx) => {
-        await tx.flow.create({
-          data: {
-            ...parsedInput,
-            chatbotId,
-            flowVersions: {
-              create: [
-                {
-                  chatbotId,
-                  nodes: [defaultNode as Prisma.InputJsonObject],
-                  edges: [],
-                  isDraft: true,
-                  startNodeId: defaultNode.id,
-                },
-              ],
+      const flow = await prisma.$transaction(
+        async (tx) =>
+          await tx.flow.create({
+            data: {
+              ...parsedInput,
+              chatbotId,
+              flowVersions: {
+                create: [
+                  {
+                    chatbotId,
+                    nodes: [defaultNode as Prisma.InputJsonObject],
+                    edges: [],
+                    isDraft: true,
+                    startNodeId: defaultNode.id,
+                  },
+                ],
+              },
             },
-          },
-        })
-      })
+          }),
+      )
 
       revalidateCacheTags(`chatbots:${chatbotId}#flows`)
+
+      return { flowId: flow.id }
     },
   )
