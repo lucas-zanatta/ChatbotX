@@ -753,6 +753,9 @@
     "inboxTeam": {
       "label": "Inbox Team"
     },
+    "teamMembers": {
+      "label": "Team Members"
+    },
     "inboxTeamMember": {
       "label": "Inbox Team Member"
     },
@@ -1244,6 +1247,9 @@
       "submit": "Remove Sequence",
       "success": "Sequence removed successfully",
       "error": "Failed to remove sequence"
+    },
+    "spreadsheet": {
+      "label": "Spreadsheet"
     }
   },
   "flows": {
