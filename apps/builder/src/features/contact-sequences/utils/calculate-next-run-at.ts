@@ -476,7 +476,12 @@ async function reactivateCompletedContactsForNewStep(
 
           // Reactivate the contact
           await client.contactsOnSequence.update({
-            where: { id: contact.id, chatbotId },
+            where: {
+              id_chatbotId: {
+                id: contact.id,
+                chatbotId,
+              },
+            },
             data: {
               status: "active",
               completedAt: null,

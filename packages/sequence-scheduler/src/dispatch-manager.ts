@@ -172,7 +172,12 @@ export async function rescheduleEnrollment(
   } = params
   return await withTransaction(client, async (tx) => {
     await tx.contactsOnSequence.update({
-      where: { id: enrollmentId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: enrollmentId,
+          chatbotId,
+        },
+      },
       data: {
         nextRunAt: newNextRunAt,
         nextStepId: newStepId,
@@ -230,7 +235,12 @@ export async function rescheduleEnrollment(
       ]
     }
     const enrollment = await tx.contactsOnSequence.findUniqueOrThrow({
-      where: { id: enrollmentId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: enrollmentId,
+          chatbotId,
+        },
+      },
       select: {
         sequenceId: true,
         contactId: true,
@@ -259,7 +269,12 @@ export async function pauseEnrollment(
   const { enrollmentId, chatbotId, client = prisma } = params
   return await withTransaction(client, async (tx) => {
     await tx.contactsOnSequence.update({
-      where: { id: enrollmentId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: enrollmentId,
+          chatbotId,
+        },
+      },
       data: {
         status: "paused",
         updatedAt: new Date(),
@@ -292,7 +307,12 @@ export async function resumeEnrollment(
   } = params
   return await withTransaction(client, async (tx) => {
     await tx.contactsOnSequence.update({
-      where: { id: enrollmentId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: enrollmentId,
+          chatbotId,
+        },
+      },
       data: {
         status: "active",
         nextRunAt,
@@ -301,7 +321,12 @@ export async function resumeEnrollment(
       },
     })
     const enrollment = await tx.contactsOnSequence.findUniqueOrThrow({
-      where: { id: enrollmentId, chatbotId },
+      where: {
+        id_chatbotId: {
+          id: enrollmentId,
+          chatbotId,
+        },
+      },
       select: {
         sequenceId: true,
         contactId: true,

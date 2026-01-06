@@ -28,9 +28,10 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
 
   const existing = await client.contactsOnSequence.findUnique({
     where: {
-      contactId_sequenceId: {
+      contactId_sequenceId_chatbotId: {
         contactId,
         sequenceId,
+        chatbotId,
       },
     },
     select: { id: true },
