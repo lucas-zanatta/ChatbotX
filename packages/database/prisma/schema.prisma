@@ -167,6 +167,8 @@ model Chatbot {
 
   invitations Invitation[]
   triggers    Trigger[]
+  triggerStats      TriggerStats[]
+  triggerHistories  TriggerContactHistory[]
 }
 
 model ChatbotMember {
@@ -278,6 +280,7 @@ model Contact {
   tags                Tag[]
   contactNotes        ContactNote[]
   contactCustomFields ContactCustomField[]
+  triggerHistories    TriggerContactHistory[]
 
   @@unique([chatbotId, sourceId])
 }
@@ -963,51 +966,62 @@ model Trigger {
   active   Boolean @default(true)
   folderId String?
 
-  conditions Json @default("[]") // Additional filter conditions after primary event match
-  actions    Json @default("[]") // Actions to execute
+  actions    Json @default("[]")
 
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
   folder            Folder?                  @relation(fields: [folderId], references: [id])
-  triggerConditions TriggerConditionIndex[]
+  triggerConditions TriggerCondition[]
+  triggerStats      TriggerStats[]
+  triggerHistories  TriggerContactHistory[]
 
   @@index([chatbotId])
   @@index([folderId])
   @@index([chatbotId, active])
 }
 
-// Lookup table for fast event-to-trigger matching
-// When an event occurs, query this table by (eventType, eventSourceId) to find matching triggers
-// This is the PRIMARY query path - must be O(log n) even with millions of records
-model TriggerConditionIndex {
+model TriggerCondition {
   id        String   @id @default(cuid(2))
   createdAt DateTime @default(now())
 
   triggerId String
   trigger   Trigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
 
-  // Event matching fields - these are the indexed columns for fast lookup
-  eventType     String  // TriggerCondition enum (T01=tagApplied, CF01=customFieldChanged, etc.)
-  eventSourceId String? // ID of the entity (tagId, customFieldId, sequenceId, etc.)
+  type     Int
+  sourceId String?
+  operator String?
+  value    Json?
 
-  // Composite index: PRIMARY lookup path when event occurs
-  // Query: WHERE eventType = 'T01' AND eventSourceId = 'xyz' → O(log n)
-  @@index([eventType, eventSourceId])
-
-  // For fetching all conditions of a trigger (when editing trigger)
+  @@index([type, sourceId])
   @@index([triggerId])
-
-  // Covering index for the most common query pattern
-  // Query: WHERE eventType = 'T01' AND eventSourceId = 'xyz' AND trigger.active = true
-  @@index([eventType, eventSourceId, triggerId])
+  @@index([type, sourceId, triggerId])
 }
 
-// Execution log for tracking which contacts have been processed by which triggers
-// Used for analytics: "How many contacts entered this trigger?"
-// Partitioned by hash(contactId) for horizontal scaling with millions of contacts
-model TriggerExecution {
+model TriggerStats {
   id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+
+  triggerId String
+  trigger   Trigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  date DateTime
+
+  totalContacts   Int @default(0)
+  successCount    Int @default(0)
+  failureCount    Int @default(0)
+  totalExecutions Int @default(0)
+
+  @@unique([triggerId, date])
+  @@index([triggerId, date])
+  @@index([chatbotId, date])
+}
+
+model TriggerContactHistory {
+  id        String   @default(cuid(2))
   createdAt DateTime @default(now())
 
   triggerId String
@@ -1019,24 +1033,13 @@ model TriggerExecution {
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
-  // Execution metadata
-  executedAt DateTime @default(now())
-  success    Boolean  @default(true)
-  errorMsg   String?
+  firstEnteredAt DateTime @default(now())
 
-  // Composite index for analytics queries
-  // Query: "How many contacts entered trigger X in the last 30 days?"
-  @@index([triggerId, executedAt])
-
-  // For contact history: "Which triggers did this contact enter?"
-  @@index([contactId, executedAt])
-
-  // For chatbot-level analytics
-  @@index([chatbotId, executedAt])
-
-  // Unique constraint to prevent duplicate executions
-  // A contact can only enter a trigger once (unless you want to allow re-entry)
+  @@id([id, contactId])
   @@unique([triggerId, contactId])
+  @@index([triggerId, contactId])
+  @@index([contactId])
+  @@index([chatbotId])
 }
 
 model AutomatedResponse {
