@@ -14,6 +14,7 @@ import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hoo
 import { Loader2Icon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
+import { useState } from "react"
 import { toast } from "sonner"
 import { createSequenceAction } from "@/features/sequences/actions/create-sequence.action"
 import { createSequenceRequest } from "@/features/sequences/schemas/create-sequence-schema"
@@ -27,6 +28,7 @@ export function CreateSequenceForm({
 }) {
   const t = useTranslations()
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { form, handleSubmitWithAction } = useHookFormAction(
     createSequenceAction.bind(null, chatbotId),
@@ -47,6 +49,7 @@ export function CreateSequenceForm({
           if (error.serverError) {
             toast.error(error.serverError)
           }
+          setIsSubmitting(false)
         },
       },
       formProps: {
@@ -63,13 +66,24 @@ export function CreateSequenceForm({
   const { formState } = form
 
   const handleCancel = () => {
-    router.push(`/chatbots/${chatbotId}/sequences`)
+    if (!isSubmitting) {
+      router.push(`/chatbots/${chatbotId}/sequences`)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    if (isSubmitting) {
+      e.preventDefault()
+      return
+    }
+    setIsSubmitting(true)
+    handleSubmitWithAction(e)
   }
 
   return (
     <div className="flex h-svh flex-col items-center justify-center">
       <Form {...form}>
-        <form className="flex-1 space-y-4" onSubmit={handleSubmitWithAction}>
+        <form className="flex-1 space-y-4" onSubmit={handleSubmit}>
           <Card className="mt-10 w-xl">
             <CardHeader>
               <CardTitle className="text-xl">
@@ -88,17 +102,20 @@ export function CreateSequenceForm({
               />
 
               <div className="flex justify-end gap-2">
-                <Button onClick={handleCancel} type="button" variant="outline">
+                <Button
+                  disabled={isSubmitting}
+                  onClick={handleCancel}
+                  type="button"
+                  variant="outline"
+                >
                   {t("actions.cancel")}
                 </Button>
 
                 <Button
-                  disabled={!formState.isValid || formState.isSubmitting}
+                  disabled={!formState.isValid || isSubmitting}
                   type="submit"
                 >
-                  {formState.isSubmitting && (
-                    <Loader2Icon className="animate-spin" />
-                  )}
+                  {isSubmitting && <Loader2Icon className="animate-spin" />}
                   {t("actions.confirm")}
                 </Button>
               </div>
