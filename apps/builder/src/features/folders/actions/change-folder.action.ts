@@ -75,6 +75,8 @@ function findResourceModel(folderType: FolderType): any {
       return prisma.field
     case FolderType.automatedResponse:
       return prisma.automatedResponse
+    case FolderType.sequence:
+      return prisma.sequence
     default:
       throw new FolderException("Invalid folder type")
   }

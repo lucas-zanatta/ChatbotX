@@ -1,5 +1,6 @@
 "use client"
 
+import { FolderType } from "@aha.chat/database/types"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-table-column-header"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
@@ -12,7 +13,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@aha.chat/ui/components/ui/dropdown-menu"
-import { Input } from "@aha.chat/ui/components/ui/input"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
 import type { ColumnDef, Row } from "@tanstack/react-table"
 import {
@@ -21,46 +21,26 @@ import {
   MoreHorizontalIcon,
   PauseCircleIcon,
   PencilIcon,
-  PlusIcon,
-  SearchIcon,
   Trash2Icon,
-  XIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { useQueryState } from "nuqs"
 import React, { useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
+import { ChangeFolderDialog } from "../folders/change-folder"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
 import { BulkDeleteSequenceDialog } from "./bulk-delete-sequence-dialog"
-import { MoveToFolderDialog } from "./components/move-to-folder-dialog"
-import { SequenceFoldersGrid } from "./components/sequence-folders-grid"
-import { SequencesTableToolbarActions } from "./components/sequences-table-toolbar-actions"
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
-import type { SequenceFolder } from "./types"
 
 type SequencesTableProps = {
   promises: Promise<[Awaited<ReturnType<typeof listSequences>>]>
-  folders?: SequenceFolder[]
-  allFolders?: SequenceFolder[]
-  onSelectFolder?: (folderId: string | null) => void
-  selectedFolderId?: string | null
-  currentFolderId?: string | null
-  canCreateFolder?: boolean
 }
 
-export function SequencesTable({
-  promises,
-  folders = [],
-  allFolders = [],
-  selectedFolderId,
-  currentFolderId,
-  canCreateFolder,
-}: SequencesTableProps) {
+export function SequencesTable({ promises }: SequencesTableProps) {
   const [{ data: initialData, pageCount: initialPageCount }] =
     React.use(promises)
   const { chatbotId } = useParams<{ chatbotId: string }>()
@@ -72,12 +52,7 @@ export function SequencesTable({
     row: Row<SequenceResource>
     variant: "rename" | "move" | "delete"
   } | null>(null)
-  const [showSearch, setShowSearch] = useState(false)
-  const [nameFilter, setNameFilter] = useQueryState("name", {
-    defaultValue: "",
-    throttleMs: 300,
-    shallow: false,
-  })
+
   const [bulkDeleteSequences, setBulkDeleteSequences] = useState<
     SequenceResource[]
   >([])
@@ -155,6 +130,7 @@ export function SequencesTable({
         },
         size: 300,
         enableSorting: true,
+        enableColumnFilter: true,
       },
       {
         accessorKey: "subscribers",
@@ -242,12 +218,13 @@ export function SequencesTable({
                   {t("actions.rename")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setRowAction({ row, variant: "move" })}
+                  onSelect={() => setRowAction({ row, variant: "move" })}
                 >
                   <FolderUpIcon className="mr-2" />
-                  {t("sequences.folders.moveToFolder")}
+                  {t("actions.move")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  className="hover:bg-muted hover:text-destructive"
                   onClick={() => setRowAction({ row, variant: "delete" })}
                 >
                   <Trash2Icon className="mr-2" />
@@ -273,77 +250,10 @@ export function SequencesTable({
     clearOnDefault: true,
   })
 
-  const createUrl = currentFolderId
-    ? `/chatbots/${chatbotId}/sequences/create?folderId=${currentFolderId}`
-    : `/chatbots/${chatbotId}/sequences/create`
-
   return (
     <>
       <DataTable table={table}>
-        <DataTableToolbar table={table}>
-          <div className="flex w-full items-center justify-between">
-            <Button asChild size="sm">
-              <Link href={createUrl}>
-                <PlusIcon />
-                {t("actions.createFeature", {
-                  feature: t("fields.sequences.label"),
-                })}
-              </Link>
-            </Button>
-          </div>
-        </DataTableToolbar>
-
-        <div className="mt-5 mb-5">
-          <SequenceFoldersGrid
-            canCreateFolder={canCreateFolder}
-            chatbotId={chatbotId}
-            currentFolderId={currentFolderId ?? selectedFolderId ?? null}
-            folders={folders}
-          />
-        </div>
-
-        {table.getFilteredSelectedRowModel().rows.length > 0 && (
-          <div className="mt-5 mb-5">
-            <SequencesTableToolbarActions
-              allFolders={allFolders}
-              chatbotId={chatbotId}
-              onBulkDelete={(sequences: SequenceResource[]) =>
-                setBulkDeleteSequences(sequences)
-              }
-              table={table}
-            />
-          </div>
-        )}
-
-        <div>
-          <div className="flex items-center justify-end">
-            {showSearch ? (
-              <div className="flex w-1/3 items-center gap-2">
-                <Input
-                  autoFocus
-                  className="h-8"
-                  onChange={(event) => setNameFilter(event.target.value)}
-                  placeholder={t("fields.name.placeholder")}
-                  value={nameFilter}
-                />
-                <XIcon
-                  className="cursor-pointer text-muted-foreground hover:text-primary"
-                  onClick={() => {
-                    setShowSearch(false)
-                    setNameFilter("")
-                  }}
-                  size={20}
-                />
-              </div>
-            ) : (
-              <SearchIcon
-                className="cursor-pointer text-muted-foreground hover:text-primary"
-                onClick={() => setShowSearch(true)}
-                size={20}
-              />
-            )}
-          </div>
-        </div>
+        <DataTableToolbar table={table} />
       </DataTable>
 
       <RenameSequenceDialog
@@ -355,12 +265,13 @@ export function SequencesTable({
         sequence={rowAction?.row.original || null}
       />
 
-      <MoveToFolderDialog
+      <ChangeFolderDialog
         chatbotId={chatbotId}
-        folders={allFolders.length > 0 ? allFolders : folders}
-        onClose={() => setRowAction(null)}
+        currentFolderId={rowAction?.row.original?.folderId || null}
+        folderType={FolderType.sequence}
+        modelId={rowAction?.row.original?.id || null}
+        onOpenChange={() => setRowAction(null)}
         open={rowAction?.variant === "move"}
-        sequence={rowAction?.row.original || { id: "", name: "" }}
       />
 
       <DeleteSequenceDialog

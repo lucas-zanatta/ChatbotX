@@ -14,18 +14,13 @@ export async function listSequences(
     chatbotId: input.chatbotId,
   }
 
+  const orderBy = input.sort.map((sortItem) => ({
+    [sortItem.id]: sortItem.desc ? "desc" : "asc",
+  }))
+
   if (input.folderId !== undefined) {
-    if (input.folderId === null) {
-      where.sequencesOnFolders = {
-        none: {},
-      }
-    } else {
-      where.sequencesOnFolders = {
-        some: {
-          folderId: input.folderId,
-        },
-      }
-    }
+    where.folderId =
+      input.folderId === null || input.folderId === "0" ? null : input.folderId
   }
 
   if (input.name) {
@@ -51,21 +46,8 @@ export async function listSequences(
             contactsOnSequences: true,
           },
         },
-        sequencesOnFolders: {
-          select: {
-            folderId: true,
-            folder: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
       },
-      orderBy: {
-        createdAt: "asc",
-      },
+      orderBy,
     }),
     prisma.sequence.count({ where }),
   ])

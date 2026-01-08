@@ -10,6 +10,8 @@ export function getFolderTypeFromFeature(
   switch (featureName) {
     case "automated-responses":
       return FolderType.automatedResponse
+    case "sequences":
+      return FolderType.sequence
     case "flows":
       return FolderType.flow
     case "account-fields":

@@ -165,7 +165,6 @@ model Chatbot {
   aiEmbeddings             AIEmbedding[]
   chatbotUsage             ChatbotUsage?
   sequences                Sequence[]
-  sequenceFolders          SequenceFolder[]
   contactsOnSequences      ContactsOnSequence[]
   sequenceEvents           SequenceEvent[]
   sequenceDispatches       SequenceDispatch[]
@@ -301,12 +300,13 @@ model Folder {
   isTrash    Boolean    @default(false)
   paths      String[]   @default([])
 
-  parent   Folder?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: Cascade)
-  children Folder[] @relation("ParentChild")
-  chatbot  Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
-  tags     Tag[]
-  fields   Field[]
-  flows    Flow[]
+  parent    Folder?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("ParentChild")
+  chatbot   Chatbot  @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  tags      Tag[]
+  fields    Field[]
+  flows     Flow[]
+  sequences Sequence[]
 
   @@index([chatbotId])
   @@index([parentId])
@@ -594,37 +594,16 @@ model AIEmbedding {
   @@index([chatbotId])
 }
 
-model SequenceFolder {
-  id        String   @id @default(cuid(2))
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  name                 String
-  depth                Int @default(1)
-  position             Int @default(0)
-  totalSequencesCount  Int @default(0)
-
-  chatbotId String
-  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
-
-  parentId String?
-  parent   SequenceFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children SequenceFolder[] @relation("FolderHierarchy")
-
-  sequencesOnFolders SequencesOnFolders[]
-
-  @@unique([chatbotId, name])
-  @@index([chatbotId])
-  @@index([parentId])
-  @@index([chatbotId, parentId, position])
-}
-
 model Sequence {
   id        String   @id @default(cuid(2))
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   name        String
+
+  folderId    String?
+  folder      Folder? @relation(fields: [folderId], references: [id])
+
   active      Boolean @default(true)
   subscribers Int     @default(0)
   messages    Int     @default(0)
@@ -634,14 +613,13 @@ model Sequence {
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
-  sequencesOnFolders SequencesOnFolders[]
-
   steps                SequenceStep[]
   contactsOnSequences  ContactsOnSequence[]
   events               SequenceEvent[]
   dispatches           SequenceDispatch[]
 
   @@unique([chatbotId, name])
+  @@index([folderId])
 }
 
 model SequenceStep {
@@ -709,21 +687,6 @@ model ContactsOnSequence {
   @@index([chatbotId])
   @@index([status, nextRunAt])
   @@index([chatbotId, status, nextRunAt])
-}
-
-model SequencesOnFolders {
-  id        String   @id @default(cuid(2))
-  createdAt DateTime @default(now())
-
-  sequenceId String
-  sequence   Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
-
-  folderId String
-  folder   SequenceFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
-
-  @@unique([sequenceId, folderId])
-  @@index([sequenceId])
-  @@index([folderId])
 }
 
 model SequenceEvent {
@@ -1257,6 +1220,7 @@ enum FolderType {
   flow
   customField
   automatedResponse
+  sequence
 }
 
 enum ChatbotMemberRole {

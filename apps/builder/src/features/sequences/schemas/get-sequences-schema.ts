@@ -1,4 +1,5 @@
 import type { SequenceModel } from "@aha.chat/database/types"
+import { getSortingStateParser } from "@aha.chat/ui/lib/parsers"
 import {
   createSearchParamsCache,
   parseAsBoolean,
@@ -11,6 +12,10 @@ export const getSequencesSearchParamsCache = createSearchParamsCache({
   perPage: parseAsInteger.withDefault(10),
   name: parseAsString.withDefault(""),
   active: parseAsBoolean,
+  folderId: parseAsString,
+  sort: getSortingStateParser<SequenceModel>().withDefault([
+    { id: "createdAt", desc: true },
+  ]),
 })
 
 export type GetSequencesSchema = Awaited<
@@ -22,11 +27,4 @@ export type SequenceResource = SequenceModel & {
     steps?: number
     contactsOnSequences?: number
   }
-  sequencesOnFolders?: {
-    folderId: string
-    folder: {
-      id: string
-      name: string
-    }
-  }[]
 }

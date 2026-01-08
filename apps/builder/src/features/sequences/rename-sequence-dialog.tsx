@@ -38,7 +38,6 @@ export function RenameSequenceDialog({
   const {
     form,
     handleSubmitWithAction,
-    resetFormAndAction,
     form: { setValue },
   } = useHookFormAction(
     updateSequenceAction.bind(
@@ -55,7 +54,6 @@ export function RenameSequenceDialog({
               feature: t("fields.sequences.label"),
             }),
           )
-          resetFormAndAction()
           onOpenChange(false)
           onSuccess?.()
         },

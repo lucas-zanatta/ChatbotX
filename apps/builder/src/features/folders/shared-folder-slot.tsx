@@ -25,6 +25,9 @@ export default async function SharedFolderSlot(props: {
     case "automated-responses":
       folderType = FolderType.automatedResponse
       break
+    case "sequences":
+      folderType = FolderType.sequence
+      break
     case "flows":
       folderType = FolderType.flow
       break

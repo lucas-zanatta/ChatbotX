@@ -3,38 +3,24 @@
 DROP TABLE IF EXISTS "SequenceDispatch" CASCADE;
 DROP TABLE IF EXISTS "SequenceEvent" CASCADE;
 DROP TABLE IF EXISTS "ContactsOnSequence" CASCADE;
-DROP TABLE IF EXISTS "SequencesOnFolders" CASCADE;
 DROP TABLE IF EXISTS "SequenceStep" CASCADE;
 DROP TABLE IF EXISTS "Sequence" CASCADE;
-DROP TABLE IF EXISTS "SequenceFolder" CASCADE;
 
--- CreateTable
-CREATE TABLE "SequenceFolder" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "name" TEXT NOT NULL,
-    "depth" INTEGER NOT NULL DEFAULT 1,
-    "position" INTEGER NOT NULL DEFAULT 0,
-    "totalSequencesCount" INTEGER NOT NULL DEFAULT 0,
-    "chatbotId" TEXT NOT NULL,
-    "parentId" TEXT,
-
-    CONSTRAINT "SequenceFolder_pkey" PRIMARY KEY ("id")
-);
+ALTER TYPE "FolderType" ADD VALUE 'sequence';
 
 -- CreateTable
 CREATE TABLE "Sequence" (
     "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
     "name" TEXT NOT NULL,
+    "folderId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "subscribers" INTEGER NOT NULL DEFAULT 0,
     "messages" INTEGER NOT NULL DEFAULT 0,
     "openRate" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "ctr" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "chatbotId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Sequence_pkey" PRIMARY KEY ("id")
 );
@@ -149,17 +135,7 @@ CREATE TABLE "ContactsOnSequence_p61" PARTITION OF "ContactsOnSequence" FOR VALU
 CREATE TABLE "ContactsOnSequence_p62" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 62);
 CREATE TABLE "ContactsOnSequence_p63" PARTITION OF "ContactsOnSequence" FOR VALUES WITH (MODULUS 64, REMAINDER 63);
 
--- CreateIndex
-CREATE UNIQUE INDEX "SequenceFolder_chatbotId_name_key" ON "SequenceFolder"("chatbotId", "name");
-
--- CreateIndex
-CREATE INDEX "SequenceFolder_chatbotId_idx" ON "SequenceFolder"("chatbotId");
-
--- CreateIndex
-CREATE INDEX "SequenceFolder_parentId_idx" ON "SequenceFolder"("parentId");
-
--- CreateIndex
-CREATE INDEX "SequenceFolder_chatbotId_parentId_position_idx" ON "SequenceFolder"("chatbotId", "parentId", "position");
+CREATE INDEX "Sequence_folderId_idx" ON "Sequence"("folderId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Sequence_chatbotId_name_key" ON "Sequence"("chatbotId", "name");
@@ -189,38 +165,10 @@ CREATE INDEX "ContactsOnSequence_chatbotId_status_nextRunAt_idx" ON "ContactsOnS
 CREATE UNIQUE INDEX "ContactsOnSequence_contactId_sequenceId_chatbotId_key" ON "ContactsOnSequence"("contactId", "sequenceId", "chatbotId");
 
 -- AddForeignKey
-ALTER TABLE "SequenceFolder" ADD CONSTRAINT "SequenceFolder_chatbotId_fkey" FOREIGN KEY ("chatbotId") REFERENCES "Chatbot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SequenceFolder" ADD CONSTRAINT "SequenceFolder_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "SequenceFolder"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Sequence" ADD CONSTRAINT "Sequence_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "Folder"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Sequence" ADD CONSTRAINT "Sequence_chatbotId_fkey" FOREIGN KEY ("chatbotId") REFERENCES "Chatbot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- CreateTable
-CREATE TABLE "SequencesOnFolders" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "sequenceId" TEXT NOT NULL,
-    "folderId" TEXT NOT NULL,
-
-    CONSTRAINT "SequencesOnFolders_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE INDEX "SequencesOnFolders_sequenceId_idx" ON "SequencesOnFolders"("sequenceId");
-
--- CreateIndex
-CREATE INDEX "SequencesOnFolders_folderId_idx" ON "SequencesOnFolders"("folderId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SequencesOnFolders_sequenceId_folderId_key" ON "SequencesOnFolders"("sequenceId", "folderId");
-
--- AddForeignKey
-ALTER TABLE "SequencesOnFolders" ADD CONSTRAINT "SequencesOnFolders_sequenceId_fkey" FOREIGN KEY ("sequenceId") REFERENCES "Sequence"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SequencesOnFolders" ADD CONSTRAINT "SequencesOnFolders_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "SequenceFolder"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SequenceStep" ADD CONSTRAINT "SequenceStep_flowId_fkey" FOREIGN KEY ("flowId") REFERENCES "Flow"("id") ON DELETE CASCADE ON UPDATE CASCADE;
