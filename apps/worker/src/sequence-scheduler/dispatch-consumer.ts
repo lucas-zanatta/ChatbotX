@@ -504,6 +504,7 @@ export class DispatchConsumer {
       },
       data: {
         status: "failed",
+        lastError: errorMessage,
         updatedAt: new Date(),
       },
     })
@@ -547,6 +548,7 @@ export class DispatchConsumer {
       data: {
         status: "pending",
         attempt: nextAttempt,
+        lastError: error instanceof Error ? error.message : "Unknown error",
         updatedAt: new Date(),
       },
     })
