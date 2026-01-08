@@ -1,30 +1,28 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { listSequences } from "@/features/sequences/queries"
+import { getSequencesSearchParamsCache } from "@/features/sequences/schemas/get-sequences-schema"
+import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
+import { serverErrorHandler } from "@/lib/errors/server-handler"
 
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ chatbotId: string }> },
 ) {
-  const { chatbotId } = await params
-  const { searchParams } = new URL(request.url)
+  try {
+    const { chatbotId } = await params
+    await assertCurrentUserCanAccessChatbot(chatbotId)
 
-  const page = Number(searchParams.get("page")) || 1
-  const perPage = Number(searchParams.get("perPage")) || 10
-  const name = searchParams.get("name") || ""
-  const folderId = searchParams.get("folderId") || undefined
-  const activeParam = searchParams.get("active")
-  const active = activeParam ? activeParam === "true" : null
+    const search = getSequencesSearchParamsCache.parse(
+      Object.fromEntries(req.nextUrl.searchParams),
+    )
 
-  const input = {
-    chatbotId,
-    page,
-    perPage,
-    name,
-    folderId,
-    active,
+    const result = await listSequences({
+      ...search,
+      chatbotId,
+    })
+
+    return NextResponse.json(result)
+  } catch (e) {
+    return serverErrorHandler(e)
   }
-
-  const result = await listSequences(input)
-
-  return NextResponse.json(result)
 }

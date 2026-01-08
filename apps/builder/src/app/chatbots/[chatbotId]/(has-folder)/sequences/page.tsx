@@ -29,7 +29,7 @@ export default async function SequencesPage(props: {
         <AddSequenceButton />
       </div>
       <Suspense>
-        <SequencesTable promises={promises} />
+        <SequencesTable chatbotId={chatbotId} promises={promises} />
       </Suspense>
     </>
   )

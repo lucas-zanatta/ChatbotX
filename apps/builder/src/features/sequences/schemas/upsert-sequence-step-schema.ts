@@ -9,7 +9,7 @@ export const upsertSequenceStepRequest = z.object({
   delayUnit: z
     .enum(["immediate", "minutes", "hours", "days", "specificTime"])
     .optional(),
-  specificDateTime: z.string().datetime().optional(),
+  specificDateTime: z.iso.datetime().optional(),
   flowId: z.cuid2().optional(),
   isActive: z.boolean().optional(),
   anytime: z.boolean().optional(),

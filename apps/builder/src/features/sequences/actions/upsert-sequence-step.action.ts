@@ -310,7 +310,6 @@ export const upsertSequenceStepAction = chatbotActionClient
       let result: { stepId: string }
 
       if (stepId) {
-        // UPDATE existing step
         result = await handleStepUpdate(
           parsedInput,
           stepId,
@@ -318,7 +317,6 @@ export const upsertSequenceStepAction = chatbotActionClient
           chatbotId,
         )
       } else {
-        // CREATE new step
         result = await handleStepCreation(parsedInput, sequenceId, chatbotId)
       }
 

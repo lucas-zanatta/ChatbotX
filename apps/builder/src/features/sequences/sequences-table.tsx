@@ -14,48 +14,42 @@ import {
   DropdownMenuTrigger,
 } from "@aha.chat/ui/components/ui/dropdown-menu"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
-import type { ColumnDef, Row } from "@tanstack/react-table"
+import type { DataTableRowAction } from "@aha.chat/ui/types/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import {
   CheckCircleIcon,
   FolderUpIcon,
   MoreHorizontalIcon,
   PauseCircleIcon,
-  PencilIcon,
+  TextIcon,
   Trash2Icon,
 } from "lucide-react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
-import React, { useCallback, useMemo, useState } from "react"
+import React, { use, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
 import { ChangeFolderDialog } from "../folders/change-folder"
 import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
-import { BulkDeleteSequenceDialog } from "./bulk-delete-sequence-dialog"
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
+import { SequencesTableToolbarActions } from "./sequences-table-toolbar-actions"
 
 type SequencesTableProps = {
+  chatbotId: string
   promises: Promise<[Awaited<ReturnType<typeof listSequences>>]>
 }
 
-export function SequencesTable({ promises }: SequencesTableProps) {
-  const [{ data: initialData, pageCount: initialPageCount }] =
-    React.use(promises)
-  const { chatbotId } = useParams<{ chatbotId: string }>()
-
+export function SequencesTable({ chatbotId, promises }: SequencesTableProps) {
   const t = useTranslations()
   const router = useRouter()
 
-  const [rowAction, setRowAction] = useState<{
-    row: Row<SequenceResource>
-    variant: "rename" | "move" | "delete"
-  } | null>(null)
+  const [{ data, pageCount }] = use(promises)
 
-  const [bulkDeleteSequences, setBulkDeleteSequences] = useState<
-    SequenceResource[]
-  >([])
+  const [rowAction, setRowAction] =
+    React.useState<DataTableRowAction<SequenceResource> | null>(null)
 
   const handleToggleStatus = useCallback(
     async (sequence: SequenceResource) => {
@@ -212,9 +206,9 @@ export function SequencesTable({ promises }: SequencesTableProps) {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => setRowAction({ row, variant: "rename" })}
+                  onSelect={() => setRowAction({ row, variant: "update" })}
                 >
-                  <PencilIcon className="mr-2" />
+                  <TextIcon className="mr-2" />
                   {t("actions.rename")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -243,17 +237,28 @@ export function SequencesTable({ promises }: SequencesTableProps) {
   )
 
   const { table } = useDataTable({
-    data: initialData,
+    data,
     columns,
-    pageCount: initialPageCount,
-    shallow: false,
+    pageCount,
+    initialState: {
+      sorting: [{ id: "createdAt", desc: true }],
+      columnPinning: { right: ["actions"] },
+    },
+    getRowId: (originalRow) => originalRow.id,
     clearOnDefault: true,
+    shallow: false,
   })
 
   return (
     <>
       <DataTable table={table}>
-        <DataTableToolbar table={table} />
+        <DataTableToolbar table={table}>
+          <SequencesTableToolbarActions
+            chatbotId={chatbotId}
+            setRowAction={setRowAction}
+            table={table}
+          />
+        </DataTableToolbar>
       </DataTable>
 
       <RenameSequenceDialog
@@ -261,7 +266,7 @@ export function SequencesTable({ promises }: SequencesTableProps) {
         onSuccess={() => {
           router.refresh()
         }}
-        open={rowAction?.variant === "rename"}
+        open={rowAction?.variant === "update"}
         sequence={rowAction?.row.original || null}
       />
 
@@ -281,21 +286,6 @@ export function SequencesTable({ promises }: SequencesTableProps) {
         }}
         open={rowAction?.variant === "delete"}
         sequence={rowAction?.row.original || null}
-      />
-
-      <BulkDeleteSequenceDialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setBulkDeleteSequences([])
-          }
-        }}
-        onSuccess={() => {
-          setBulkDeleteSequences([])
-          table.toggleAllRowsSelected(false)
-          router.refresh()
-        }}
-        open={bulkDeleteSequences.length > 0}
-        sequences={bulkDeleteSequences}
       />
     </>
   )

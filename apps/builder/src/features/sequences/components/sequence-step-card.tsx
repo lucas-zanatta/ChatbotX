@@ -1,53 +1,20 @@
 "use client"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@aha.chat/ui/components/ui/alert-dialog"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import { Card, CardContent } from "@aha.chat/ui/components/ui/card"
-import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
-import { Input } from "@aha.chat/ui/components/ui/input"
-import { Label } from "@aha.chat/ui/components/ui/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@aha.chat/ui/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@aha.chat/ui/components/ui/select"
-import { ChevronDownIcon, RotateCcwIcon, XIcon } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Switch } from "@aha.chat/ui/components/ui/switch"
+import { ChevronDownIcon, XIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useCallback, useRef, useState } from "react"
-import { toast } from "sonner"
-import { useFlowStore } from "@/features/flows/provider/flow-store-context"
-import { deleteSequenceStepAction } from "../actions/delete-sequence-step.action"
-import { upsertSequenceStepAction } from "../actions/upsert-sequence-step.action"
-import { FlowSelectorSimple } from "./flow-selector-simple"
+import { useState } from "react"
 
-type DelayUnit = "immediate" | "minutes" | "hours" | "days" | "specificTime"
+import { useDelayState } from "../hooks/use-delay-state"
+import { type DelayUnit, useSequenceStep } from "../hooks/use-sequence-step"
+import { useTimeRangeState } from "../hooks/use-time-range-state"
 
-const WEEKDAY_ORDER = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-]
+import { DelaySelector } from "./delay-selector"
+import { DeleteStepDialog } from "./delete-step-dialog"
+import { FlowSelectorSimple } from "./flow-selector"
+import { TimeRangeSelector } from "./time-range-selector"
 
 type SequenceStepCardProps = {
   step?: {
@@ -85,438 +52,96 @@ export function SequenceStepCard({
   previousStepTime,
 }: SequenceStepCardProps) {
   const t = useTranslations()
-  const router = useRouter()
-  const { flows } = useFlowStore((state) => state)
-
-  const getOneHourFromNowLocal = () => {
-    const now = new Date()
-    now.setHours(now.getHours() + 1)
-    const year = now.getFullYear()
-    const month = `${now.getMonth() + 1}`.padStart(2, "0")
-    const day = `${now.getDate()}`.padStart(2, "0")
-    const hour = `${now.getHours()}`.padStart(2, "0")
-    const minute = `${now.getMinutes()}`.padStart(2, "0")
-    return `${year}-${month}-${day}T${hour}:${minute}`
-  }
-
-  const getInitialDelayUnit = (): DelayUnit => {
-    if (!step) {
-      return "days"
-    }
-    if (step.delayUnit === "specificTime") {
-      return "specificTime"
-    }
-    if (step.delayUnit === "immediate") {
-      return "immediate"
-    }
-    if (step.delayDays > 0) {
-      return "days"
-    }
-    if (step.delayMinutes >= 60) {
-      return "hours"
-    }
-    if (step.delayMinutes > 0) {
-      return "minutes"
-    }
-    return "immediate"
-  }
-
-  const getInitialDelayValue = (): number => {
-    if (!step) {
-      return 1
-    }
-    if (step.delayDays > 0) {
-      return step.delayDays
-    }
-    if (step.delayMinutes >= 60) {
-      return Math.floor(step.delayMinutes / 60)
-    }
-    if (step.delayMinutes > 0) {
-      return step.delayMinutes
-    }
-    return 1
-  }
-
-  const [delayUnit, setDelayUnit] = useState<DelayUnit>(getInitialDelayUnit())
-  const [delayValue, setDelayValue] = useState<number>(getInitialDelayValue())
-  const [specificDateTime, setSpecificDateTime] = useState<string>(() => {
-    if (step?.specificDateTime) {
-      const date = new Date(step.specificDateTime)
-      const year = date.getFullYear()
-      const month = `${date.getMonth() + 1}`.padStart(2, "0")
-      const day = `${date.getDate()}`.padStart(2, "0")
-      const hour = `${date.getHours()}`.padStart(2, "0")
-      const minute = `${date.getMinutes()}`.padStart(2, "0")
-      return `${year}-${month}-${day}T${hour}:${minute}`
-    }
-    return ""
-  })
-  const [selectedFlowId, setSelectedFlowId] = useState<string>(
-    step?.flowId || "",
-  )
+  const [selectedFlowId, setSelectedFlowId] = useState(step?.flowId || "")
   const [isActive, setIsActive] = useState(step?.isActive ?? false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [timeOption, setTimeOption] = useState<"anytime" | "between">(
-    step?.anytime === false ? "between" : "anytime",
-  )
-  const [startTime, setStartTime] = useState(step?.sendTimeStart || "09:00")
-  const [endTime, setEndTime] = useState(step?.sendTimeEnd || "17:00")
-  const [selectedDays, setSelectedDays] = useState<string[]>(
-    step?.sendDays
-      ? JSON.parse(step.sendDays)
-      : [
-          "monday",
-          "tuesday",
-          "wednesday",
-          "thursday",
-          "friday",
-          "saturday",
-          "sunday",
-        ],
-  )
-  const [isDayPopoverOpen, setIsDayPopoverOpen] = useState(false)
   const [isTimeOptionsExpanded, setIsTimeOptionsExpanded] = useState(false)
-  const [showFlowError, setShowFlowError] = useState(false)
-  const [showDelayValueError, setShowDelayValueError] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const isSavingRef = useRef(false)
-  const initialSendDaysRef = useRef<string[]>(selectedDays)
 
-  const handleSave = useCallback(
-    async (changedFields: {
-      flowId?: string
-      delayUnit?: DelayUnit
-      delayValue?: number
-      specificDateTime?: string
-      isActive?: boolean
-      anytime?: boolean
-      sendTimeStart?: string | null
-      sendTimeEnd?: string | null
-      sendDays?: string[]
-    }) => {
-      if (isSavingRef.current) {
-        return
-      }
+  const {
+    isSaving,
+    showFlowError,
+    handleSave,
+    handleDelete,
+    handleSelectFlow,
+    handleActiveChange,
+  } = useSequenceStep({
+    step,
+    stepNumber,
+    sequenceId,
+    chatbotId,
+    isFirst,
+    previousStepTime,
+    onSaved,
+    currentDelayUnit: (step?.delayUnit as DelayUnit) || "days",
+    currentDelayValue: step?.delayDays || step?.delayMinutes || 1,
+  })
 
-      if (
-        changedFields.delayUnit === "specificTime" &&
-        changedFields.specificDateTime
-      ) {
-        const currentStepTime = new Date(changedFields.specificDateTime)
-        const now = new Date()
+  const {
+    delayUnit,
+    delayValue,
+    specificDateTime,
+    handleDelayUnitChange,
+    handleDelayValueChange,
+    handleSpecificDateTimeChange,
+  } = useDelayState(step, handleSave)
 
-        if (currentStepTime <= now) {
-          toast.error(t("sequences.timeValidation"))
-          return
-        }
-
-        if (
-          !isFirst &&
-          previousStepTime &&
-          currentStepTime <= previousStepTime
-        ) {
-          toast.error(t("sequences.timeValidation"))
-          return
-        }
-      }
-
-      isSavingRef.current = true
-      setIsSaving(true)
-
-      try {
-        const payload: {
-          stepId?: string
-          sequenceId: string
-          order: number
-          flowId?: string
-          isActive?: boolean
-          delayDays?: number
-          delayMinutes?: number
-          delayUnit?: DelayUnit
-          specificDateTime?: string
-          anytime?: boolean
-          sendTimeStart?: string | null
-          sendTimeEnd?: string | null
-          sendDays?: string[]
-        } = {
-          stepId: step?.id,
-          sequenceId,
-          order: stepNumber - 1,
-        }
-
-        // Chỉ thêm các field thực sự thay đổi
-        if (changedFields.flowId !== undefined) {
-          payload.flowId = changedFields.flowId
-        }
-
-        if (changedFields.isActive !== undefined) {
-          payload.isActive = changedFields.isActive
-        }
-
-        if (
-          changedFields.delayUnit !== undefined ||
-          changedFields.delayValue !== undefined
-        ) {
-          const unit = changedFields.delayUnit ?? delayUnit
-          const value = changedFields.delayValue ?? delayValue
-          let delayDays = 0
-          let delayMinutes = 0
-
-          if (unit === "days") {
-            delayDays = value
-          } else if (unit === "hours") {
-            delayMinutes = value * 60
-          } else if (unit === "minutes") {
-            delayMinutes = value
-          }
-
-          payload.delayDays = delayDays
-          payload.delayMinutes = delayMinutes
-          payload.delayUnit = unit
-        }
-
-        if (changedFields.specificDateTime !== undefined) {
-          const localDate = new Date(changedFields.specificDateTime)
-          payload.specificDateTime = localDate.toISOString()
-          payload.delayDays = 0
-          payload.delayMinutes = 0
-          payload.delayUnit = "specificTime"
-        }
-
-        if (changedFields.anytime !== undefined) {
-          payload.anytime = changedFields.anytime
-        }
-
-        if (changedFields.sendTimeStart !== undefined) {
-          payload.sendTimeStart = changedFields.sendTimeStart
-        }
-
-        if (changedFields.sendTimeEnd !== undefined) {
-          payload.sendTimeEnd = changedFields.sendTimeEnd
-        }
-
-        if (changedFields.sendDays !== undefined) {
-          payload.sendDays = changedFields.sendDays
-        }
-
-        const result = await upsertSequenceStepAction(chatbotId, payload)
-
-        if (result?.data) {
-          toast.success(t("messages.savedSuccessfully"))
-          onSaved?.()
-          router.refresh()
-        } else {
-          toast.error(t("messages.unknownError"))
-        }
-      } catch (error) {
-        console.error("Error saving step:", error)
-        toast.error(t("messages.unknownError"))
-      } finally {
-        setIsSaving(false)
-        isSavingRef.current = false
-      }
-    },
-    [
-      delayUnit,
-      delayValue,
-      step?.id,
-      t,
-      isFirst,
-      previousStepTime,
-      chatbotId,
-      sequenceId,
-      stepNumber,
-      onSaved,
-      router,
-    ],
-  )
-
-  const handleDelete = async () => {
-    if (!step?.id) {
-      return
-    }
-
-    try {
-      const result = await deleteSequenceStepAction(chatbotId, {
-        stepId: step.id,
-        sequenceId,
-      })
-
-      if (result?.data) {
-        toast.success(
-          t("messages.deletedSuccess", { feature: t("sequences.step") }),
-        )
-        router.refresh()
-      } else {
-        toast.error(t("messages.deleteFailed"))
-      }
-    } catch (error) {
-      console.error("Error deleting step:", error)
-      toast.error(t("messages.deleteFailed"))
-    }
-  }
-
-  const handleSelectFlow = useCallback(
-    async (flowId: string) => {
-      setSelectedFlowId(flowId)
-      setShowFlowError(false)
-      await handleSave({ flowId })
-    },
-    [handleSave],
-  )
-
-  const handleActiveChange = useCallback(
-    async (checked: boolean) => {
-      if (checked && !selectedFlowId) {
-        toast.error(t("sequences.selectFlowFirst"))
-        setShowFlowError(true)
-        setTimeout(() => setShowFlowError(false), 3000)
-        return
-      }
-      setShowFlowError(false)
-
-      setIsActive(checked)
-
-      if (!step?.id) {
-        return
-      }
-
-      await handleSave({ isActive: checked })
-    },
-    [step?.id, selectedFlowId, t, handleSave],
-  )
+  const {
+    timeOption,
+    startTime,
+    endTime,
+    selectedDays,
+    handleTimeOptionChange,
+    handleStartTimeChange,
+    handleEndTimeChange,
+    handleSelectedDaysChange,
+  } = useTimeRangeState(step, handleSave)
 
   return (
     <div className="grid">
       <div className="mt-2 mb-2 space-y-4 pl-4">
         <Card className="py-2 shadow-none">
           <CardContent>
+            {/* Main row */}
             <div className="flex items-center gap-3">
               <div className="flex min-w-[320px] max-w-xl flex-1 items-center gap-2">
+                <Switch
+                  checked={isActive}
+                  className="cursor-pointer"
+                  onCheckedChange={(checked) => {
+                    if (!selectedFlowId) {
+                      handleActiveChange(checked, "")
+                      return
+                    }
+
+                    setIsActive(checked)
+                    handleActiveChange(checked, selectedFlowId)
+                  }}
+                />
+
+                <span className="mr-4 ml-4 whitespace-nowrap text-muted-foreground text-sm">
+                  {t("sequences.sendLabel")}
+                </span>
+
                 <FlowSelectorSimple
-                  chatbotId={chatbotId}
-                  flows={flows}
-                  isActive={isActive}
-                  onActiveChange={handleActiveChange}
-                  onSelectFlow={handleSelectFlow}
-                  selectedFlowId={selectedFlowId}
+                  onChange={(flowId) => {
+                    setSelectedFlowId(flowId)
+                    handleSelectFlow(flowId)
+                  }}
                   showError={showFlowError}
+                  value={selectedFlowId}
                 />
               </div>
-              <div className="flex w-[280px] items-center gap-2">
-                <span className="mr-2 ml-2 whitespace-nowrap text-muted-foreground text-sm">
-                  {t("sequences.afterText")}
-                </span>
-                {delayUnit === "specificTime" ? (
-                  <div className="flex w-full items-center gap-1">
-                    <Input
-                      disabled={isSaving}
-                      min={getOneHourFromNowLocal()}
-                      onBlur={() => {
-                        if (specificDateTime) {
-                          handleSave({ specificDateTime })
-                        }
-                      }}
-                      onChange={(e) => setSpecificDateTime(e.target.value)}
-                      type="datetime-local"
-                      value={specificDateTime}
-                    />
-                    <Button
-                      className="h-7 w-7 hover:bg-muted hover:text-primary"
-                      onClick={() => {
-                        setDelayUnit("days")
-                        handleSave({ delayUnit: "days" })
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <RotateCcwIcon className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex w-full gap-2">
-                    {delayUnit !== "immediate" && (
-                      <Input
-                        className={`w-20 ${showDelayValueError ? "border-destructive" : ""}`}
-                        disabled={isSaving}
-                        max={99_999}
-                        min={1}
-                        onBlur={() => {
-                          if (!delayValue || delayValue < 1) {
-                            setShowDelayValueError(true)
-                            return
-                          }
-                          setShowDelayValueError(false)
-                          handleSave({ delayValue })
-                        }}
-                        onChange={(e) => {
-                          const value = Number(e.target.value)
-                          if (value >= 1) {
-                            setDelayValue(value)
-                            setShowDelayValueError(false)
-                          } else {
-                            setShowDelayValueError(true)
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && selectedFlowId) {
-                            if (!delayValue || delayValue < 1) {
-                              setShowDelayValueError(true)
-                              return
-                            }
-                            setShowDelayValueError(false)
-                            handleSave({ delayValue })
-                          }
-                        }}
-                        type="number"
-                        value={delayValue}
-                      />
-                    )}
-                    <Select
-                      disabled={isSaving}
-                      onValueChange={(value) => {
-                        const unit = value as DelayUnit
-                        setDelayUnit(unit)
 
-                        if (unit === "specificTime") {
-                          const newDateTime =
-                            specificDateTime || getOneHourFromNowLocal()
-                          setSpecificDateTime(newDateTime)
-                          handleSave({
-                            delayUnit: unit,
-                            specificDateTime: newDateTime,
-                          })
-                        } else {
-                          handleSave({ delayUnit: unit })
-                        }
-                      }}
-                      value={delayUnit}
-                    >
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="immediate">
-                          {t("sequences.delayUnits.immediate")}
-                        </SelectItem>
-                        <SelectItem value="minutes">
-                          {t("sequences.delayUnits.minutes")}
-                        </SelectItem>
-                        <SelectItem value="hours">
-                          {t("sequences.delayUnits.hours")}
-                        </SelectItem>
-                        <SelectItem value="days">
-                          {t("sequences.delayUnits.days")}
-                        </SelectItem>
-                        <SelectItem value="specificTime">
-                          {t("sequences.delayUnits.specificTime")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
+              <DelaySelector
+                delayUnit={delayUnit}
+                delayValue={delayValue}
+                isSaving={isSaving}
+                onDelayUnitChange={handleDelayUnitChange}
+                onDelayValueChange={handleDelayValueChange}
+                onSpecificDateTimeChange={handleSpecificDateTimeChange}
+                specificDateTime={specificDateTime}
+              />
+
               <div className="ml-auto flex items-center gap-1">
                 <Button
                   className="h-8 w-8 hover:bg-muted hover:text-primary"
@@ -554,229 +179,27 @@ export function SequenceStepCard({
                   : "max-h-0 opacity-0"
               }`}
             >
-              <div className="space-y-3">
-                <div className="mb-2 flex items-center space-x-2">
-                  <Checkbox
-                    checked={timeOption === "between"}
-                    id={`time-option-${step?.id || "new"}`}
-                    onCheckedChange={(checked) => {
-                      const newTimeOption = checked ? "between" : "anytime"
-                      setTimeOption(newTimeOption)
-
-                      if (checked) {
-                        handleSave({
-                          anytime: false,
-                          sendTimeStart: startTime,
-                          sendTimeEnd: endTime,
-                          sendDays: selectedDays,
-                        })
-                      } else {
-                        handleSave({
-                          anytime: true,
-                          sendTimeStart: null,
-                          sendTimeEnd: null,
-                          sendDays: [...WEEKDAY_ORDER],
-                        })
-                      }
-                    }}
-                  />
-                  <Label
-                    className="cursor-pointer font-normal text-sm"
-                    htmlFor={`time-option-${step?.id || "new"}`}
-                  >
-                    {t("sequences.setTimeRange")}
-                  </Label>
-                </div>
-
-                {timeOption === "between" && (
-                  <div className="gap-2">
-                    <div className="flex items-center gap-2">
-                      <Select
-                        onValueChange={(value) => {
-                          if (value >= endTime) {
-                            toast.error(t("sequences.invalidTimeRange"))
-                            return
-                          }
-                          setStartTime(value)
-                          if (selectedFlowId) {
-                            handleSave({ sendTimeStart: value })
-                          }
-                        }}
-                        value={startTime}
-                      >
-                        <SelectTrigger className="w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 24 }, (_, i) => {
-                            const hour = i.toString().padStart(2, "0")
-                            return (
-                              <SelectItem key={hour} value={`${hour}:00`}>
-                                {hour}:00
-                              </SelectItem>
-                            )
-                          })}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-muted-foreground">-</span>
-                      <Select
-                        onValueChange={(value) => {
-                          if (startTime >= value) {
-                            toast.error(t("sequences.invalidTimeRange"))
-                            return
-                          }
-                          setEndTime(value)
-                          if (selectedFlowId) {
-                            handleSave({ sendTimeEnd: value })
-                          }
-                        }}
-                        value={endTime}
-                      >
-                        <SelectTrigger className="w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 24 }, (_, i) => {
-                            const hour = i.toString().padStart(2, "0")
-                            return (
-                              <SelectItem key={hour} value={`${hour}:00`}>
-                                {hour}:00
-                              </SelectItem>
-                            )
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="mt-3 flex items-center">
-                      <Popover
-                        onOpenChange={(open) => {
-                          if (open) {
-                            initialSendDaysRef.current = selectedDays
-                          } else {
-                            const hasChanged =
-                              JSON.stringify(initialSendDaysRef.current) !==
-                              JSON.stringify(selectedDays)
-                            if (hasChanged) {
-                              const sortedDays = [...selectedDays].sort(
-                                (a, b) =>
-                                  WEEKDAY_ORDER.indexOf(a) -
-                                  WEEKDAY_ORDER.indexOf(b),
-                              )
-                              handleSave({ sendDays: sortedDays })
-                            }
-                          }
-                          setIsDayPopoverOpen(open)
-                        }}
-                        open={isDayPopoverOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            className="w-full justify-start font-normal"
-                            variant="outline"
-                          >
-                            {(() => {
-                              if (selectedDays.length === 7) {
-                                return t("sequences.allDays")
-                              }
-                              if (selectedDays.length === 0) {
-                                return t("sequences.selectDays")
-                              }
-                              return selectedDays
-                                .map((d) => t(`sequences.${d}`))
-                                .join(", ")
-                            })()}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-80">
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              {WEEKDAY_ORDER.map((day) => (
-                                <div
-                                  className="flex items-center space-x-2"
-                                  key={day}
-                                >
-                                  <Checkbox
-                                    checked={selectedDays.includes(day)}
-                                    id={`day-${day}`}
-                                    onCheckedChange={(checked) => {
-                                      let newDays: string[]
-                                      if (checked) {
-                                        newDays = [...selectedDays, day]
-                                      } else {
-                                        newDays = selectedDays.filter(
-                                          (d) => d !== day,
-                                        )
-                                      }
-                                      newDays.sort(
-                                        (a: string, b: string) =>
-                                          WEEKDAY_ORDER.indexOf(a) -
-                                          WEEKDAY_ORDER.indexOf(b),
-                                      )
-                                      setSelectedDays(newDays)
-                                    }}
-                                  />
-                                  <label
-                                    className="cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    htmlFor={`day-${day}`}
-                                  >
-                                    {t(`sequences.${day}`)}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                            <Button
-                              className="w-full"
-                              onClick={() => {
-                                const newDays =
-                                  selectedDays.length === 7
-                                    ? []
-                                    : [...WEEKDAY_ORDER]
-                                setSelectedDays(newDays)
-                                setIsDayPopoverOpen(false)
-                                handleSave({ sendDays: newDays })
-                              }}
-                              variant="outline"
-                            >
-                              {selectedDays.length === 7
-                                ? t("sequences.deselectAll")
-                                : t("sequences.allDays")}
-                            </Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <TimeRangeSelector
+                endTime={endTime}
+                onEndTimeChange={handleEndTimeChange}
+                onSelectedDaysChange={handleSelectedDaysChange}
+                onStartTimeChange={handleStartTimeChange}
+                onTimeOptionChange={handleTimeOptionChange}
+                selectedDays={selectedDays}
+                startTime={startTime}
+                stepId={step?.id}
+                timeOption={timeOption}
+              />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <AlertDialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("sequences.confirmDeleteStep")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("messages.deleteConfirmation", {
-                feature: t("sequences.step"),
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="ml-auto bg-destructive hover:bg-destructive/90"
-              onClick={handleDelete}
-            >
-              {t("actions.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteStepDialog
+        onConfirm={handleDelete}
+        onOpenChange={setShowDeleteDialog}
+        open={showDeleteDialog}
+      />
     </div>
   )
 }

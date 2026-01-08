@@ -9,56 +9,61 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@aha.chat/ui/components/ui/dialog"
-import { Loader2Icon } from "lucide-react"
+import { Trash } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useState } from "react"
+import type { ComponentPropsWithoutRef } from "react"
 import { toast } from "sonner"
 import { deleteSequenceAction } from "./actions/delete-sequence.action"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
 
+type BulkDeleteSequenceDialogProps = ComponentPropsWithoutRef<typeof Dialog> & {
+  sequences: SequenceResource[]
+  showTrigger?: boolean
+  onSuccess?: () => void
+  onOpenChange: (val: boolean) => void
+}
+
 export function BulkDeleteSequenceDialog({
   sequences,
-  open,
-  onOpenChange,
+  showTrigger = true,
   onSuccess,
-}: {
-  open: boolean
-  onOpenChange: (val: boolean) => void
-  sequences: SequenceResource[]
-  onSuccess?: () => void
-}) {
+  onOpenChange,
+  ...props
+}: BulkDeleteSequenceDialogProps) {
   const t = useTranslations()
 
-  const [isPending, setIsPending] = useState(false)
-
   const handleBulkDelete = async () => {
-    setIsPending(true)
     try {
-      // Delete all sequences in parallel
       await Promise.all(
         sequences.map((sequence) =>
           deleteSequenceAction(sequence.chatbotId, sequence.id),
         ),
       )
-      // Trigger success callback
-      onOpenChange(false)
-      onSuccess?.()
       toast.success(
         t("messages.deletedSuccess", {
           feature: t("fields.sequences.label"),
         }),
       )
+      onOpenChange(false)
+      onSuccess?.()
     } catch (error) {
       console.error("Error deleting sequences:", error)
       toast.error(t("messages.unknownError"))
-    } finally {
-      setIsPending(false)
     }
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog onOpenChange={onOpenChange} {...props}>
+      {showTrigger ? (
+        <DialogTrigger asChild>
+          <Button size="sm" variant="outline">
+            <Trash aria-hidden="true" className="mr-2 size-4" />
+            {t("actions.delete")} ({sequences.length})
+          </Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent className={"max-h-screen max-w-lg overflow-y-scroll"}>
         <DialogHeader>
           <DialogTitle>
@@ -66,34 +71,29 @@ export function BulkDeleteSequenceDialog({
               feature: t("fields.sequences.label"),
             })}
           </DialogTitle>
-          <DialogDescription>
-            {t("messages.deleteFeatureDescription", {
+          <DialogDescription className="whitespace-pre-wrap text-sm/6">
+            {t("dialog.deleteConfirmation", {
               feature: t("fields.sequences.label"),
             })}
-            {sequences.length > 1 && (
-              <div className="mt-2 text-sm">
-                {t("messages.deleteMultipleItems", {
-                  count: sequences.length,
-                  feature: t("fields.sequences.label"),
-                })}
-              </div>
-            )}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="justify-end">
+        <DialogFooter className="gap-2 sm:space-x-0">
           <DialogClose asChild>
-            <Button size="sm" type="button" variant="ghost">
+            <Button
+              onClick={() => onOpenChange(false)}
+              size="sm"
+              variant="ghost"
+            >
               {t("actions.cancel")}
             </Button>
           </DialogClose>
           <Button
-            disabled={isPending}
+            aria-label="Delete selected rows"
             onClick={handleBulkDelete}
             size="sm"
             variant="destructive"
           >
-            {isPending && <Loader2Icon className="animate-spin" />}
-            {t("actions.confirm")}
+            {t("actions.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>
