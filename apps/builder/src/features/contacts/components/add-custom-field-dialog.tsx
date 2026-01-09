@@ -91,7 +91,7 @@ export default function AddContactCustomFieldDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
-      <DialogContent className={"max-h-screen max-w-xl overflow-y-scroll"}>
+      <DialogContent className="max-h-screen max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("actions.setCustomField")}</DialogTitle>
           <DialogDescription />
