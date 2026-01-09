@@ -31,7 +31,7 @@ import React, { use, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import type { listSequences } from "@/features/sequences/queries"
 import { ChangeFolderDialog } from "../folders/change-folder"
-import { toggleSequenceStatusAction } from "./actions/toggle-sequence-status.action"
+import { updateSequenceAction } from "./actions/update-sequence.action"
 import { DeleteSequenceDialog } from "./delete-sequence-dialog"
 import { RenameSequenceDialog } from "./rename-sequence-dialog"
 import type { SequenceResource } from "./schemas/get-sequences-schema"
@@ -54,8 +54,7 @@ export function SequencesTable({ chatbotId, promises }: SequencesTableProps) {
   const handleToggleStatus = useCallback(
     async (sequence: SequenceResource) => {
       try {
-        await toggleSequenceStatusAction(chatbotId, {
-          sequenceId: sequence.id,
+        await updateSequenceAction(chatbotId, sequence.id, {
           active: !sequence.active,
         })
         toast.success(
