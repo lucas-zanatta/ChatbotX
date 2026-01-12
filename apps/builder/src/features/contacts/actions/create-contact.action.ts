@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -60,7 +61,7 @@ export const createContactAction = chatbotActionClient
         })
       }
 
-      await prisma.$transaction(async (tx) => {
+      const contactId = await prisma.$transaction(async (tx) => {
         const contact = await tx.contact.create({
           data: { ...parsedInput, chatbotId, source: "whatsapp" },
         })
@@ -81,7 +82,15 @@ export const createContactAction = chatbotActionClient
             inboxId: inbox.id,
           },
         })
+
+        return contact.id
       })
+
+      try {
+        await TriggerEventEmitter.contactCreated(chatbotId, contactId)
+      } catch (error) {
+        console.error("Failed to emit contactCreated event:", error)
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,

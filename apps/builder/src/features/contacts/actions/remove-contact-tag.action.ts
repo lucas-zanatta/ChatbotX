@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -38,7 +39,7 @@ export const removeContactTagAction = chatbotActionClient
         return
       }
 
-      await prisma.$transaction(async (tx) => {
+      const allTags = await prisma.$transaction(async (tx) => {
         const allTags = await tx.tag.findMany({
           where: {
             chatbotId,
@@ -63,7 +64,19 @@ export const removeContactTagAction = chatbotActionClient
             },
           })
         }
+
+        return allTags
       })
+
+      for (const contact of contacts) {
+        for (const tag of allTags) {
+          try {
+            await TriggerEventEmitter.tagRemoved(chatbotId, contact.id, tag.id)
+          } catch (error) {
+            console.error("Failed to emit tagRemoved event:", error)
+          }
+        }
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,

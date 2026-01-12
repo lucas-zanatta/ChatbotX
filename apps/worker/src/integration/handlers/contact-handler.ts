@@ -10,12 +10,22 @@ import type {
   OptOutEmailStepSchema,
   SetCustomFieldStepSchema,
 } from "@aha.chat/flow-config"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import type { FlowStepProps } from "./step-handler"
 
 export async function setContactCustomField({
   conversation,
   step,
 }: FlowStepProps<SetCustomFieldStepSchema>) {
+  const existing = await prisma.contactCustomField.findUnique({
+    where: {
+      contactId_customFieldId: {
+        contactId: conversation.contactId,
+        customFieldId: step.outputCfId,
+      },
+    },
+  })
+
   await prisma.contactCustomField.upsert({
     create: {
       contactId: conversation.contactId,
@@ -32,6 +42,18 @@ export async function setContactCustomField({
       value: step.value,
     },
   })
+
+  try {
+    await TriggerEventEmitter.customFieldChanged(
+      conversation.chatbotId,
+      conversation.contactId,
+      step.outputCfId,
+      existing?.value || null,
+      step.value,
+    )
+  } catch (error) {
+    console.error("Failed to emit customFieldChanged event:", error)
+  }
 }
 
 export async function clearContactCustomField({
@@ -98,13 +120,14 @@ export async function addContactTag({
   conversation,
   step,
 }: FlowStepProps<AddContactTagStepSchema>) {
-  await prisma.$transaction(async (tx) => {
-    const tags = await tx.tag.createManyAndReturn({
-      data: step.tags.map((t) => ({
-        name: t,
+  const tags = await prisma.$transaction(async (tx) => {
+    const tags = await tx.tag.findMany({
+      where: {
         chatbotId: conversation.chatbotId,
-      })),
-      skipDuplicates: true,
+        name: {
+          in: step.tags,
+        },
+      },
     })
 
     await tx.contact.update({
@@ -117,7 +140,21 @@ export async function addContactTag({
         id: conversation.contactId,
       },
     })
+
+    return tags
   })
+
+  for (const tag of tags) {
+    try {
+      await TriggerEventEmitter.tagApplied(
+        conversation.chatbotId,
+        conversation.contactId,
+        tag.id,
+      )
+    } catch (error) {
+      console.error("Failed to emit tagApplied event:", error)
+    }
+  }
 }
 
 export async function removeContactTag({
@@ -126,7 +163,7 @@ export async function removeContactTag({
 }: FlowStepProps<AddContactTagStepSchema>) {
   const tags = await prisma.tag.findMany({
     where: {
-      chatbotId: conversation.id,
+      chatbotId: conversation.chatbotId,
       name: {
         in: step.tags,
       },
@@ -151,6 +188,18 @@ export async function removeContactTag({
       id: conversation.contactId,
     },
   })
+
+  for (const tag of tags) {
+    try {
+      await TriggerEventEmitter.tagRemoved(
+        conversation.chatbotId,
+        conversation.contactId,
+        tag.id,
+      )
+    } catch (error) {
+      console.error("Failed to emit tagRemoved event:", error)
+    }
+  }
 }
 
 export async function deleteContact({

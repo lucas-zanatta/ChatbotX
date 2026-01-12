@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -76,6 +77,14 @@ export const assignConversationAction = chatbotActionClient
         },
         data: updatedData,
       })
+
+      for (const contactId of parsedInput.contactIds) {
+        try {
+          await TriggerEventEmitter.conversationAssigned(chatbotId, contactId)
+        } catch (error) {
+          console.error("Failed to emit conversationAssigned event:", error)
+        }
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#conversations`,

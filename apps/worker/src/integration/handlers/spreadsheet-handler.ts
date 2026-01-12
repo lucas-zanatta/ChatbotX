@@ -18,6 +18,7 @@ import {
   integration as integrationGooglesheets,
 } from "@aha.chat/integration-google-sheets"
 import { SdkException } from "@aha.chat/sdk"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import { isMatchedRow } from "./operator-handler"
@@ -359,6 +360,16 @@ const updateContactCustomFields = async ({
     const headerIndex = headers.indexOf(mapItem.header)
     if (headerIndex !== -1 && mapItem.customFieldId) {
       const value = foundRow[headerIndex]
+
+      const existing = await prisma.contactCustomField.findUnique({
+        where: {
+          contactId_customFieldId: {
+            contactId: conversation.contactId,
+            customFieldId: mapItem.customFieldId,
+          },
+        },
+      })
+
       await prisma.contactCustomField.upsert({
         create: {
           contactId: conversation.contactId,
@@ -375,6 +386,18 @@ const updateContactCustomFields = async ({
           value,
         },
       })
+
+      try {
+        await TriggerEventEmitter.customFieldChanged(
+          conversation.chatbotId,
+          conversation.contactId,
+          mapItem.customFieldId,
+          existing?.value || null,
+          value,
+        )
+      } catch (error) {
+        console.error("Failed to emit customFieldChanged event:", error)
+      }
     }
   }
 }

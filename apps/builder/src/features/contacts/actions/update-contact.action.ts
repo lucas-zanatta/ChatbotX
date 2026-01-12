@@ -6,6 +6,7 @@ import {
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -65,7 +66,7 @@ export const updateContactAction = chatbotActionClient
         }
       }
 
-      await prisma.$transaction(async (tx) => {
+      const updatedCustomFields = await prisma.$transaction(async (tx) => {
         if (Object.keys(contactFields).length > 0) {
           await tx.contact.update({
             where: {
@@ -75,8 +76,23 @@ export const updateContactAction = chatbotActionClient
           })
         }
 
+        const updated: Array<{
+          customFieldId: string
+          oldValue: string | null
+          newValue: string
+        }> = []
+
         if (Object.keys(customFields).length > 0) {
           for (const [key, value] of Object.entries(customFields)) {
+            const existing = await tx.contactCustomField.findUnique({
+              where: {
+                contactId_customFieldId: {
+                  contactId: id,
+                  customFieldId: key,
+                },
+              },
+            })
+
             await tx.contactCustomField.upsert({
               where: {
                 contactId_customFieldId: {
@@ -93,8 +109,30 @@ export const updateContactAction = chatbotActionClient
                 value: value as string,
               },
             })
+
+            updated.push({
+              customFieldId: key,
+              oldValue: existing?.value || null,
+              newValue: value as string,
+            })
           }
         }
+
+        return updated
       })
+
+      for (const field of updatedCustomFields) {
+        try {
+          await TriggerEventEmitter.customFieldChanged(
+            chatbotId,
+            id,
+            field.customFieldId,
+            field.oldValue,
+            field.newValue,
+          )
+        } catch (error) {
+          console.error("Failed to emit customFieldChanged event:", error)
+        }
+      }
     },
   )

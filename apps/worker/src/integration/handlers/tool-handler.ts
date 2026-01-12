@@ -7,6 +7,7 @@ import {
   GenerateCodeType,
   type GetDataFromJsonStepSchema,
 } from "@aha.chat/flow-config"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { faker } from "@faker-js/faker"
 import { format } from "date-fns"
 import { getProperty } from "dot-prop"
@@ -41,6 +42,15 @@ export async function countCharacters({
 
   const value = `${`${targetContactCustomField.value}`.length}`
 
+  const existing = await prisma.contactCustomField.findUnique({
+    where: {
+      contactId_customFieldId: {
+        contactId: conversation.contactId,
+        customFieldId: step.outputCfId,
+      },
+    },
+  })
+
   await prisma.contactCustomField.upsert({
     where: {
       contactId_customFieldId: {
@@ -57,6 +67,18 @@ export async function countCharacters({
       customFieldId: step.outputCfId,
     },
   })
+
+  try {
+    await TriggerEventEmitter.customFieldChanged(
+      conversation.chatbotId,
+      conversation.contactId,
+      step.outputCfId,
+      existing?.value || null,
+      value,
+    )
+  } catch (error) {
+    console.error("Failed to emit customFieldChanged event:", error)
+  }
 }
 
 export async function formatDate({
@@ -75,6 +97,15 @@ export async function formatDate({
 
   const newValue = format(new Date(inputContactCustomField.value), step.format)
 
+  const existing = await prisma.contactCustomField.findUnique({
+    where: {
+      contactId_customFieldId: {
+        contactId: conversation.contactId,
+        customFieldId: step.outputCfId,
+      },
+    },
+  })
+
   await prisma.contactCustomField.upsert({
     where: {
       contactId_customFieldId: {
@@ -91,6 +122,18 @@ export async function formatDate({
       value: newValue,
     },
   })
+
+  try {
+    await TriggerEventEmitter.customFieldChanged(
+      conversation.chatbotId,
+      conversation.contactId,
+      step.outputCfId,
+      existing?.value || null,
+      newValue,
+    )
+  } catch (error) {
+    console.error("Failed to emit customFieldChanged event:", error)
+  }
 }
 
 export async function generateCode({
@@ -118,6 +161,15 @@ export async function generateCode({
   }
 
   if (value) {
+    const existing = await prisma.contactCustomField.findUnique({
+      where: {
+        contactId_customFieldId: {
+          contactId: conversation.contactId,
+          customFieldId: step.outputCfId,
+        },
+      },
+    })
+
     await prisma.contactCustomField.upsert({
       where: {
         contactId_customFieldId: {
@@ -134,6 +186,18 @@ export async function generateCode({
         value,
       },
     })
+
+    try {
+      await TriggerEventEmitter.customFieldChanged(
+        conversation.chatbotId,
+        conversation.contactId,
+        step.outputCfId,
+        existing?.value || null,
+        value,
+      )
+    } catch (error) {
+      console.error("Failed to emit customFieldChanged event:", error)
+    }
   }
 }
 
@@ -172,13 +236,29 @@ export async function getDataFromJSON({
   })
   const validCustomFieldIds = validCustomFields.map((v) => v.id)
 
-  await prisma.$transaction(async (tx) => {
+  const updatedFields = await prisma.$transaction(async (tx) => {
+    const updated: Array<{
+      customFieldId: string
+      oldValue: string | null
+      newValue: string
+    }> = []
+
     for (const data of mapping) {
       if (validCustomFieldIds.includes(data.outputCfId)) {
         const value = getProperty(dataJSON, data.jsonPath)
 
         if (value) {
           const encodedValue = JSON.stringify(value)
+
+          const existing = await tx.contactCustomField.findUnique({
+            where: {
+              contactId_customFieldId: {
+                contactId: conversation.contactId,
+                customFieldId: data.outputCfId,
+              },
+            },
+          })
+
           await tx.contactCustomField.upsert({
             where: {
               contactId_customFieldId: {
@@ -195,8 +275,30 @@ export async function getDataFromJSON({
               value: encodedValue,
             },
           })
+
+          updated.push({
+            customFieldId: data.outputCfId,
+            oldValue: existing?.value || null,
+            newValue: encodedValue,
+          })
         }
       }
     }
+
+    return updated
   })
+
+  for (const field of updatedFields) {
+    try {
+      await TriggerEventEmitter.customFieldChanged(
+        conversation.chatbotId,
+        conversation.contactId,
+        field.customFieldId,
+        field.oldValue,
+        field.newValue,
+      )
+    } catch (error) {
+      console.error("Failed to emit customFieldChanged event:", error)
+    }
+  }
 }

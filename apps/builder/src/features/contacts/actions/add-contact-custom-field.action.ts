@@ -2,6 +2,7 @@
 
 import { FieldType, prisma } from "@aha.chat/database"
 import { FieldOperationType } from "@aha.chat/flow-config"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -39,7 +40,7 @@ export const addContactCustomFieldAction = chatbotActionClient
         return
       }
 
-      await prisma.$transaction(async (tx) => {
+      const customFieldId = await prisma.$transaction(async (tx) => {
         const customField = await tx.field.findFirstOrThrow({
           where: {
             id: parsedInput.customFieldId,
@@ -99,7 +100,23 @@ export const addContactCustomFieldAction = chatbotActionClient
             })
           }),
         )
+
+        return customField.id
       })
+
+      for (const contact of contacts) {
+        try {
+          await TriggerEventEmitter.customFieldChanged(
+            chatbotId,
+            contact.id,
+            customFieldId,
+            null,
+            parsedInput.value,
+          )
+        } catch (error) {
+          console.error("Failed to emit customFieldChanged event:", error)
+        }
+      }
 
       revalidateCacheTags(`chatbots:${chatbotId}#contacts`)
     },

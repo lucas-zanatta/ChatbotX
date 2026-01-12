@@ -17,6 +17,7 @@ import {
   RealtimeEventType,
 } from "@aha.chat/partysocket-config"
 import type { AttachmentEntity, AuthValue, Context } from "@aha.chat/sdk"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import { allIntegrations, getDBIntegration } from "../../shared/integrations"
@@ -67,6 +68,7 @@ export const receiveMessage = async ({
       },
     })
 
+    let isNewContact = false
     if (!newContact) {
       if (canGetUserProfileIfNeeded(integrationType)) {
         const integration = allIntegrations[integrationType]
@@ -103,6 +105,7 @@ export const receiveMessage = async ({
           avatar: conversation.contact.avatar,
         },
       })
+      isNewContact = true
     }
 
     const newConversation = await tx.conversation.upsert({
@@ -164,8 +167,21 @@ export const receiveMessage = async ({
       logger.warn("Unable to emit realtime message", error)
     }
 
-    return { message: newMessage, conversation: newConversation }
+    return {
+      message: newMessage,
+      conversation: newConversation,
+      isNewContact,
+      contactId: newContact.id,
+    }
   })
+
+  if (result.isNewContact) {
+    try {
+      await TriggerEventEmitter.contactCreated(chatbotId, result.contactId)
+    } catch (error) {
+      console.error("Failed to emit contactCreated event:", error)
+    }
+  }
 
   if (postbackAction) {
     await integrationQueue.add(IntegrationJobAction.sendFlowPostback, {

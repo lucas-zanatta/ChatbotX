@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -21,6 +22,19 @@ export const disableBotAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
     }) => {
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          chatbotId,
+          id: {
+            in: parsedInput.ids,
+          },
+        },
+        select: {
+          id: true,
+          contactId: true,
+        },
+      })
+
       await prisma.conversation.updateMany({
         where: {
           chatbotId,
@@ -32,6 +46,20 @@ export const disableBotAction = chatbotActionClient
           liveChatEnabled: true,
         },
       })
+
+      for (const conv of conversations) {
+        try {
+          await TriggerEventEmitter.conversationTransferredToHuman(
+            chatbotId,
+            conv.contactId,
+          )
+        } catch (error) {
+          console.error(
+            "Failed to emit conversationTransferredToHuman event:",
+            error,
+          )
+        }
+      }
 
       revalidateCacheTags(`chatbots:${chatbotId}#conversations`)
     },

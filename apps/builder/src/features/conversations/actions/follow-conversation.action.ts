@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -16,7 +17,7 @@ export const followConversationAction = chatbotActionClient
     }: {
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
     }) => {
-      await prisma.conversation.update({
+      const conversation = await prisma.conversation.update({
         where: {
           id,
           chatbotId,
@@ -24,7 +25,19 @@ export const followConversationAction = chatbotActionClient
         data: {
           followed: true,
         },
+        select: {
+          contactId: true,
+        },
       })
+
+      try {
+        await TriggerEventEmitter.conversationFollowUp(
+          chatbotId,
+          conversation.contactId,
+        )
+      } catch (error) {
+        console.error("Failed to emit conversationFollowUp event:", error)
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,
