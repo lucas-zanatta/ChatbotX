@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
+import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -51,6 +52,14 @@ export const updateContactTagAction = chatbotActionClient
 
         return tags
       })
+
+      for (const tag of returnedTags) {
+        try {
+          await TriggerEventEmitter.tagApplied(chatbotId, contact.id, tag.id)
+        } catch (error) {
+          console.error("Failed to emit tagApplied event:", error)
+        }
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,
