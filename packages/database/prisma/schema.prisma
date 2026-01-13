@@ -165,10 +165,11 @@ model Chatbot {
   aiEmbeddings             AIEmbedding[]
   chatbotUsage             ChatbotUsage?
 
-  invitations Invitation[]
-  triggers    Trigger[]
+  invitations       Invitation[]
+  triggers          Trigger[]
   triggerStats      TriggerStats[]
   triggerHistories  TriggerContactHistory[]
+  triggerExecutions TriggerExecution[]
 }
 
 model ChatbotMember {
@@ -281,6 +282,7 @@ model Contact {
   contactNotes        ContactNote[]
   contactCustomFields ContactCustomField[]
   triggerHistories    TriggerContactHistory[]
+  triggerExecutions   TriggerExecution[]
 
   @@unique([chatbotId, sourceId])
 }
@@ -966,15 +968,16 @@ model Trigger {
   active   Boolean @default(true)
   folderId String?
 
-  actions    Json @default("[]")
+  actions Json @default("[]")
 
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
-  folder            Folder?                  @relation(fields: [folderId], references: [id])
+  folder            Folder?                 @relation(fields: [folderId], references: [id])
   triggerConditions TriggerCondition[]
   triggerStats      TriggerStats[]
   triggerHistories  TriggerContactHistory[]
+  triggerExecutions TriggerExecution[]
 
   @@index([chatbotId])
   @@index([folderId])
@@ -1039,6 +1042,25 @@ model TriggerContactHistory {
   @@unique([triggerId, contactId])
   @@index([triggerId, contactId])
   @@index([contactId])
+  @@index([chatbotId])
+}
+
+model TriggerExecution {
+  id         String   @id @default(cuid(2))
+  createdAt  DateTime @default(now())
+  executedAt DateTime @default(now())
+
+  triggerId String
+  trigger   Trigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@unique([triggerId, contactId])
+  @@index([triggerId, contactId])
   @@index([chatbotId])
 }
 
