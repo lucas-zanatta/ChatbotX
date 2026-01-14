@@ -31,8 +31,8 @@ export const receiveMessage = async ({
 }): Promise<{
   message: MessageModel
   conversation: ConversationModel
-  postbackAction: { flowVersionId: string; buttonId: string } | null
-  quickReplyAction: { flowVersionId: string; buttonId: string } | null
+  postbackAction: string | null
+  quickReplyAction: string | null
 }> => {
   if (!Object.hasOwn(allIntegrations, integrationType)) {
     throw new Error(`Unsupported integration: ${integrationType}`)
@@ -188,8 +188,7 @@ export const receiveMessage = async ({
       type: IntegrationJobAction.sendFlowPostback,
       data: {
         conversationId: result.conversation.id,
-        flowVersionId: postbackAction.flowVersionId,
-        buttonId: postbackAction.buttonId,
+        action: postbackAction,
       },
     })
   }
@@ -199,8 +198,7 @@ export const receiveMessage = async ({
       type: IntegrationJobAction.sendFlowQuickReply,
       data: {
         conversationId: result.conversation.id,
-        flowVersionId: quickReplyAction.flowVersionId,
-        buttonId: quickReplyAction.buttonId,
+        action: quickReplyAction,
       },
     })
   }
