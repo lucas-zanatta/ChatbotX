@@ -1,7 +1,5 @@
 import type { ConversationModel } from "@aha.chat/database/types"
 import {
-  type SendQuickReplyStepSchema,
-  type SendTextStepSchema,
   type StartAnotherNodeStepSchema,
   type StartExternalFlowStepSchema,
   type StartExternalNodeStepSchema,
@@ -9,6 +7,7 @@ import {
 } from "@aha.chat/flow-config"
 import {
   ChatJobAction,
+  type ChatJobSendFlowStep,
   chatQueue,
   IntegrationJobAction,
   integrationQueue,
@@ -53,33 +52,14 @@ import {
 export type FlowStepProps<T> = {
   conversation: ConversationModel
   flowId: string
-  flowVersionId: string
+  flowVersionId?: string
   step: T
 }
 
-export async function sendFlowMessage({
-  conversation,
-  flowId,
-  flowVersionId,
-  step,
-}: FlowStepProps<SendTextStepSchema>) {
-  await chatQueue.add(ChatJobAction.sendFlowMessage, {
-    type: ChatJobAction.sendFlowMessage,
-    data: {
-      conversationId: conversation.id,
-      flowId,
-      flowVersionId,
-      step,
-    },
-  })
-}
-
-export async function sendQuickReply({
-  conversation,
-  flowId,
-  flowVersionId,
-  step,
-}: FlowStepProps<SendQuickReplyStepSchema>) {
+export async function sendFlowMessage(
+  props: FlowStepProps<ChatJobSendFlowStep["data"]["step"]>,
+) {
+  const { conversation, flowId, flowVersionId, step } = props
   await chatQueue.add(ChatJobAction.sendFlowMessage, {
     type: ChatJobAction.sendFlowMessage,
     data: {
@@ -173,8 +153,8 @@ export const flowStepHandlers: Record<
   [StepType.performAction]: undefined,
   [StepType.removeContactTag]: removeContactTag,
   [StepType.sendAudio]: sendFlowMessage,
-  [StepType.sendCard]: undefined,
-  [StepType.sendCarousel]: undefined,
+  [StepType.sendCard]: sendFlowMessage,
+  [StepType.sendCarousel]: sendFlowMessage,
   [StepType.sendFile]: sendFlowMessage,
   [StepType.sendGif]: sendFlowMessage,
   [StepType.sendImage]: sendFlowMessage,
@@ -203,5 +183,5 @@ export const flowStepHandlers: Record<
   [StepType.spreadsheetSendData]: sendSpreadsheetData,
   [StepType.spreadsheetUpdateRow]: updateSpreadsheetRow,
   [StepType.waitUserReply]: undefined,
-  [StepType.sendQuickReply]: sendQuickReply,
+  [StepType.sendQuickReply]: sendFlowMessage,
 }

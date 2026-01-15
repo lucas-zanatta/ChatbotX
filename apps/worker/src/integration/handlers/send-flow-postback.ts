@@ -9,6 +9,7 @@ import type {
   IntegrationJobSendFlowPostback,
   IntegrationJobSendFlowQuickReply,
 } from "@aha.chat/worker-config"
+import { logger } from "../../lib/logger"
 import { runStepsAndQuickReplies } from "./send-flow-node"
 
 async function findConversationAndFlowAndFlowVersion(props: {
@@ -76,6 +77,15 @@ export async function sendFlowPostback(
       flowVersionId: parsedAction.flowVersionId,
     })
 
+  logger.debug(
+    "sendFlowPostback",
+    JSON.stringify({
+      conversation,
+      flowVersion,
+      parsedAction,
+    }),
+  )
+
   const nodes = flowVersion.nodes as unknown as FlowNode[]
 
   const foundedButton = nodes
@@ -91,13 +101,14 @@ export async function sendFlowPostback(
     return
   }
 
-  await runStepsAndQuickReplies(
+  await runStepsAndQuickReplies({
     conversation,
     flowVersion,
-    foundedButton,
-    foundedButton.id,
-    false,
-  )
+    useLatestFlowVersion: true,
+    nodeDetail: foundedButton,
+    nodeIdOrButtonId: foundedButton.id,
+    triggerNextNode: false,
+  })
 }
 
 export async function sendFlowQuickReply(
@@ -129,10 +140,12 @@ export async function sendFlowQuickReply(
     return
   }
 
-  await runStepsAndQuickReplies(
+  await runStepsAndQuickReplies({
     conversation,
     flowVersion,
-    foundedButton,
-    foundedButton.id,
-  )
+    useLatestFlowVersion: true,
+    nodeDetail: foundedButton,
+    nodeIdOrButtonId: foundedButton.id,
+    triggerNextNode: false,
+  })
 }
