@@ -170,6 +170,7 @@ model Chatbot {
   triggerStats      TriggerStats[]
   triggerHistories  TriggerContactHistory[]
   triggerExecutions TriggerExecution[]
+  webhooks          Webhook[]
 }
 
 model ChatbotMember {
@@ -306,6 +307,7 @@ model Folder {
   fields   Field[]
   flows    Flow[]
   triggers Trigger[]
+  webhooks Webhook[]
 
   @@index([chatbotId])
   @@index([parentId])
@@ -974,7 +976,7 @@ model Trigger {
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
   folder            Folder?                 @relation(fields: [folderId], references: [id])
-  triggerConditions TriggerCondition[]
+  conditions        Condition[]
   triggerStats      TriggerStats[]
   triggerHistories  TriggerContactHistory[]
   triggerExecutions TriggerExecution[]
@@ -984,12 +986,15 @@ model Trigger {
   @@index([chatbotId, active])
 }
 
-model TriggerCondition {
+model Condition {
   id        String   @id @default(cuid(2))
   createdAt DateTime @default(now())
 
-  triggerId String
-  trigger   Trigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+  triggerId String?
+  trigger   Trigger? @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  webhook   Webhook? @relation(fields: [webhookId], references: [id])
+  webhookId String?
 
   type     Int
   sourceId String?
@@ -1062,6 +1067,28 @@ model TriggerExecution {
   @@unique([triggerId, contactId])
   @@index([triggerId, contactId])
   @@index([chatbotId])
+}
+
+model Webhook {
+  id        String   @id @default(cuid(2))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name     String
+  active   Boolean @default(true)
+  folderId String?
+
+  url String
+
+  chatbotId String
+  chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  folder     Folder?     @relation(fields: [folderId], references: [id])
+  conditions Condition[]
+
+  @@index([chatbotId])
+  @@index([folderId])
+  @@index([chatbotId, active])
 }
 
 model AutomatedResponse {
@@ -1166,6 +1193,7 @@ enum FolderType {
   customField
   automatedResponse
   trigger
+  webhook
 }
 
 enum ChatbotMemberRole {

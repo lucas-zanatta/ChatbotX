@@ -517,6 +517,9 @@
     "trigger": {
       "label": "Trigger"
     },
+    "webhook": {
+      "label": "Webhook"
+    },
     "button": {
       "label": "Button",
       "whenPressed": "When this button is pressed"
