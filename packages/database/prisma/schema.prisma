@@ -1039,7 +1039,6 @@ model TriggerContactHistory {
   firstEnteredAt DateTime @default(now())
 
   @@id([id, contactId])
-  @@unique([triggerId, contactId])
   @@index([triggerId, contactId])
   @@index([contactId])
   @@index([chatbotId])
@@ -1059,7 +1058,6 @@ model TriggerExecution {
   chatbotId String
   chatbot   Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
 
-  @@unique([triggerId, contactId])
   @@index([triggerId, contactId])
   @@index([chatbotId])
 }
