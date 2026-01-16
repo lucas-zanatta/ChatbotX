@@ -13,19 +13,48 @@ import {
 import { PlusIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useMemo } from "react"
-import { defaultFn as addCustomFieldValueChangedCondition } from "./components/conditions/schemas/custom-field-value-changed"
-import { defaultFn as addDateTimeBaseTriggerCondition } from "./components/conditions/schemas/date-time-based-trigger"
+import {
+  defaultFn as addCustomFieldValueChangedCondition,
+  type CustomFieldValueChanged,
+} from "./components/conditions/schemas/custom-field-value-changed"
+import {
+  defaultFn as addDateTimeBaseTriggerCondition,
+  type DateTimeBasedTrigger,
+} from "./components/conditions/schemas/date-time-based-trigger"
 import {
   createDefaultFn,
   createDefaultFnWithSourceId,
 } from "./components/conditions/schemas/simple-conditions"
-import { defaultFn as addTagAppliedCondition } from "./components/conditions/schemas/tag-applied"
-import { defaultFn as addTagRemovedCondition } from "./components/conditions/schemas/tag-removed"
+import {
+  defaultFn as addTagAppliedCondition,
+  type TagApplied,
+} from "./components/conditions/schemas/tag-applied"
+import {
+  defaultFn as addTagRemovedCondition,
+  type TagRemoved,
+} from "./components/conditions/schemas/tag-removed"
+
+type SimpleCondition = {
+  id?: string
+  type: TriggerCondition
+}
+
+type ConditionWithSourceId = SimpleCondition & {
+  sourceId: string
+}
+
+type TriggerConditionData =
+  | TagApplied
+  | TagRemoved
+  | CustomFieldValueChanged
+  | DateTimeBasedTrigger
+  | SimpleCondition
+  | ConditionWithSourceId
 
 type ConditionOption = {
   label: string
   value: TriggerCondition
-  defaultFn: () => any
+  defaultFn: () => TriggerConditionData
 }
 
 export function AddCondition({
