@@ -91,6 +91,7 @@ export const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
   [ConditionType.datetime]: [
     Operator.is,
     Operator.isNot,
+    Operator.hasAnyValue,
     Operator.hasNoValue,
     Operator.greaterThan,
     Operator.lessThan,
