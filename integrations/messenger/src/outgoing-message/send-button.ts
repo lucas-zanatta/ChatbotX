@@ -7,11 +7,13 @@ import { chunk } from "remeda"
 import { MAX_BUTTONS } from "../constants"
 import type { FacebookButton } from "../schemas"
 
-export function getButtonTemplate(
-  flowId: string,
-  flowVersionId: string,
-  button: ButtonStepProps,
-): FacebookButton {
+export function getButtonTemplate(props: {
+  flowId: string
+  flowVersionId?: string
+  button: ButtonStepProps
+}): FacebookButton {
+  const { flowId, flowVersionId, button } = props
+
   switch (button.buttonType) {
     case ButtonType.OpenWebsite:
       return {
@@ -34,15 +36,19 @@ export function getButtonTemplate(
   }
 }
 
-export function convertFacebookButtons(
-  flowId: string,
-  flowVersionId: string,
-  buttons: ButtonStepProps[],
-): FacebookButton[] | undefined {
+export function convertFacebookButtons({
+  flowId,
+  flowVersionId,
+  buttons,
+}: {
+  flowId: string
+  flowVersionId?: string
+  buttons: ButtonStepProps[]
+}): FacebookButton[] | undefined {
   const chunks = chunk(buttons, MAX_BUTTONS)
   if (chunks.length > 0 && chunks[0]) {
     return chunks[0].map((button) =>
-      getButtonTemplate(flowId, flowVersionId, button),
+      getButtonTemplate({ flowId, flowVersionId, button }),
     )
   }
 }
