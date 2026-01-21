@@ -211,7 +211,7 @@
   },
   "automatedResponse": {
     "heading": {
-      "title": "Automated Responses"
+      "title": "Keywords"
     },
     "setting": {
       "description": "Automated responses description",
@@ -471,7 +471,7 @@
       "label": "Automated Response"
     },
     "automatedResponses": {
-      "label": "Automated Responses"
+      "label": "Keywords"
     },
     "autoReply": {
       "label": "Auto Reply"
@@ -1328,7 +1328,7 @@
       "title": "AI Triggers"
     },
     "automatedResponses": {
-      "title": "Automated Responses"
+      "title": "Keywords"
     },
     "openAI": {
       "description": "OpenAI integration description",

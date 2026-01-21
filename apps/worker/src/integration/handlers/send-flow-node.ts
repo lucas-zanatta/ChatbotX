@@ -3,10 +3,37 @@ import type {
   ConversationModel,
   FlowVersionModel,
 } from "@aha.chat/database/types"
-import { type FlowNode, StepType } from "@aha.chat/flow-config"
+import {
+  type BaseStepSchema,
+  type ButtonStepProps,
+  type EdgeSchema,
+  type FlowNode,
+  type SendQuickReplyStepSchema,
+  StepType,
+} from "@aha.chat/flow-config"
 import { SdkException } from "@aha.chat/sdk"
 import type { IntegrationJobSendFlow } from "@aha.chat/worker-config"
 import { flowStepHandlers } from "./step-handler"
+
+export type RunFlowNodeProps = {
+  conversation: ConversationModel
+  flowVersion: FlowVersionModel
+  useLatestFlowVersion?: boolean
+  steps: BaseStepSchema[]
+}
+
+type RunStepsAndQuickRepliesProps = {
+  conversation: ConversationModel
+  flowVersion: FlowVersionModel
+  useLatestFlowVersion?: boolean
+  nodeDetail: {
+    beforeStep?: BaseStepSchema | null
+    steps?: BaseStepSchema[] | null
+    quickReplies?: ButtonStepProps[] | null
+  }
+  nodeIdOrButtonId: string
+  triggerNextNode?: boolean
+}
 
 export const sendFlowNode = async (props: IntegrationJobSendFlow) => {
   if (!(props.data.flowId || props.data.flowVersionId)) {
@@ -61,39 +88,99 @@ export const sendFlowNode = async (props: IntegrationJobSendFlow) => {
     throw new SdkException("FlowVersion does not contain start node")
   }
 
-  if ("steps" in startNode.data.details && startNode.data.details.steps) {
-    await generateRunFlowNode(
+  await runStepsAndQuickReplies({
+    conversation,
+    flowVersion,
+    useLatestFlowVersion: !!props.data.flowVersionId,
+    nodeDetail: startNode.data.details,
+    nodeIdOrButtonId: startNode.id,
+  })
+}
+
+export async function runStepsAndQuickReplies(
+  props: RunStepsAndQuickRepliesProps,
+) {
+  const {
+    conversation,
+    flowVersion,
+    useLatestFlowVersion,
+    nodeDetail,
+    nodeIdOrButtonId,
+    triggerNextNode = true,
+  } = props
+
+  // run before step
+  if (nodeDetail.beforeStep) {
+    await generateRunFlowNode({
       conversation,
-      flowVersion.id,
-      startNode.data.details.steps,
-    )
+      flowVersion,
+      useLatestFlowVersion,
+      steps: [nodeDetail.beforeStep],
+    })
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  // run steps
+  if ("steps" in nodeDetail && nodeDetail.steps) {
+    await generateRunFlowNode({
+      conversation,
+      flowVersion,
+      useLatestFlowVersion,
+      steps: nodeDetail.steps,
+    })
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 200))
 
   if (
-    "quickReplies" in startNode.data.details &&
-    startNode.data.details.quickReplies.length > 0
+    "quickReplies" in nodeDetail &&
+    nodeDetail.quickReplies &&
+    nodeDetail.quickReplies.length > 0
   ) {
-    await flowStepHandlers[StepType.sendQuickReply]?.({
+    await generateRunFlowNode({
       conversation,
-      flowVersionId: flowVersion.id,
-      step: {
-        stepType: StepType.sendQuickReply,
-        message: "Please select an option",
-        buttons: startNode.data.details.quickReplies,
-      },
+      flowVersion,
+      useLatestFlowVersion,
+      steps: [
+        {
+          stepType: StepType.sendQuickReply,
+          message: "Please select an option",
+          buttons: nodeDetail.quickReplies,
+        } as SendQuickReplyStepSchema,
+      ],
     })
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 200))
+
+  if (!triggerNextNode) {
+    return
+  }
+
+  // send next node if exists
+  const relatedEdge = (flowVersion.edges as EdgeSchema[]).find(
+    (edge) => edge.sourceHandle === nodeIdOrButtonId,
+  )
+
+  if (relatedEdge) {
+    const nextNode = (flowVersion.nodes as unknown as FlowNode[]).find(
+      (node) => node.id === relatedEdge?.target,
+    )
+    if (nextNode) {
+      await runStepsAndQuickReplies({
+        conversation,
+        flowVersion,
+        useLatestFlowVersion,
+        nodeDetail: nextNode.data.details,
+        nodeIdOrButtonId: relatedEdge.target,
+      })
+    }
   }
 }
 
-export async function generateRunFlowNode(
-  conversation: ConversationModel,
-  flowVersionId: string,
-  // biome-ignore lint/suspicious/noExplicitAny: wip
-  steps: any[],
-) {
-  const gen = runFlowNode(conversation, flowVersionId, steps)
+export async function generateRunFlowNode(props: RunFlowNodeProps) {
+  const gen = runFlowNode(props)
   let result = await gen.next()
 
   while (!result.done) {
@@ -101,16 +188,14 @@ export async function generateRunFlowNode(
   }
 }
 
-function* runFlowNode(
-  conversation: ConversationModel,
-  flowVersionId: string,
-  // biome-ignore lint/suspicious/noExplicitAny: wip
-  steps: any[],
-) {
+function* runFlowNode(props: RunFlowNodeProps) {
+  const { conversation, flowVersion, useLatestFlowVersion, steps } = props
+
   for (const step of steps) {
     yield flowStepHandlers[step.stepType as StepType]?.({
       conversation,
-      flowVersionId,
+      flowId: flowVersion.flowId,
+      flowVersionId: useLatestFlowVersion ? undefined : flowVersion.id,
       step,
     })
   }
