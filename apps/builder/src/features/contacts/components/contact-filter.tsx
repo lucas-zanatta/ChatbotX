@@ -1,7 +1,12 @@
 "use client"
 
-import { ConditionType, Operator } from "@aha.chat/database/enums"
-import { CustomFieldType } from "@aha.chat/database/types"
+import {
+  ConditionField,
+  type ConditionFieldType,
+  ConditionType,
+  Operator,
+} from "@aha.chat/database/enums"
+import { CustomFieldType, IntegrationType } from "@aha.chat/database/types"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import { DateTimePickerField } from "@aha.chat/ui/components/form/date-picker-field"
 import { InputField } from "@aha.chat/ui/components/form/input-field"
@@ -36,6 +41,7 @@ import {
   useWatch,
 } from "react-hook-form"
 import z from "zod"
+
 import {
   allContinentOptions,
   allCountryOptions,
@@ -77,10 +83,15 @@ export const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
     Operator.startsWith,
     Operator.endsWith,
   ],
-  [ConditionType.boolean]: [Operator.is, Operator.hasNoValue],
+  [ConditionType.boolean]: [
+    Operator.is,
+    Operator.hasNoValue,
+    Operator.hasAnyValue,
+  ],
   [ConditionType.datetime]: [
     Operator.is,
     Operator.isNot,
+    Operator.hasAnyValue,
     Operator.hasNoValue,
     Operator.greaterThan,
     Operator.lessThan,

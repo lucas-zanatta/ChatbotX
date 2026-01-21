@@ -1,34 +1,23 @@
-/*
-  Warnings:
+-- AlterEnum
+ALTER TYPE "FolderType" ADD VALUE IF NOT EXISTS 'webhook';
 
-  - You are about to drop the `TriggerCondition` table. If the table is not empty, all the data it contains will be lost.
+-- RenameTable
+ALTER TABLE "TriggerCondition" RENAME TO "Condition";
 
-*/
--- DropForeignKey
-ALTER TABLE "TriggerCondition" DROP CONSTRAINT "TriggerCondition_triggerId_fkey";
+-- RenameConstraints
+ALTER TABLE "Condition" RENAME CONSTRAINT "TriggerCondition_pkey" TO "Condition_pkey";
+ALTER TABLE "Condition" RENAME CONSTRAINT "TriggerCondition_triggerId_fkey" TO "Condition_triggerId_fkey";
 
--- DropIndex
-DROP INDEX "ContactCustomField_customFieldId_idx";
+-- RenameIndexes
+ALTER INDEX "TriggerCondition_type_sourceId_idx" RENAME TO "Condition_type_sourceId_idx";
+ALTER INDEX "TriggerCondition_triggerId_idx" RENAME TO "Condition_triggerId_idx";
+ALTER INDEX "TriggerCondition_type_sourceId_triggerId_idx" RENAME TO "Condition_type_sourceId_triggerId_idx";
 
--- DropIndex
-DROP INDEX "Trigger_chatbotId_name_key";
+-- AlterColumns
+ALTER TABLE "Condition" ALTER COLUMN "triggerId" DROP NOT NULL;
+ALTER TABLE "Condition" ADD COLUMN "webhookId" TEXT;
 
--- DropTable
-DROP TABLE "TriggerCondition";
-
--- CreateTable
-CREATE TABLE "Condition" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "triggerId" TEXT NOT NULL,
-    "type" INTEGER NOT NULL,
-    "sourceId" TEXT,
-    "operator" TEXT,
-    "value" JSONB,
-    "webhookId" TEXT,
-
-    CONSTRAINT "Condition_pkey" PRIMARY KEY ("id")
-);
+DROP TABLE IF EXISTS "Webhook";
 
 -- CreateTable
 CREATE TABLE "Webhook" (
@@ -45,15 +34,6 @@ CREATE TABLE "Webhook" (
 );
 
 -- CreateIndex
-CREATE INDEX "Condition_type_sourceId_idx" ON "Condition"("type", "sourceId");
-
--- CreateIndex
-CREATE INDEX "Condition_triggerId_idx" ON "Condition"("triggerId");
-
--- CreateIndex
-CREATE INDEX "Condition_type_sourceId_triggerId_idx" ON "Condition"("type", "sourceId", "triggerId");
-
--- CreateIndex
 CREATE INDEX "Webhook_chatbotId_idx" ON "Webhook"("chatbotId");
 
 -- CreateIndex
@@ -61,9 +41,6 @@ CREATE INDEX "Webhook_folderId_idx" ON "Webhook"("folderId");
 
 -- CreateIndex
 CREATE INDEX "Webhook_chatbotId_active_idx" ON "Webhook"("chatbotId", "active");
-
--- AddForeignKey
-ALTER TABLE "Condition" ADD CONSTRAINT "Condition_triggerId_fkey" FOREIGN KEY ("triggerId") REFERENCES "Trigger"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Condition" ADD CONSTRAINT "Condition_webhookId_fkey" FOREIGN KEY ("webhookId") REFERENCES "Webhook"("id") ON DELETE SET NULL ON UPDATE CASCADE;

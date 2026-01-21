@@ -1,4 +1,5 @@
 import { prisma } from "@aha.chat/database"
+import { setExecutionContext } from "@aha.chat/trigger-events"
 import { logger } from "../../lib/logger"
 import type { TriggerWithConditions } from "../types"
 import { ActionExecutor } from "./action-executor"
@@ -10,9 +11,6 @@ export class TriggerExecutorService {
     this.actionExecutor = new ActionExecutor()
   }
 
-  /**
-   * Execute a trigger for a specific contact
-   */
   async execute(
     trigger: TriggerWithConditions,
     contactId: string,
@@ -20,35 +18,25 @@ export class TriggerExecutorService {
     const { id: triggerId, chatbotId, actions } = trigger
 
     try {
-      // Check if contact already triggered this (prevent duplicate execution)
-      const existingHistory = await prisma.triggerContactHistory.findUnique({
-        where: {
-          triggerId_contactId: {
-            triggerId,
-            contactId,
-          },
-        },
-      })
+      setExecutionContext({ source: "worker" })
 
-      if (existingHistory) {
-        logger.info(
-          `Trigger ${triggerId} already executed for contact ${contactId}`,
-        )
-        return
-      }
-
-      // Execute all actions
       const actionsArray = Array.isArray(actions) ? actions : []
 
       for (const action of actionsArray) {
-        await this.actionExecutor.execute({
-          action: action as Record<string, unknown>,
-          contactId,
-          chatbotId,
-        })
+        try {
+          await this.actionExecutor.execute({
+            action: action as Record<string, unknown>,
+            contactId,
+            chatbotId,
+          })
+        } catch (err) {
+          logger.error(
+            `Failed to execute action for trigger ${triggerId} for contact ${contactId}`,
+            err,
+          )
+        }
       }
 
-      // Save execution history
       await prisma.triggerContactHistory.create({
         data: {
           triggerId,
@@ -58,7 +46,6 @@ export class TriggerExecutorService {
         },
       })
 
-      // Update stats
       await this.updateStats(triggerId, chatbotId, true)
 
       logger.info(
@@ -70,16 +57,12 @@ export class TriggerExecutorService {
         error,
       )
 
-      // Update stats with failure
       await this.updateStats(triggerId, chatbotId, false)
 
       throw error
     }
   }
 
-  /**
-   * Update trigger statistics
-   */
   private async updateStats(
     triggerId: string,
     chatbotId: string,

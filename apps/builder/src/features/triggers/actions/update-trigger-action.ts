@@ -25,7 +25,7 @@ export const updateTriggerAction = chatbotActionClient
     }) => {
       const { conditions, actions } = parsedInput
 
-      return await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx) => {
         const existingConditions = await tx.condition.findMany({
           where: { triggerId: id },
         })
@@ -89,15 +89,13 @@ export const updateTriggerAction = chatbotActionClient
           })
         }
 
-        const result = await tx.trigger.findUnique({
+        return await tx.trigger.findUnique({
           where: { id },
         })
-
-        if (result) {
-          await updateTriggerCache(chatbotId)
-        }
-
-        return result
       })
+
+      await updateTriggerCache(chatbotId)
+
+      return result
     },
   )

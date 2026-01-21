@@ -1,5 +1,7 @@
 import { prisma } from "@aha.chat/database"
 import { TriggerCondition } from "@aha.chat/database/enums"
+import { getRedisConnection } from "@aha.chat/worker-config"
+import { logger } from "../../lib/logger"
 import type {
   DateTimeCondition,
   DateTimeOperator,
@@ -24,6 +26,7 @@ interface TriggerMap {
     chatbotId: string
     actions: unknown
     conditions: DateTimeCondition[]
+    timezone: string
   }
 }
 
@@ -46,6 +49,7 @@ async function fetchTriggerChunk(
           type: TriggerCondition.dateTimeBasedTrigger,
         },
       },
+      chatbot: true,
     },
     take: chunkSize,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
@@ -68,9 +72,9 @@ async function fetchTriggerChunk(
       }
 
       conditions.push({
-        operator: triggerValue.triggerType as DateTimeOperator,
-        value: triggerValue.timeValue,
-        unit: triggerValue.timeType,
+        triggerType: triggerValue.triggerType as DateTimeOperator,
+        timeValue: triggerValue.timeValue,
+        timeType: triggerValue.timeType,
         at: triggerValue.at,
         customFieldId: condition.sourceId,
       })
@@ -82,6 +86,7 @@ async function fetchTriggerChunk(
         chatbotId: trigger.chatbotId,
         actions: trigger.actions,
         conditions,
+        timezone: trigger.chatbot?.accountTimezone || "UTC",
       }
     }
   }
@@ -152,16 +157,29 @@ function filterContactsWithAllCustomFields(
 function evaluateContactForTrigger(
   triggerInfo: TriggerMap[string],
   customFieldValues: Map<string, unknown>,
+  params: {
+    startOfMinute: number
+  },
 ): boolean {
+  const timezone = triggerInfo.timezone
+
   for (const condition of triggerInfo.conditions) {
     const customFieldValue = customFieldValues.get(condition.customFieldId)
 
-    const datetimeValue = parseDateTimeValue(customFieldValue)
+    const datetimeValue = parseDateTimeValue(customFieldValue, timezone)
+
+    // console.log({ datetimeValue, triggerId: triggerInfo.triggerId })
+
     if (!datetimeValue) {
       return false
     }
 
-    const matches = matchesDateTimeCondition(datetimeValue, condition)
+    const matches = matchesDateTimeCondition(
+      datetimeValue,
+      condition,
+      params,
+      timezone,
+    )
     if (!matches) {
       return false
     }
@@ -188,34 +206,111 @@ async function getExecutedTriggers(
   return new Set(executions.map((e) => `${e.triggerId}:${e.contactId}`))
 }
 
-async function executeAndMarkTrigger(
+async function checkExecutionCache(
+  redis: ReturnType<typeof getRedisConnection>,
+  triggerId: string,
+  contactId: string,
+): Promise<boolean> {
+  const cacheKey = `trigger:executed:${triggerId}:${contactId}`
+  const cached = await redis.get(cacheKey)
+  return !!cached
+}
+
+async function acquireExecutionLock(
+  redis: ReturnType<typeof getRedisConnection>,
+  triggerId: string,
+  contactId: string,
+): Promise<boolean> {
+  const lockKey = `trigger:lock:${triggerId}:${contactId}`
+  const lockAcquired = await redis.set(lockKey, "1", "EX", 30, "NX")
+  return !!lockAcquired
+}
+
+async function releaseExecutionLock(
+  redis: ReturnType<typeof getRedisConnection>,
+  triggerId: string,
+  contactId: string,
+): Promise<void> {
+  const lockKey = `trigger:lock:${triggerId}:${contactId}`
+  await redis.del(lockKey)
+}
+
+async function executeActions(
   triggerInfo: TriggerMap[string],
   contactId: string,
-): Promise<DateTimeTriggerResult> {
-  try {
-    const actions = Array.isArray(triggerInfo.actions)
-      ? triggerInfo.actions
-      : []
-    const executor = new ActionExecutor()
+): Promise<void> {
+  const actions = Array.isArray(triggerInfo.actions) ? triggerInfo.actions : []
+  const executor = new ActionExecutor()
 
-    for (const action of actions) {
+  for (const action of actions) {
+    try {
       await executor.execute({
         action,
         contactId,
         chatbotId: triggerInfo.chatbotId,
       })
+    } catch (error) {
+      logger.error(
+        `Failed to execute action for trigger ${triggerInfo.triggerId} for contact ${contactId}`,
+        error,
+      )
+    }
+  }
+}
+
+async function markTriggerExecuted(
+  redis: ReturnType<typeof getRedisConnection>,
+  triggerInfo: TriggerMap[string],
+  contactId: string,
+): Promise<void> {
+  await prisma.$executeRaw`
+    INSERT INTO "TriggerExecution" ("id", "triggerId", "contactId", "chatbotId", "createdAt", "executedAt")
+    VALUES (gen_random_uuid(), ${triggerInfo.triggerId}, ${contactId}, ${triggerInfo.chatbotId}, NOW(), NOW())
+    ON CONFLICT ("triggerId", "contactId") DO NOTHING
+  `
+
+  const cacheKey = `trigger:executed:${triggerInfo.triggerId}:${contactId}`
+  await redis.setex(cacheKey, 86_400 * 90, "1")
+}
+
+async function executeAndMarkTrigger(
+  triggerInfo: TriggerMap[string],
+  contactId: string,
+): Promise<DateTimeTriggerResult> {
+  const notExecutedResult = {
+    triggerId: triggerInfo.triggerId,
+    contactId,
+    matched: false,
+  }
+
+  try {
+    const redis = getRedisConnection()
+
+    if (await checkExecutionCache(redis, triggerInfo.triggerId, contactId)) {
+      return notExecutedResult
     }
 
-    await prisma.$executeRaw`
-      INSERT INTO "TriggerExecution" ("id", "triggerId", "contactId", "chatbotId", "createdAt", "executedAt")
-      VALUES (gen_random_uuid(), ${triggerInfo.triggerId}, ${contactId}, ${triggerInfo.chatbotId}, NOW(), NOW())
-      ON CONFLICT ("triggerId", "contactId") DO NOTHING
-    `
+    if (
+      !(await acquireExecutionLock(redis, triggerInfo.triggerId, contactId))
+    ) {
+      return notExecutedResult
+    }
 
-    return {
-      triggerId: triggerInfo.triggerId,
-      contactId,
-      matched: true,
+    try {
+      if (await checkExecutionCache(redis, triggerInfo.triggerId, contactId)) {
+        return notExecutedResult
+      }
+
+      await executeActions(triggerInfo, contactId)
+      await markTriggerExecuted(redis, triggerInfo, contactId)
+
+      return {
+        triggerId: triggerInfo.triggerId,
+        contactId,
+        matched: true,
+      }
+    } finally {
+      await releaseExecutionLock(redis, triggerInfo.triggerId, contactId)
     }
   } catch (error) {
     return {
@@ -233,6 +328,9 @@ async function processContactBatch(
   allCustomFieldIds: Set<string>,
   skip: number,
   batchSize: number,
+  params: {
+    startOfMinute: number
+  },
 ): Promise<{ results: DateTimeTriggerResult[]; hasMore: boolean }> {
   const contactCustomFields = await prisma.contactCustomField.findMany({
     where: {
@@ -280,6 +378,9 @@ async function processContactBatch(
       const allConditionsMatch = evaluateContactForTrigger(
         triggerInfo,
         customFieldValues,
+        {
+          startOfMinute: params.startOfMinute,
+        },
       )
 
       if (allConditionsMatch) {
@@ -298,6 +399,9 @@ async function processContactBatch(
 
 async function processTriggerChunk(
   triggerMap: TriggerMap,
+  params: {
+    startOfMinute: number
+  },
 ): Promise<DateTimeTriggerResult[]> {
   const triggerIds = Object.keys(triggerMap)
   const allCustomFieldIds = extractCustomFieldIds(triggerMap)
@@ -314,6 +418,7 @@ async function processTriggerChunk(
       allCustomFieldIds,
       skip,
       CONTACT_BATCH_SIZE,
+      params,
     )
 
     results.push(...batchResults)
@@ -324,9 +429,9 @@ async function processTriggerChunk(
   return results
 }
 
-export async function evaluateDateTimeTriggers(): Promise<
-  DateTimeTriggerResult[]
-> {
+export async function evaluateDateTimeTriggers(params: {
+  startOfMinute: number
+}): Promise<DateTimeTriggerResult[]> {
   const TRIGGER_CHUNK_SIZE = 100
   const allResults: DateTimeTriggerResult[] = []
   let triggerCursor: string | undefined
@@ -348,7 +453,7 @@ export async function evaluateDateTimeTriggers(): Promise<
       `Processing ${triggerIds.length} triggers (total: ${triggerCount})`,
     )
 
-    const results = await processTriggerChunk(triggerMap)
+    const results = await processTriggerChunk(triggerMap, params)
     allResults.push(...results)
 
     if (!nextCursor) {

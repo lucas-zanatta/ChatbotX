@@ -21,7 +21,7 @@ export async function setContactCustomField({
     where: {
       contactId_customFieldId: {
         contactId: conversation.contactId,
-        customFieldId: step.outputCfId,
+        customFieldId: step.inputCfId,
       },
     },
   })
@@ -29,13 +29,13 @@ export async function setContactCustomField({
   await prisma.contactCustomField.upsert({
     create: {
       contactId: conversation.contactId,
-      customFieldId: step.outputCfId,
+      customFieldId: step.inputCfId,
       value: step.value,
     },
     where: {
       contactId_customFieldId: {
         contactId: conversation.contactId,
-        customFieldId: step.outputCfId,
+        customFieldId: step.inputCfId,
       },
     },
     update: {
@@ -47,7 +47,7 @@ export async function setContactCustomField({
     await TriggerEventEmitter.customFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
-      step.outputCfId,
+      step.inputCfId,
       existing?.value || null,
       step.value,
     )

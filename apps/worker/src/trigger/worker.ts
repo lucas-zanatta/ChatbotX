@@ -22,11 +22,18 @@ const worker = new Worker(
       case TriggerJobAction.evaluateTriggers: {
         const { data: eventData } = job.data
 
-        console.log("eventData", eventData)
+        // console.log({ eventData })
+
+        if (eventData.source === "worker") {
+          logger.info("Skipping worker-emitted event to prevent loop")
+          return
+        }
 
         const matchedTriggers = await triggerMatcher.findMatchingTriggers(
           eventData as TriggerEventData,
         )
+
+        // console.log({ matchedTriggers })
 
         if (matchedTriggers.length === 0) {
           return
@@ -51,7 +58,7 @@ const worker = new Worker(
   {
     connection: getRedisConnection(),
     ...defaultWorkerOptions,
-    concurrency: 10,
+    concurrency: 100,
   },
 )
 
