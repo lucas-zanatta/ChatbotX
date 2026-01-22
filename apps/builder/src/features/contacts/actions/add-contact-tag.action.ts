@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitTagApplied } from "@aha.chat/events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -78,7 +78,7 @@ export const addContactTagAction = chatbotActionClient
       for (const contact of contacts) {
         for (const tag of allTags) {
           try {
-            await TriggerEventEmitter.tagApplied(chatbotId, contact.id, tag.id)
+            await emitTagApplied(chatbotId, contact.id, tag.id)
           } catch (error) {
             console.error("Failed to emit tagApplied event:", error)
           }

@@ -1,5 +1,5 @@
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitConversationTransferredToBot } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -47,10 +47,7 @@ export const disableLiveChatConversationAction = chatbotActionClient
 
       for (const conv of conversations) {
         try {
-          await TriggerEventEmitter.conversationTransferredToBot(
-            chatbotId,
-            conv.contactId,
-          )
+          await emitConversationTransferredToBot(chatbotId, conv.contactId)
         } catch (error) {
           console.error(
             "Failed to emit conversationTransferredToBot event:",

@@ -3,6 +3,7 @@ import type {
   ConversationModel,
   SpreadsheetModel,
 } from "@aha.chat/database/types"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import type {
   EdgeSchema,
   FilterMode,
@@ -18,7 +19,6 @@ import {
   integration as integrationGooglesheets,
 } from "@aha.chat/integration-google-sheets"
 import { SdkException } from "@aha.chat/sdk"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import { isMatchedRow } from "./operator-handler"
@@ -362,7 +362,7 @@ const updateContactCustomFields = async ({
       })
 
       try {
-        await TriggerEventEmitter.customFieldChanged(
+        await emitCustomFieldChanged(
           conversation.chatbotId,
           conversation.contactId,
           mapItem.customFieldId,

@@ -6,7 +6,7 @@ import {
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -123,7 +123,7 @@ export const updateContactAction = chatbotActionClient
 
       for (const field of updatedCustomFields) {
         try {
-          await TriggerEventEmitter.customFieldChanged(
+          await emitCustomFieldChanged(
             chatbotId,
             id,
             field.customFieldId,

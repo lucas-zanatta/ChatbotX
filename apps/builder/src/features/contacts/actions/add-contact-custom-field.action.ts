@@ -1,8 +1,8 @@
 "use server"
 
 import { FieldType, prisma } from "@aha.chat/database"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import { FieldOperationType } from "@aha.chat/flow-config"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -106,7 +106,7 @@ export const addContactCustomFieldAction = chatbotActionClient
 
       for (const contact of contacts) {
         try {
-          await TriggerEventEmitter.customFieldChanged(
+          await emitCustomFieldChanged(
             chatbotId,
             contact.id,
             customFieldId,

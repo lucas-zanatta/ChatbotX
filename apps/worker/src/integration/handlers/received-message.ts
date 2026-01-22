@@ -9,6 +9,10 @@ import {
   MessageType,
   SenderType,
 } from "@aha.chat/database/types"
+import {
+  emitContactCreated,
+  setWebhookExecutionContext,
+} from "@aha.chat/events"
 import { uploader } from "@aha.chat/filesystem"
 import type { MessengerWebhookEvent } from "@aha.chat/integration-messenger"
 import type { WhatsappWebhookEvent } from "@aha.chat/integration-whatsapp"
@@ -18,7 +22,6 @@ import {
   RealtimeEventType,
 } from "@aha.chat/partysocket-config"
 import type { AttachmentEntity, AuthValue, Context } from "@aha.chat/sdk"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import { allIntegrations, getDBIntegration } from "../../shared/integrations"
@@ -35,6 +38,8 @@ export const receiveMessage = async ({
   postbackAction: string | null
   quickReplyAction: string | null
 }> => {
+  setWebhookExecutionContext({ source: "webhook" })
+
   if (!Object.hasOwn(allIntegrations, integrationType)) {
     throw new Error(`Unsupported integration: ${integrationType}`)
   }
@@ -193,7 +198,7 @@ export const receiveMessage = async ({
 
   if (result.isNewContact) {
     try {
-      await TriggerEventEmitter.contactCreated(chatbotId, result.contactId)
+      await emitContactCreated(chatbotId, result.contactId)
     } catch (error) {
       console.error("Failed to emit contactCreated event:", error)
     }

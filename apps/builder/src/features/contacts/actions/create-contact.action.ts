@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitContactCreated } from "@aha.chat/events"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -87,7 +87,7 @@ export const createContactAction = chatbotActionClient
       })
 
       try {
-        await TriggerEventEmitter.contactCreated(chatbotId, contactId)
+        await emitContactCreated(chatbotId, contactId)
       } catch (error) {
         console.error("Failed to emit contactCreated event:", error)
       }

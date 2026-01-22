@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitConversationFollowUp } from "@aha.chat/events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -31,10 +31,7 @@ export const followConversationAction = chatbotActionClient
       })
 
       try {
-        await TriggerEventEmitter.conversationFollowUp(
-          chatbotId,
-          conversation.contactId,
-        )
+        await emitConversationFollowUp(chatbotId, conversation.contactId)
       } catch (error) {
         console.error("Failed to emit conversationFollowUp event:", error)
       }

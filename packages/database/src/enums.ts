@@ -84,7 +84,7 @@ export const InboxStatus = {
 } as const
 export type InboxStatus = (typeof InboxStatus)[keyof typeof InboxStatus]
 
-export const TriggerCondition = {
+export const Condition = {
   tagApplied: 1,
   tagRemoved: 2,
 
@@ -128,8 +128,7 @@ export const TriggerCondition = {
   contactReferredANewContact: 70,
   contactReferredExistingContact: 71,
 } as const
-export type TriggerCondition =
-  (typeof TriggerCondition)[keyof typeof TriggerCondition]
+export type Condition = (typeof Condition)[keyof typeof Condition]
 
 export const TriggerAction = {
   startAnotherFlow: "A01",

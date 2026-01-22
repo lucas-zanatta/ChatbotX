@@ -1,5 +1,6 @@
 import { prisma } from "@aha.chat/database"
 import { FieldType } from "@aha.chat/database/types"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import {
   type CountCharactersStepSchema,
   type FormatDateStepSchema,
@@ -7,7 +8,6 @@ import {
   GenerateCodeType,
   type GetDataFromJsonStepSchema,
 } from "@aha.chat/flow-config"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { faker } from "@faker-js/faker"
 import { format } from "date-fns"
 import { getProperty } from "dot-prop"
@@ -69,7 +69,7 @@ export async function countCharacters({
   })
 
   try {
-    await TriggerEventEmitter.customFieldChanged(
+    await emitCustomFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
       step.outputCfId,
@@ -124,7 +124,7 @@ export async function formatDate({
   })
 
   try {
-    await TriggerEventEmitter.customFieldChanged(
+    await emitCustomFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
       step.outputCfId,
@@ -188,7 +188,7 @@ export async function generateCode({
     })
 
     try {
-      await TriggerEventEmitter.customFieldChanged(
+      await emitCustomFieldChanged(
         conversation.chatbotId,
         conversation.contactId,
         step.outputCfId,
@@ -290,7 +290,7 @@ export async function getDataFromJSON({
 
   for (const field of updatedFields) {
     try {
-      await TriggerEventEmitter.customFieldChanged(
+      await emitCustomFieldChanged(
         conversation.chatbotId,
         conversation.contactId,
         field.customFieldId,

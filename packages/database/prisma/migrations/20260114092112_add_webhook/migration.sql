@@ -1,26 +1,21 @@
 -- AlterEnum
 ALTER TYPE "FolderType" ADD VALUE IF NOT EXISTS 'webhook';
 
--- RenameTable
-ALTER TABLE "TriggerCondition" RENAME TO "Condition";
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'TriggerCondition')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Condition') THEN
+        ALTER TABLE "TriggerCondition" RENAME TO "Condition";
+    END IF;
+END $$;
 
--- RenameConstraints
-ALTER TABLE "Condition" RENAME CONSTRAINT "TriggerCondition_pkey" TO "Condition_pkey";
-ALTER TABLE "Condition" RENAME CONSTRAINT "TriggerCondition_triggerId_fkey" TO "Condition_triggerId_fkey";
-
--- RenameIndexes
-ALTER INDEX "TriggerCondition_type_sourceId_idx" RENAME TO "Condition_type_sourceId_idx";
-ALTER INDEX "TriggerCondition_triggerId_idx" RENAME TO "Condition_triggerId_idx";
-ALTER INDEX "TriggerCondition_type_sourceId_triggerId_idx" RENAME TO "Condition_type_sourceId_triggerId_idx";
-
--- AlterColumns
 ALTER TABLE "Condition" ALTER COLUMN "triggerId" DROP NOT NULL;
-ALTER TABLE "Condition" ADD COLUMN "webhookId" TEXT;
+ALTER TABLE "Condition" ADD COLUMN IF NOT EXISTS "webhookId" TEXT;
 
-DROP TABLE IF EXISTS "Webhook";
+DELETE FROM "Condition" WHERE "webhookId" IS NOT NULL;
+DROP TABLE IF EXISTS "Webhook" CASCADE;
 
--- CreateTable
-CREATE TABLE "Webhook" (
+CREATE TABLE IF NOT EXISTS "Webhook" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -33,20 +28,18 @@ CREATE TABLE "Webhook" (
     CONSTRAINT "Webhook_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "Webhook_chatbotId_idx" ON "Webhook"("chatbotId");
+CREATE INDEX IF NOT EXISTS "Webhook_chatbotId_idx" ON "Webhook"("chatbotId");
+CREATE INDEX IF NOT EXISTS "Webhook_folderId_idx" ON "Webhook"("folderId");
+CREATE INDEX IF NOT EXISTS "Webhook_chatbotId_active_idx" ON "Webhook"("chatbotId", "active");
 
--- CreateIndex
-CREATE INDEX "Webhook_folderId_idx" ON "Webhook"("folderId");
+CREATE INDEX IF NOT EXISTS "Condition_webhookId_idx" ON "Condition"("webhookId");
+CREATE INDEX IF NOT EXISTS "Condition_type_sourceId_webhookId_idx" ON "Condition"("type", "sourceId", "webhookId");
 
--- CreateIndex
-CREATE INDEX "Webhook_chatbotId_active_idx" ON "Webhook"("chatbotId", "active");
+ALTER TABLE "Condition" DROP CONSTRAINT IF EXISTS "Condition_webhookId_fkey";
+ALTER TABLE "Condition" ADD CONSTRAINT "Condition_webhookId_fkey" FOREIGN KEY ("webhookId") REFERENCES "Webhook"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "Condition" ADD CONSTRAINT "Condition_webhookId_fkey" FOREIGN KEY ("webhookId") REFERENCES "Webhook"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
+ALTER TABLE "Webhook" DROP CONSTRAINT IF EXISTS "Webhook_chatbotId_fkey";
 ALTER TABLE "Webhook" ADD CONSTRAINT "Webhook_chatbotId_fkey" FOREIGN KEY ("chatbotId") REFERENCES "Chatbot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
+ALTER TABLE "Webhook" DROP CONSTRAINT IF EXISTS "Webhook_folderId_fkey";
 ALTER TABLE "Webhook" ADD CONSTRAINT "Webhook_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "Folder"("id") ON DELETE SET NULL ON UPDATE CASCADE;
