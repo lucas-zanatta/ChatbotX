@@ -16,9 +16,11 @@ export const enableLiveChatConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
+      ctx: { user: { id: string } }
     }) => {
       const conversations = await prisma.conversation.findMany({
         where: {
@@ -47,7 +49,12 @@ export const enableLiveChatConversationAction = chatbotActionClient
 
       for (const conv of conversations) {
         try {
-          await emitConversationTransferredToHuman(chatbotId, conv.contactId)
+          await emitConversationTransferredToHuman(
+            chatbotId,
+            conv.contactId,
+            conv.id,
+            ctx.user.id,
+          )
         } catch (error) {
           console.error(
             "Failed to emit conversationTransferredToHuman event:",

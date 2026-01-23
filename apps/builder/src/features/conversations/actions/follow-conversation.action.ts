@@ -14,8 +14,10 @@ export const followConversationAction = chatbotActionClient
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId, id],
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
+      ctx: { user: { id: string } }
     }) => {
       const conversation = await prisma.conversation.update({
         where: {
@@ -26,12 +28,18 @@ export const followConversationAction = chatbotActionClient
           followed: true,
         },
         select: {
+          id: true,
           contactId: true,
         },
       })
 
       try {
-        await emitConversationFollowUp(chatbotId, conversation.contactId)
+        await emitConversationFollowUp(
+          chatbotId,
+          conversation.contactId,
+          conversation.id,
+          ctx.user.id,
+        )
       } catch (error) {
         console.error("Failed to emit conversationFollowUp event:", error)
       }

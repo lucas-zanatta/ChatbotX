@@ -31,20 +31,25 @@ export async function setContactCustomField({
   })
 
   await prisma.contactCustomField.upsert({
-    create: {
-      contactId: conversation.contactId,
-      customFieldId: step.inputCfId,
-      value: step.value,
-    },
     where: {
       contactId_customFieldId: {
         contactId: conversation.contactId,
         customFieldId: step.inputCfId,
       },
     },
+    create: {
+      contactId: conversation.contactId,
+      customFieldId: step.inputCfId,
+      value: step.value,
+    },
     update: {
       value: step.value,
     },
+  })
+
+  const customField = await prisma.field.findUnique({
+    where: { id: step.inputCfId },
+    select: { name: true },
   })
 
   try {
@@ -52,6 +57,7 @@ export async function setContactCustomField({
       conversation.chatbotId,
       conversation.contactId,
       step.inputCfId,
+      customField?.name || step.inputCfId,
       existing?.value || null,
       step.value,
     )

@@ -78,6 +78,7 @@ export const updateContactAction = chatbotActionClient
 
         const updated: Array<{
           customFieldId: string
+          customFieldName: string
           oldValue: string | null
           newValue: string
         }> = []
@@ -110,8 +111,10 @@ export const updateContactAction = chatbotActionClient
               },
             })
 
+            const customField = allCustomFieldsMap.get(key)
             updated.push({
               customFieldId: key,
+              customFieldName: customField?.name || key,
               oldValue: existing?.value || null,
               newValue: value as string,
             })
@@ -127,6 +130,7 @@ export const updateContactAction = chatbotActionClient
             chatbotId,
             id,
             field.customFieldId,
+            field.customFieldName,
             field.oldValue,
             field.newValue,
           )

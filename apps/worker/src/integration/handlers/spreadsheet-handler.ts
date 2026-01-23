@@ -330,6 +330,15 @@ const updateContactCustomFields = async ({
   headers: string[]
   foundRow: string[]
 }) => {
+  const customFieldIds = step.map
+    .map((m) => m.customFieldId)
+    .filter(Boolean) as string[]
+  const customFields = await prisma.field.findMany({
+    where: { id: { in: customFieldIds } },
+    select: { id: true, name: true },
+  })
+  const customFieldMap = new Map(customFields.map((f) => [f.id, f.name]))
+
   for (const mapItem of step.map) {
     const headerIndex = headers.indexOf(mapItem.header)
     if (headerIndex !== -1 && mapItem.customFieldId) {
@@ -366,6 +375,7 @@ const updateContactCustomFields = async ({
           conversation.chatbotId,
           conversation.contactId,
           mapItem.customFieldId,
+          customFieldMap.get(mapItem.customFieldId) || mapItem.customFieldId,
           existing?.value || null,
           value,
         )

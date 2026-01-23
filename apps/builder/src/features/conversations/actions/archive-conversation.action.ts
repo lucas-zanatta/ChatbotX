@@ -18,9 +18,11 @@ export const archiveConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
+      ctx: { user: { id: string } }
     }) => {
       const conversations = await prisma.conversation.findMany({
         where: {
@@ -49,7 +51,12 @@ export const archiveConversationAction = chatbotActionClient
 
       for (const conv of conversations) {
         try {
-          await emitConversationArchived(chatbotId, conv.contactId)
+          await emitConversationArchived(
+            chatbotId,
+            conv.contactId,
+            conv.id,
+            ctx.user.id,
+          )
         } catch (error) {
           console.error("Failed to emit conversationArchived event:", error)
         }

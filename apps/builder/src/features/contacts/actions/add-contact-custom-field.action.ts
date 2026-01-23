@@ -40,69 +40,74 @@ export const addContactCustomFieldAction = chatbotActionClient
         return
       }
 
-      const customFieldId = await prisma.$transaction(async (tx) => {
-        const customField = await tx.field.findFirstOrThrow({
-          where: {
-            id: parsedInput.customFieldId,
-            fieldType: FieldType.customField,
-          },
-        })
+      const { customFieldId, customFieldName } = await prisma.$transaction(
+        async (tx) => {
+          const customField = await tx.field.findFirstOrThrow({
+            where: {
+              id: parsedInput.customFieldId,
+              fieldType: FieldType.customField,
+            },
+          })
 
-        await Promise.all(
-          contacts.map(async (contact) => {
-            const contactCustomField = await tx.contactCustomField.findFirst({
-              where: {
-                contactId: contact.id,
-                customFieldId: customField.id,
-              },
-            })
-
-            if (contactCustomField) {
-              let value = ""
-              switch (parsedInput.operation) {
-                case FieldOperationType.append:
-                  value = contactCustomField.value + String(parsedInput.value)
-                  break
-                case FieldOperationType.prepend:
-                  value = String(parsedInput.value) + contactCustomField.value
-                  break
-                case FieldOperationType.increase:
-                  value = String(
-                    Number(contactCustomField.value) +
-                      Number(parsedInput.value),
-                  )
-                  break
-                case FieldOperationType.decrease:
-                  value = String(
-                    Number(contactCustomField.value) -
-                      Number(parsedInput.value),
-                  )
-                  break
-                default:
-                  value = parsedInput.value as string
-              }
-
-              return tx.contactCustomField.update({
+          await Promise.all(
+            contacts.map(async (contact) => {
+              const contactCustomField = await tx.contactCustomField.findFirst({
                 where: {
-                  id: contactCustomField.id,
-                },
-                data: {
-                  value,
+                  contactId: contact.id,
+                  customFieldId: customField.id,
                 },
               })
-            }
-            return tx.contactCustomField.create({
-              data: {
-                contactId: contact.id,
-                customFieldId: customField.id,
-                value: parsedInput.value as string,
-              },
-            })
-          }),
-        )
 
-        return customField.id
-      })
+              if (contactCustomField) {
+                let value = ""
+                switch (parsedInput.operation) {
+                  case FieldOperationType.append:
+                    value = contactCustomField.value + String(parsedInput.value)
+                    break
+                  case FieldOperationType.prepend:
+                    value = String(parsedInput.value) + contactCustomField.value
+                    break
+                  case FieldOperationType.increase:
+                    value = String(
+                      Number(contactCustomField.value) +
+                        Number(parsedInput.value),
+                    )
+                    break
+                  case FieldOperationType.decrease:
+                    value = String(
+                      Number(contactCustomField.value) -
+                        Number(parsedInput.value),
+                    )
+                    break
+                  default:
+                    value = parsedInput.value as string
+                }
+
+                return tx.contactCustomField.update({
+                  where: {
+                    id: contactCustomField.id,
+                  },
+                  data: {
+                    value,
+                  },
+                })
+              }
+              return tx.contactCustomField.create({
+                data: {
+                  contactId: contact.id,
+                  customFieldId: customField.id,
+                  value: parsedInput.value as string,
+                },
+              })
+            }),
+          )
+
+          return {
+            customFieldId: customField.id,
+            customFieldName: customField.name,
+          }
+        },
+      )
 
       for (const contact of contacts) {
         try {
@@ -110,6 +115,7 @@ export const addContactCustomFieldAction = chatbotActionClient
             chatbotId,
             contact.id,
             customFieldId,
+            customFieldName,
             null,
             parsedInput.value,
           )

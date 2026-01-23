@@ -21,9 +21,11 @@ export const assignConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: AssignConversationSchema
+      ctx: { user: { id: string } }
     }) => {
       const updatedData: {
         assignedUserId: string | null
@@ -68,6 +70,19 @@ export const assignConversationAction = chatbotActionClient
         updatedData.assignedInboxTeamId = inboxTeam.id
       }
 
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          chatbotId,
+          contactId: {
+            in: parsedInput.contactIds,
+          },
+        },
+        select: {
+          id: true,
+          contactId: true,
+        },
+      })
+
       await prisma.conversation.updateMany({
         where: {
           chatbotId,
@@ -78,9 +93,19 @@ export const assignConversationAction = chatbotActionClient
         data: updatedData,
       })
 
-      for (const contactId of parsedInput.contactIds) {
+      const assignedTo =
+        updatedData.assignedUserId || updatedData.assignedInboxTeamId || ""
+      const assignedBy = ctx.user.id
+
+      for (const conversation of conversations) {
         try {
-          await emitConversationAssigned(chatbotId, contactId)
+          await emitConversationAssigned(
+            chatbotId,
+            conversation.contactId,
+            conversation.id,
+            assignedTo,
+            assignedBy,
+          )
         } catch (error) {
           console.error("Failed to emit conversationAssigned event:", error)
         }

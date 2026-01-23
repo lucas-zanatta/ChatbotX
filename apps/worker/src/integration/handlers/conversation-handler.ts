@@ -34,6 +34,8 @@ export async function archiveConversation({
     await emitConversationArchived(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationArchived event:", error)
@@ -92,6 +94,9 @@ export async function assignConversation({
       await emitConversationAssigned(
         conversation.chatbotId,
         conversation.contactId,
+        conversation.id,
+        step.assignedId,
+        "system",
       )
     } catch (error) {
       console.error("Failed to emit conversationAssigned event:", error)
@@ -256,6 +261,11 @@ export async function autoAssignConversation({
     await emitConversationAssigned(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      allocation[smallestKey].assignedUserId ||
+        allocation[smallestKey].assignedInboxTeamId ||
+        "system",
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationAssigned event:", error)
@@ -277,6 +287,8 @@ export async function unassignConversation({
     await emitConversationUnassigned(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationUnassigned event:", error)
@@ -295,6 +307,8 @@ export async function followConversation({
     await emitConversationFollowUp(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationFollowed event:", error)
@@ -322,6 +336,8 @@ export async function disableBot({
     await emitConversationTransferredToHuman(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "bot",
     )
   } catch (error) {
     console.error("Failed to emit conversationTransferredToHuman event:", error)
@@ -340,6 +356,8 @@ export async function enableBot({
     await emitConversationTransferredToBot(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationTransferredToBot event:", error)

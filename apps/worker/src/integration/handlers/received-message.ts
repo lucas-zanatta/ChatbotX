@@ -193,12 +193,25 @@ export const receiveMessage = async ({
       conversation: newConversation,
       isNewContact,
       contactId: newContact.id,
+      contactData: isNewContact
+        ? {
+            name: newContact.firstName,
+            phone: newContact.phoneNumber,
+            email: newContact.email,
+          }
+        : undefined,
     }
   })
 
-  if (result.isNewContact) {
+  if (result.isNewContact && result.contactData) {
     try {
-      await emitContactCreated(chatbotId, result.contactId)
+      await emitContactCreated(
+        chatbotId,
+        result.contactId,
+        result.contactData.name || undefined,
+        result.contactData.phone || undefined,
+        result.contactData.email || undefined,
+      )
     } catch (error) {
       console.error("Failed to emit contactCreated event:", error)
     }
