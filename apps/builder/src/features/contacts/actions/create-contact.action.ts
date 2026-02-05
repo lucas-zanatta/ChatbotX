@@ -1,5 +1,6 @@
 "use server"
 
+import { contactTrackingService } from "@aha.chat/analytics"
 import { prisma } from "@aha.chat/database"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -46,6 +47,7 @@ export const createContactAction = chatbotActionClient
         orderBy: {
           createdAt: "asc",
         },
+        select: { id: true, inboxType: true },
       })
 
       const chatbotUsage = await prisma.chatbotUsage.findFirstOrThrow({
@@ -60,7 +62,7 @@ export const createContactAction = chatbotActionClient
         })
       }
 
-      await prisma.$transaction(async (tx) => {
+      const contact = await prisma.$transaction(async (tx) => {
         const contact = await tx.contact.create({
           data: { ...parsedInput, chatbotId, source: "whatsapp" },
         })
@@ -81,7 +83,22 @@ export const createContactAction = chatbotActionClient
             inboxId: inbox.id,
           },
         })
+
+        return contact
       })
+
+      if (contact.sourceId) {
+        await contactTrackingService.trackEvent({
+          chatbotId,
+          contactId: contact.sourceId,
+          eventType: "contact_created",
+          occurredAt: contact.createdAt,
+          source: contact.source,
+          sourceId: contact.sourceId,
+          channel: inbox.inboxType,
+          country: undefined,
+        })
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,

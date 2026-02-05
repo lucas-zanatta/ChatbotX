@@ -1029,6 +1029,18 @@ model Invitation {
   invitedByUser User   @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
 }
 
+model AnalyticsManifestStatus {
+  objectKey  String    @id @default(cuid(2))
+  status     String    @default("pending")
+  ingestedAt DateTime?
+  attempts   Int       @default(0)
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+}
+
 enum LogType {
   error
   audit

@@ -1,6 +1,7 @@
 import { prisma } from "@aha.chat/database"
 import { SenderType } from "@aha.chat/database/types"
 import type { OutgoingMessageEntity } from "@aha.chat/sdk"
+import { createId } from "@paralleldrive/cuid2"
 import type { ModelMessage } from "ai"
 import {
   replyByAutomatedResponse,
@@ -8,6 +9,7 @@ import {
   replyByOpenAI,
 } from "./replies"
 import { getSelectedTools } from "./tools"
+import { trackBotResponse } from "./track-bot-response"
 
 export async function triggerAutomatedResponse({
   message,
@@ -18,7 +20,20 @@ export async function triggerAutomatedResponse({
     return
   }
 
+  const startTime = Date.now()
+  const messageId = createId()
+
   if (await replyByAutomatedResponse({ message })) {
+    await trackBotResponse({
+      chatbotId: message.chatbotId,
+      conversationId: message.conversationId,
+      messageId,
+      hasResponse: true,
+      responseType: "automated_response",
+      result: "success",
+      aiProvider: "none",
+      startTime,
+    })
     return
   }
 
@@ -61,6 +76,16 @@ export async function triggerAutomatedResponse({
       availableTools,
     })
   ) {
+    await trackBotResponse({
+      chatbotId: message.chatbotId,
+      conversationId: message.conversationId,
+      messageId,
+      hasResponse: true,
+      responseType: "ai_agent",
+      result: "success",
+      aiProvider: "openai",
+      startTime,
+    })
     return
   }
   if (
@@ -72,6 +97,29 @@ export async function triggerAutomatedResponse({
       availableTools,
     })
   ) {
+    await trackBotResponse({
+      chatbotId: message.chatbotId,
+      conversationId: message.conversationId,
+      messageId,
+      hasResponse: true,
+      responseType: "ai_agent",
+      result: "success",
+      aiProvider: "gemini",
+      startTime,
+    })
     return
   }
+
+  await trackBotResponse({
+    chatbotId: message.chatbotId,
+    conversationId: message.conversationId,
+    messageId,
+    hasResponse: false,
+    responseType: "none",
+    aiProvider: "none",
+    metadata: {
+      fallbackReason: "NO_INTENT_MATCH",
+    },
+    startTime,
+  })
 }

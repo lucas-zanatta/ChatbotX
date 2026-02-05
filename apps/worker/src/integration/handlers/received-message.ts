@@ -1,3 +1,4 @@
+import { contactTrackingService } from "@aha.chat/analytics"
 import { type Prisma, prisma } from "@aha.chat/database"
 import {
   type ContentType,
@@ -38,8 +39,15 @@ export const receiveMessage = async ({
     throw new Error(`Unsupported integration: ${integrationType}`)
   }
 
+  const occurredAt = new Date()
+
   const dbIntegration = await getDBIntegration(integrationType, payload)
   const { chatbot, chatbotId, inboxId, auth } = dbIntegration
+
+  const inbox = await prisma.inbox.findUniqueOrThrow({
+    where: { id: inboxId },
+    select: { inboxType: true },
+  })
   const ctx = {
     chatbot,
     auth: auth as AuthValue,
@@ -58,6 +66,9 @@ export const receiveMessage = async ({
 
   const { message, conversation, postbackAction, quickReplyAction } =
     parsedMessage
+
+  let createdContactId: string | null = null
+  let createdContactOccurredAt: Date | null = null
 
   const result = await prisma.$transaction(async (tx) => {
     let newContact = await tx.contact.findUnique({
@@ -105,6 +116,9 @@ export const receiveMessage = async ({
           avatar: conversation.contact.avatar,
         },
       })
+
+      createdContactId = newContact.id
+      createdContactOccurredAt = newContact.createdAt
     }
 
     const newConversation = await tx.conversation.upsert({
@@ -199,6 +213,43 @@ export const receiveMessage = async ({
       data: {
         conversationId: result.conversation.id,
         action: quickReplyAction,
+      },
+    })
+  }
+
+  console.log({ createdContactId })
+  if (createdContactId && conversation.contact.sourceId) {
+    await contactTrackingService.trackEvent({
+      chatbotId,
+      contactId: conversation.contact.sourceId,
+      eventType: "contact_created",
+      occurredAt: createdContactOccurredAt ?? occurredAt,
+      source: integrationType,
+      sourceId: conversation.contact.sourceId,
+      channel: inbox.inboxType,
+      country: undefined,
+      metadata: {
+        inboxId,
+      },
+    })
+  }
+
+  if (
+    conversation.contact.sourceId &&
+    message.messageType === MessageType.incoming
+  ) {
+    await contactTrackingService.trackEvent({
+      chatbotId,
+      contactId: conversation.contact.sourceId,
+      eventType: "contact_message_in",
+      occurredAt,
+      source: integrationType,
+      sourceId: conversation.contact.sourceId,
+      channel: inbox.inboxType,
+      country: undefined,
+      metadata: {
+        inboxId,
+        messageId: result.message.id,
       },
     })
   }

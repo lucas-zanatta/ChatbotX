@@ -16,6 +16,7 @@ export type ContactResource = ContactModel & {
   tags?: TagModel[]
   contactNotes?: ContactNoteModel[]
   conversation?: ConversationResource | null
+  country?: string | null
 }
 
 export type ContactCollection = {

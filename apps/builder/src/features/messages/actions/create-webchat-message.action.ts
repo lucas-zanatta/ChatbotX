@@ -1,5 +1,6 @@
 "use server"
 
+import { contactTrackingService } from "@aha.chat/analytics"
 import {
   Gender,
   type PrismaTransactionalClient,
@@ -26,6 +27,7 @@ import { createId } from "@paralleldrive/cuid2"
 import imageSize from "image-size"
 import { randomString } from "remeda"
 import type { AttachmentResource } from "@/features/attachments/schemas"
+import type { ContactResource } from "@/features/contacts/schemas/resource"
 import { BaseException } from "@/lib/errors/exception"
 import { logger } from "@/lib/log"
 import { actionClient } from "@/lib/safe-action"
@@ -46,9 +48,16 @@ export async function handleCreateWebchatMessage({
 }) {
   const promises: Promise<unknown>[] = []
 
-  // Create conversation if it does not exist
+  let createdContactId: string | null = null
+  let createdContactOccurredAt: Date | null = null
+
   const message = await prisma.$transaction(async (tx) => {
-    const { conversation } = await getConversationFromInput(tx, parsedInput)
+    const result = await getConversationFromInput(tx, parsedInput)
+
+    createdContactId = result.createdContactId
+    createdContactOccurredAt = result.createdContactOccurredAt
+
+    const conversation = result.conversation
 
     // upload file if exists
     let path: string | null = null
@@ -158,6 +167,23 @@ export async function handleCreateWebchatMessage({
     return newMessage
   })
 
+  if (
+    createdContactId &&
+    createdContactOccurredAt &&
+    parsedInput.guestConversationId
+  ) {
+    await contactTrackingService.trackEvent({
+      chatbotId: parsedInput.chatbotId,
+      contactId: parsedInput.guestConversationId,
+      eventType: "contact_created",
+      occurredAt: createdContactOccurredAt,
+      source: IntegrationType.webchat,
+      sourceId: parsedInput.guestConversationId,
+      channel: IntegrationType.webchat,
+      country: undefined,
+    })
+  }
+
   promises.push(
     broadcastToChatbotParty(message.chatbotId, {
       eventType: RealtimeEventType.CREATE_MESSAGE,
@@ -211,9 +237,13 @@ async function getConversationFromInput(
     },
   })
 
+  let createdContactId: string | null = null
+  let createdContactOccurredAt: Date | null = null
+  let contact: ContactResource | null = null
+
   if (!conversation) {
     // find or create contact
-    let contact = await tx.contact.findFirst({
+    contact = await tx.contact.findFirst({
       where: {
         chatbotId: parsedInput.chatbotId,
         sourceId,
@@ -239,6 +269,9 @@ async function getConversationFromInput(
           lastName: randomString(10),
         },
       })
+
+      createdContactId = contact.id
+      createdContactOccurredAt = contact.createdAt
     }
 
     conversation = await tx.conversation.create({
@@ -255,5 +288,10 @@ async function getConversationFromInput(
     throw new BaseException("Conversation not found")
   }
 
-  return { conversation }
+  return {
+    conversation,
+    contact,
+    createdContactId,
+    createdContactOccurredAt,
+  }
 }

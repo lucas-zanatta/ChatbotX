@@ -1,5 +1,6 @@
 "use server"
 
+import { contactTrackingService } from "@aha.chat/analytics"
 import { prisma } from "@aha.chat/database"
 import {
   ContentType,
@@ -50,9 +51,15 @@ export const createMessageAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
       parsedInput: CreateMessageRequest
     }) => {
+      const occurredAt = new Date()
       const { data: conversation } = await findConversation({
         id: conversationId,
         chatbotId,
+      })
+
+      const inbox = await prisma.inbox.findUniqueOrThrow({
+        where: { id: conversation.inboxId },
+        select: { inboxType: true },
       })
 
       // upload file if exists
@@ -127,6 +134,23 @@ export const createMessageAction = chatbotActionClient
 
         return newMessage
       })
+
+      if (conversation.contact?.sourceId) {
+        await contactTrackingService.trackEvent({
+          chatbotId: message.chatbotId,
+          contactId: conversation.contact.sourceId,
+          eventType: "contact_message_out",
+          occurredAt,
+          source: conversation.contact.source,
+          sourceId: conversation.contact.sourceId,
+          channel: inbox.inboxType,
+          country: undefined,
+          metadata: {
+            messageId: message.id,
+            conversationId: message.conversationId,
+          },
+        })
+      }
 
       const promises: Promise<unknown>[] = [
         broadcastToChatbotParty(message.chatbotId, {

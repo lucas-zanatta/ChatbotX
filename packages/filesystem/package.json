@@ -17,6 +17,7 @@
     "zod": "^4.2.1"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/lib/ndjson/server.ts"
   }
 }

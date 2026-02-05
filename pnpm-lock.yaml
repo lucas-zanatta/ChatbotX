@@ -38,6 +38,9 @@ importers:
 
   apps/builder:
     dependencies:
+      '@aha.chat/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@aha.chat/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -331,6 +334,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aha.chat/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@aha.chat/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -370,6 +376,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.1
         version: 3.0.1(zod@4.2.1)
+      '@aws-sdk/client-s3':
+        specifier: ^3.958.0
+        version: 3.958.0
       '@faker-js/faker':
         specifier: ^10.1.0
         version: 10.1.0
@@ -619,6 +628,40 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/analytics:
+    dependencies:
+      '@aha.chat/database':
+        specifier: workspace:*
+        version: link:../database
+      '@aha.chat/filesystem':
+        specifier: workspace:*
+        version: link:../filesystem
+      '@clickhouse/client':
+        specifier: ^1.7.0
+        version: 1.16.0
+      '@paralleldrive/cuid2':
+        specifier: ^3.0.4
+        version: 3.1.0
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
+      zod:
+        specifier: ^4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@aha.chat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.10.4
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
 
   packages/database:
     dependencies:
@@ -1429,6 +1472,13 @@ packages:
 
   '@clack/prompts@0.11.0':
     resolution: {integrity: sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw==}
+
+  '@clickhouse/client-common@1.16.0':
+    resolution: {integrity: sha512-qMzkI1NmV29ZjFkNpVSvGNfA0c7sCExlufAQMv+V+5xtNeYXnRfdqzmBLIQoq6Pf1ij0kw/wGLD3HQrl7pTFLA==}
+
+  '@clickhouse/client@1.16.0':
+    resolution: {integrity: sha512-ThPhoRMsKsf/hmBEgWlUsGxFecsr3i+k3JI8JV0Od7UpH2BSmk9VKMGJoyPCrTL0vPUs5rJH+7o4iCqBF09Xvg==}
+    engines: {node: '>=16'}
 
   '@cloudflare/workerd-darwin-64@1.20240718.0':
     resolution: {integrity: sha512-BsPZcSCgoGnufog2GIgdPuiKicYTNyO/Dp++HbpLRH+yQdX3x4aWx83M+a0suTl1xv76dO4g9aw7SIB6OSgIyQ==}
@@ -8510,6 +8560,12 @@ snapshots:
       '@clack/core': 0.5.0
       picocolors: 1.1.1
       sisteransi: 1.0.5
+
+  '@clickhouse/client-common@1.16.0': {}
+
+  '@clickhouse/client@1.16.0':
+    dependencies:
+      '@clickhouse/client-common': 1.16.0
 
   '@cloudflare/workerd-darwin-64@1.20240718.0':
     optional: true

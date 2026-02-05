@@ -1,3 +1,4 @@
+import { contactTrackingService } from "@aha.chat/analytics"
 import { prisma } from "@aha.chat/database"
 import type {
   AddContactTagStepSchema,
@@ -156,6 +157,21 @@ export async function removeContactTag({
 export async function deleteContact({
   conversation,
 }: FlowStepProps<DeleteContactStepSchema>) {
+  const [contact, conversationWithInbox] = await Promise.all([
+    prisma.contact.findUnique({
+      where: { id: conversation.contactId },
+      select: { id: true, sourceId: true, source: true, updatedAt: true },
+    }),
+    prisma.conversation.findUnique({
+      where: { id: conversation.id },
+      select: {
+        inbox: {
+          select: { inboxType: true },
+        },
+      },
+    }),
+  ])
+
   await prisma.$transaction(async (tx) => {
     await tx.conversation.delete({
       where: {
@@ -168,4 +184,19 @@ export async function deleteContact({
       },
     })
   })
+
+  console.log("aa", contact?.sourceId, conversationWithInbox?.inbox)
+  if (contact?.sourceId && conversationWithInbox?.inbox) {
+    console.log("bb")
+    await contactTrackingService.trackEvent({
+      chatbotId: conversation.chatbotId,
+      contactId: contact.sourceId,
+      eventType: "contact_deleted",
+      occurredAt: contact.updatedAt,
+      source: contact.source,
+      sourceId: contact.sourceId,
+      channel: conversationWithInbox.inbox.inboxType,
+      country: undefined,
+    })
+  }
 }
