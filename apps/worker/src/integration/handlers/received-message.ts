@@ -203,6 +203,7 @@ export const receiveMessage = async ({
       data: {
         conversationId: result.conversation.id,
         action: postbackAction,
+        messageId: result.message.id,
       },
     })
   }
@@ -213,11 +214,11 @@ export const receiveMessage = async ({
       data: {
         conversationId: result.conversation.id,
         action: quickReplyAction,
+        messageId: result.message.id,
       },
     })
   }
 
-  console.log({ createdContactId })
   if (createdContactId && conversation.contact.sourceId) {
     await contactTrackingService.trackEvent({
       chatbotId,

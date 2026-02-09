@@ -1,5 +1,6 @@
 "use server"
 
+import { conversationTrackingService } from "@aha.chat/analytics"
 import { prisma } from "@aha.chat/database"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -67,6 +68,22 @@ export const assignConversationAction = chatbotActionClient
         updatedData.assignedInboxTeamId = inboxTeam.id
       }
 
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          chatbotId,
+          contactId: {
+            in: parsedInput.contactIds,
+          },
+        },
+        include: {
+          inbox: {
+            select: {
+              inboxType: true,
+            },
+          },
+        },
+      })
+
       await prisma.conversation.updateMany({
         where: {
           chatbotId,
@@ -76,6 +93,21 @@ export const assignConversationAction = chatbotActionClient
         },
         data: updatedData,
       })
+
+      const toAssignee =
+        updatedData.assignedUserId || updatedData.assignedInboxTeamId
+      if (toAssignee) {
+        for (const conv of conversations) {
+          await conversationTrackingService.trackEvent({
+            chatbotId,
+            conversationId: conv.id,
+            eventType: "conversation_assigned",
+            toAssignee,
+            occurredAt: new Date(),
+            channel: conv.inbox.inboxType,
+          })
+        }
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#conversations`,

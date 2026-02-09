@@ -140,6 +140,7 @@ export const createMessageAction = chatbotActionClient
           chatbotId: message.chatbotId,
           contactId: conversation.contact.sourceId,
           eventType: "contact_message_out",
+          senderType: "human",
           occurredAt,
           source: conversation.contact.source,
           sourceId: conversation.contact.sourceId,
@@ -148,6 +149,7 @@ export const createMessageAction = chatbotActionClient
           metadata: {
             messageId: message.id,
             conversationId: message.conversationId,
+            adminId: ctx.user.id,
           },
         })
       }

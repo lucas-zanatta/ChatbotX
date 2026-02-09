@@ -1,3 +1,4 @@
+import { conversationTrackingService } from "@aha.chat/analytics"
 import { type Prisma, prisma } from "@aha.chat/database"
 import {
   type ArchiveConversationStepSchema,
@@ -36,6 +37,11 @@ export async function assignConversation({
   conversation,
   step,
 }: FlowStepProps<AssignConversationStepSchema>) {
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: conversation.inboxId },
+    select: { inboxType: true },
+  })
+
   if (step.assignedId.startsWith("u_")) {
     const userId = step.assignedId.substring(2)
     const chatbotMember = await prisma.chatbotMember.findFirst({
@@ -48,6 +54,15 @@ export async function assignConversation({
       await prisma.conversation.update({
         where: { id: conversation.id },
         data: { assignedUserId: userId },
+      })
+
+      await conversationTrackingService.trackEvent({
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        eventType: "conversation_assigned",
+        toAssignee: userId,
+        occurredAt: new Date(),
+        channel: inbox?.inboxType,
       })
     }
   } else if (step.assignedId.startsWith("t_")) {
@@ -62,6 +77,15 @@ export async function assignConversation({
       await prisma.conversation.update({
         where: { id: conversation.id },
         data: { assignedInboxTeamId: inboxTeamId },
+      })
+
+      await conversationTrackingService.trackEvent({
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        eventType: "conversation_assigned",
+        toAssignee: inboxTeamId,
+        occurredAt: new Date(),
+        channel: inbox?.inboxType,
       })
     }
   }
@@ -219,11 +243,36 @@ export async function autoAssignConversation({
       assignedInboxTeamId: allocation[smallestKey].assignedInboxTeamId,
     },
   })
+
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: conversation.inboxId },
+    select: { inboxType: true },
+  })
+
+  await conversationTrackingService.trackEvent({
+    chatbotId: conversation.chatbotId,
+    conversationId: conversation.id,
+    eventType: "conversation_assigned",
+    toAssignee:
+      allocation[smallestKey].assignedUserId ||
+      allocation[smallestKey].assignedInboxTeamId ||
+      "",
+    occurredAt: new Date(),
+    channel: inbox?.inboxType,
+  })
 }
 
 export async function unassignConversation({
   conversation,
 }: FlowStepProps<UnassignConversationStepSchema>) {
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: conversation.inboxId },
+    select: { inboxType: true },
+  })
+
+  const fromAssignee =
+    conversation.assignedUserId || conversation.assignedInboxTeamId
+
   await prisma.conversation.update({
     where: { id: conversation.id },
     data: {
@@ -231,6 +280,17 @@ export async function unassignConversation({
       assignedInboxTeamId: null,
     },
   })
+
+  if (fromAssignee) {
+    await conversationTrackingService.trackEvent({
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      eventType: "conversation_unassigned",
+      fromAssignee,
+      occurredAt: new Date(),
+      channel: inbox?.inboxType,
+    })
+  }
 }
 
 export async function followConversation({

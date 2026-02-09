@@ -9,6 +9,7 @@ import type {
   IntegrationJobSendFlowPostback,
   IntegrationJobSendFlowQuickReply,
 } from "@aha.chat/worker-config"
+import { trackBotResponse } from "./automated-response/track-bot-response"
 import { runStepsAndQuickReplies } from "./send-flow-node"
 
 async function findConversationAndFlowAndFlowVersion(props: {
@@ -88,8 +89,26 @@ export async function sendFlowPostback(
     .find((b) => b.id === parsedAction.buttonId)
 
   if (!foundedButton) {
+    if (data.messageId) {
+      await trackBotResponse({
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        messageId: data.messageId,
+        hasResponse: false,
+        responseType: "flow",
+        routeType: "FALLBACK",
+        result: "fallback",
+        aiProvider: "none",
+        metadata: {
+          fallbackReason: "BUTTON_NOT_FOUND",
+        },
+        startTime: Date.now(),
+      })
+    }
     return
   }
+
+  const startTime = Date.now()
 
   await runStepsAndQuickReplies({
     conversation,
@@ -99,6 +118,23 @@ export async function sendFlowPostback(
     nodeIdOrButtonId: foundedButton.id,
     triggerNextNode: false,
   })
+
+  if (data.messageId) {
+    await trackBotResponse({
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      messageId: data.messageId,
+      hasResponse: true,
+      responseType: "flow",
+      routeType: "FLOW",
+      result: "success",
+      aiProvider: "none",
+      metadata: {
+        flowId: flowVersion.flowId,
+      },
+      startTime,
+    })
+  }
 }
 
 export async function sendFlowQuickReply(
@@ -127,8 +163,26 @@ export async function sendFlowQuickReply(
     .find((b) => b.id === parsedAction.buttonId)
 
   if (!foundedButton) {
+    if (data.messageId) {
+      await trackBotResponse({
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        messageId: data.messageId,
+        hasResponse: false,
+        responseType: "flow",
+        routeType: "FALLBACK",
+        result: "fallback",
+        aiProvider: "none",
+        metadata: {
+          fallbackReason: "BUTTON_NOT_FOUND",
+        },
+        startTime: Date.now(),
+      })
+    }
     return
   }
+
+  const startTime = Date.now()
 
   await runStepsAndQuickReplies({
     conversation,
@@ -138,4 +192,21 @@ export async function sendFlowQuickReply(
     nodeIdOrButtonId: foundedButton.id,
     triggerNextNode: false,
   })
+
+  if (data.messageId) {
+    await trackBotResponse({
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      messageId: data.messageId,
+      hasResponse: true,
+      responseType: "flow",
+      routeType: "FLOW",
+      result: "success",
+      aiProvider: "none",
+      metadata: {
+        flowId: flowVersion.flowId,
+      },
+      startTime,
+    })
+  }
 }

@@ -1,3 +1,4 @@
+import { contactTrackingService } from "@aha.chat/analytics"
 import { prisma } from "@aha.chat/database"
 import type {
   ConversationModel,
@@ -13,6 +14,7 @@ import {
 } from "@aha.chat/flow-config"
 import { SdkException } from "@aha.chat/sdk"
 import type { IntegrationJobSendFlow } from "@aha.chat/worker-config"
+import { trackBotResponse } from "./automated-response/track-bot-response"
 import { flowStepHandlers } from "./step-handler"
 
 export type RunFlowNodeProps = {
@@ -88,6 +90,8 @@ export const sendFlowNode = async (props: IntegrationJobSendFlow) => {
     throw new SdkException("FlowVersion does not contain start node")
   }
 
+  const startTime = Date.now()
+
   await runStepsAndQuickReplies({
     conversation,
     flowVersion,
@@ -95,6 +99,50 @@ export const sendFlowNode = async (props: IntegrationJobSendFlow) => {
     nodeDetail: startNode.data.details,
     nodeIdOrButtonId: startNode.id,
   })
+
+  if (props.data.messageId) {
+    await trackBotResponse({
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      messageId: props.data.messageId,
+      hasResponse: true,
+      responseType: "flow",
+      routeType: "FLOW",
+      result: "success",
+      aiProvider: "none",
+      metadata: {
+        flowId: flowVersion.flowId,
+      },
+      startTime,
+    })
+
+    const contact = await prisma.contact.findFirst({
+      where: { id: conversation.contactId },
+      select: { sourceId: true },
+    })
+
+    if (contact?.sourceId) {
+      const inbox = await prisma.inbox.findFirst({
+        where: { id: conversation.inboxId },
+        select: { inboxType: true },
+      })
+
+      await contactTrackingService.trackEvent({
+        chatbotId: conversation.chatbotId,
+        contactId: contact.sourceId,
+        eventType: "contact_message_out",
+        senderType: "bot",
+        occurredAt: new Date(),
+        source: inbox?.inboxType,
+        sourceId: contact.sourceId,
+        channel: inbox?.inboxType,
+        metadata: {
+          flowId: flowVersion.flowId,
+          messageId: props.data.messageId,
+        },
+      })
+    }
+  }
 }
 
 export async function runStepsAndQuickReplies(

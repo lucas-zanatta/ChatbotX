@@ -30,9 +30,10 @@ export type IntegrationJobSendFlow = {
   type: typeof IntegrationJobAction.sendFlow
   data: {
     conversationId: string
-    flowId: string
+    flowId?: string
     flowVersionId?: string
     nodeId?: string
+    messageId?: string
   }
 }
 
@@ -41,6 +42,7 @@ export type IntegrationJobSendFlowPostback = {
   data: {
     conversationId: string
     action: string
+    messageId?: string
   }
 }
 
@@ -49,6 +51,7 @@ export type IntegrationJobSendFlowQuickReply = {
   data: {
     conversationId: string
     action: string
+    messageId?: string
   }
 }
 
@@ -56,6 +59,7 @@ export type IntegrationJobTriggerAutomatedResponse = {
   type: typeof IntegrationJobAction.triggerAutomatedResponse
   data: {
     message: OutgoingMessageEntity
+    messageId: string
   }
 }
 
