@@ -66,7 +66,7 @@ export const organizationSettingsSchema = z.object({
       configId: z.string(),
       systemUserId: z.string(),
       systemUserToken: z.string(),
-      businessId: z.string(),
+      businessId: z.string().optional(),
       businessName: z.string(),
     })
     .optional(),

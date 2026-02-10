@@ -113,10 +113,12 @@ export const connectWhatsappAction = authActionClient
           whatsappSettings,
         })
 
-        await shareCreditLine({
-          auth,
-          whatsappSettings,
-        })
+        if (whatsappSettings.businessId) {
+          await shareCreditLine({
+            auth,
+            whatsappSettings,
+          })
+        }
 
         await registerPhoneNumber({
           auth,

@@ -11,7 +11,7 @@ const api = ky.create({
 interface WhatsappSettings {
   systemUserId: string
   systemUserToken: string
-  businessId: string
+  businessId?: string
   businessName: string
 }
 
