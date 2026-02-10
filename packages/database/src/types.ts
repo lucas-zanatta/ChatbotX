@@ -67,6 +67,7 @@ export const organizationSettingsSchema = z.object({
       systemUserId: z.string(),
       systemUserToken: z.string(),
       businessId: z.string(),
+      businessName: z.string().optional(),
     })
     .optional(),
   googleSheets: z

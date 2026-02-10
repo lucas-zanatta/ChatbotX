@@ -12,6 +12,7 @@ interface WhatsappSettings {
   systemUserId: string
   systemUserToken: string
   businessId: string
+  businessName: string
 }
 
 export async function addSystemUser({
@@ -113,7 +114,7 @@ async function retrieveCreditLineId(
       .json<{ data: Array<{ id: string; legal_entity_name: string }> }>()
 
     const creditLine = response.data.find((line) =>
-      line.legal_entity_name.includes("AhaChat"),
+      line.legal_entity_name.includes(whatsappSettings.businessName),
     )
 
     if (!creditLine) {
