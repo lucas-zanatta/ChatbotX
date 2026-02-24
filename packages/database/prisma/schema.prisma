@@ -782,8 +782,11 @@ model WhatsappMessageTemplate {
   language              String
   category              String
   status                String
+  components            Json   @default("[]")
 
   integrationWhatsapp IntegrationWhatsapp @relation(fields: [integrationWhatsappId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationWhatsappId, sourceId])
 }
 
 model WhatsappFlow {
