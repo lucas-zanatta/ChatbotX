@@ -12,12 +12,10 @@ export default async function WhatsappMessageTemplatePage(props: {
     where: { chatbotId, id },
   })
 
-  const promises = Promise.all([
-    getMessageTemplates({
-      chatbotId,
-      id,
-    }),
-  ])
+  const promises = getMessageTemplates({
+    chatbotId,
+    id,
+  })
 
   return (
     <Suspense>
