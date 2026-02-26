@@ -20,6 +20,7 @@ import {
 } from "../../../lib/ai"
 import { logger } from "../../../lib/logger"
 import {
+  AI_GENERATE_TEXT,
   MAGIC_NUMBERS,
   TEXT,
   TOOL_RESULT_PREFIX,
@@ -216,6 +217,19 @@ async function saveResultToCustomField({
   )
 
   if (isReservedField) {
+    const { output: extractedDataRaw } = await generateText({
+      model,
+      output: Output.object({ schema: contactSchema }),
+      prompt: AI_GENERATE_TEXT.RESERVED_FIELD_EXTRACTION_PROMPT.replace(
+        "{{customFieldId}}",
+        customFieldId,
+      ).replace("{{fullText}}", fullText),
+      temperature: 0,
+      abortSignal,
+    })
+
+    const extractedData = await validateExtractedData(extractedDataRaw)
+
     const updateData: Partial<{
       firstName: string
       lastName: string

@@ -99,3 +99,8 @@ export const TOOL_RESULT_SUFFIX = " result: "
 export const MAGIC_NUMBERS = {
   ZERO_MESSAGE_COUNT: 0,
 } as const
+
+export const AI_GENERATE_TEXT = {
+  RESERVED_FIELD_EXTRACTION_PROMPT:
+    'Extract the following information for the field "{{customFieldId}}" from this text: "{{fullText}}"',
+} as const

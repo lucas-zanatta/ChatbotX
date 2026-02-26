@@ -13,6 +13,7 @@ const REGEX_ONLY_WHITESPACE = /^\s*$/
 const REGEX_ONLY_EMOJI = /^[\u{1F300}-\u{1F9FF}]+$/u
 const REGEX_STARS_OR_DASHES = /^[-*]\s*/u
 
+const REGEX_NOISY_CHARS = /^[-*.\s]+$/
 function isImageUrl(url: string): boolean {
   const s = url.trim().toLowerCase()
   if (!(s.startsWith("http://") || s.startsWith("https://"))) {
@@ -108,6 +109,9 @@ export function processTextForImagesAndLinks(text: string): string[] {
       return false
     }
     if (REGEX_ONLY_EMOJI.test(t)) {
+      return false
+    }
+    if (REGEX_NOISY_CHARS.test(t)) {
       return false
     }
     return true
