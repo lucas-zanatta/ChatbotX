@@ -41,6 +41,10 @@ import type {
 import { contactTrackingService } from "@chatbotx.io/analytics"
 import { createId } from "@paralleldrive/cuid2"
 import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
+import {
+  replaceWhatsappTemplateVariables,
+  validateWhatsappTemplate,
+} from "../../integration/handlers/wa-template-handler"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
@@ -126,6 +130,32 @@ export async function sendFlowStep({
         sourceId: null,
         content: step.stepType === StepType.sendText ? step.message : null,
       }
+
+      if (step.stepType === StepType.sendWaTemplateMessage) {
+        const isValid = await validateWhatsappTemplate(
+          step.template,
+          conversation.inboxId,
+        )
+        if (!isValid) {
+          return ""
+        }
+
+        const templateParams = await replaceWhatsappTemplateVariables(
+          step.template.params,
+          conversationId,
+        )
+
+        messageData.content = `Template: ${step.template.name}`
+        messageData.contentAttributes = {
+          type: "whatsapp_template",
+          templateName: step.template.name,
+          templateLanguage: step.template.languageCode,
+          templateId: step.template.id,
+          params: templateParams,
+        }
+        step.template.params = templateParams
+      }
+
       if ("buttons" in step && step.buttons.length > 0) {
         messageData.contentAttributes = {
           type: "template",
@@ -208,6 +238,15 @@ export async function sendFlowStep({
           flowId,
           flowVersionId,
           step: step as SendFlowStepData,
+        }).then(async (result) => {
+          const firstMessageId = result?.messageIds?.[0]
+
+          if (firstMessageId && message && typeof message !== "string") {
+            await prisma.message.update({
+              where: { id: message.id },
+              data: { sourceId: firstMessageId },
+            })
+          }
         }),
       )
     }
