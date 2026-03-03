@@ -12,6 +12,7 @@ export const IntegrationJobAction = {
   sendFlow: "sendFlow",
   runRef: "runRef",
   incomingMessage: "incomingMessage",
+  messageStatus: "messageStatus",
   runFlowPostback: "runFlowPostback",
   runFlowQuickReply: "runFlowQuickReply",
   triggerAutomatedResponse: "triggerAutomatedResponse",
@@ -33,6 +34,18 @@ export type IntegrationJobReceiveMessage = {
     sourceContactId: string
     sourceConversationId: string
     payload: unknown
+  }
+}
+
+export type IntegrationJobMessageStatus = {
+  type: typeof IntegrationJobAction.messageStatus
+  data: {
+    integrationType: string
+    payload: {
+      messageId: string
+      status: "delivered" | "failed"
+      timestamp: string
+    }
   }
 }
 
@@ -152,6 +165,7 @@ export type IntegrationJobCreateMessage = {
 
 export type IntegrationJobData =
   | IntegrationJobReceiveMessage
+  | IntegrationJobMessageStatus
   | IntegrationJobRunFlowNode
   | IntegrationJobSendFlowPostback
   | IntegrationJobSendFlowQuickReply

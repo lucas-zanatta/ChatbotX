@@ -26,6 +26,7 @@ import {
   runFlowPostback,
   runFlowQuickReply,
 } from "./handlers/flow"
+import { handleMessageStatus } from "./handlers/message-status"
 import { receiveMessage } from "./handlers/received-message"
 import { runRef } from "./handlers/ref"
 import { sendBroadcast } from "./handlers/send-broadcast"
@@ -55,6 +56,10 @@ const worker = new Worker(
             },
           )
         }
+        return
+      }
+      case IntegrationJobAction.messageStatus: {
+        await handleMessageStatus(job.data)
         return
       }
       case IntegrationJobAction.sendFlow: {

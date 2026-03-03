@@ -196,4 +196,5 @@ export const flowStepHandlers: Record<
   [StepType.emailCode]: undefined,
   [StepType.emailHeader]: undefined,
   [StepType.typing]: stepSendTyping,
+  [StepType.sendWaTemplateMessage]: sendFlowMessage,
 }

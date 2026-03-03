@@ -8,6 +8,7 @@ import type {
   SendQuickReplyStepSchema,
   SendTextStepSchema,
   SendVideoStepSchema,
+  SendWaTemplateMessageStepSchema,
 } from "@aha.chat/flow-config"
 import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
@@ -49,6 +50,7 @@ export type ChatJobSendFlowStep = {
       | SendCardStepSchema
       | SendCarouselStepSchema
       | SendQuickReplyStepSchema
+      | SendWaTemplateMessageStepSchema
   }
 }
 
