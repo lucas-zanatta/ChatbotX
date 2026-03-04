@@ -81,6 +81,7 @@ export type IntegrationJobTriggerAutomatedResponse = {
   type: typeof IntegrationJobAction.triggerAutomatedResponse
   data: {
     message: OutgoingMessage
+    conversation: OutgoingConversation
   }
 }
 

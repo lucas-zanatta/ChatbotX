@@ -1,12 +1,14 @@
+import { db, eq, findOrFail } from "@aha.chat/database/client"
 import {
-  ContentType,
-  MessageType,
-  type Prisma,
-  prisma,
-  SenderType,
-} from "@aha.chat/database"
+  attachmentModel,
+  contactModel,
+  inboxModel,
+  messageModel,
+} from "@aha.chat/database/schema"
 import {
   type AttachmentModel,
+  type ContactModel,
+  type InboxModel,
   WEBCHAT_SOURCE_PREFIX,
 } from "@aha.chat/database/types"
 import { uploadFileFromUrl } from "@aha.chat/filesystem"
@@ -27,6 +29,7 @@ import type {
   MessageButtonTemplate,
   MessageCardTemplate,
   MessageTemplateEntity,
+  OutgoingMessage,
   SendFlowStepData,
   SendTypingProps,
 } from "@aha.chat/sdk"
@@ -102,23 +105,24 @@ export async function sendFlowStep({
   flowVersionId,
   step,
 }: ChatJobSendFlowStep["data"]) {
-  const conversation = await prisma.conversation.findFirst({
+  const conversation = await db.query.conversationModel.findFirst({
     where: { id: conversationId },
-    include: { contact: true },
+    with: { contact: true },
   })
   if (!conversation) {
     return
   }
 
   try {
-    const message = await prisma.$transaction(async (tx) => {
-      const messageData: Prisma.MessageUncheckedCreateInput = {
+    const message = await db.transaction(async (tx) => {
+      const messageData: typeof messageModel.$inferInsert = {
+        id: createId(),
         inboxId: conversation.inboxId,
         chatbotId: conversation.chatbotId,
         conversationId: conversation.id,
-        messageType: MessageType.outgoing,
-        contentType: ContentType.text,
-        senderType: SenderType.bot,
+        messageType: "outgoing",
+        contentType: "text",
+        senderType: "bot",
         sourceId: null,
         content: step.stepType === StepType.sendText ? step.message : null,
       }
@@ -174,9 +178,11 @@ export async function sendFlowStep({
           },
         } satisfies MessageTemplateEntity
       }
-      const newMessage = await prisma.message.create({
-        data: messageData,
-      })
+      const newMessage = await tx
+        .insert(messageModel)
+        .values(messageData)
+        .returning()
+        .then((result) => result[0])
 
       // Upload file if exists
       let attachment: AttachmentModel | undefined
@@ -186,14 +192,18 @@ export async function sendFlowStep({
           `public/chatbots/${newMessage.chatbotId}/conversations/${conversation.id}/${createId()}`,
         )
 
-        attachment = await tx.attachment.create({
-          data: {
+        attachment = await tx
+          .insert(attachmentModel)
+          .values({
+            id: createId(),
             chatbotId: conversation.chatbotId,
             conversationId: conversation.id,
             messageId: newMessage.id,
             ...uploadedFile,
-          },
-        })
+          })
+          .returning()
+          .then((result) => result[0])
+
         ;(newMessage as { attachments?: AttachmentModel[] }).attachments =
           attachment ? [attachment] : undefined
       }
@@ -225,10 +235,12 @@ export async function sendFlowStep({
           const firstMessageId = result?.messageIds?.[0]
 
           if (firstMessageId && message && typeof message !== "string") {
-            await prisma.message.update({
-              where: { id: message.id },
-              data: { sourceId: firstMessageId },
-            })
+            await db
+              .update(messageModel)
+              .set({
+                sourceId: firstMessageId,
+              })
+              .where(eq(messageModel.id, message.id))
           }
         }),
       )
@@ -249,21 +261,22 @@ export const sendChatMessage = async (
   const { conversation, text, url } = props
 
   try {
-    const message = await prisma.$transaction(async (tx) => {
-      const messageData: Prisma.MessageUncheckedCreateInput = {
-        inboxId: conversation.inboxId,
-        chatbotId: conversation.chatbotId,
-        conversationId: conversation.id,
-        messageType: MessageType.outgoing,
-        contentType: ContentType.text,
-        senderType: SenderType.bot,
-        sourceId: null,
-        content: text,
-      }
-
-      const newMessage = await prisma.message.create({
-        data: messageData,
-      })
+    const message = await db.transaction(async (tx) => {
+      const newMessage = await db
+        .insert(messageModel)
+        .values({
+          id: createId(),
+          inboxId: conversation.inboxId,
+          chatbotId: conversation.chatbotId,
+          conversationId: conversation.id,
+          messageType: "outgoing",
+          contentType: "text",
+          senderType: "bot",
+          sourceId: null,
+          content: text,
+        })
+        .returning()
+        .then((result) => result[0])
 
       if (url) {
         const uploadedFile = await uploadFileFromUrl(
@@ -271,14 +284,17 @@ export const sendChatMessage = async (
           `public/chatbots/${newMessage.chatbotId}/conversations/${conversation.id}/${createId()}`,
         )
 
-        const attachment = await tx.attachment.create({
-          data: {
+        const attachment = await tx
+          .insert(attachmentModel)
+          .values({
+            id: createId(),
             chatbotId: conversation.chatbotId,
             conversationId: conversation.id,
             messageId: newMessage.id,
             ...uploadedFile,
-          },
-        })
+          })
+          .returning()
+          .then((result) => result[0])
         ;(newMessage as { attachments?: AttachmentModel[] }).attachments = [
           attachment,
         ]
@@ -291,9 +307,13 @@ export const sendChatMessage = async (
       conversation.inboxId,
     )
 
-    const contact = await prisma.contact.findFirstOrThrow({
-      where: { id: conversation.contactId },
-    })
+    const contact = await findOrFail<ContactModel>(
+      contactModel,
+      {
+        where: { id: conversation.contactId },
+      },
+      `Contact not found for conversationId: ${conversation.id}`,
+    )
 
     await allIntegrations[
       inbox.inboxType
@@ -305,7 +325,7 @@ export const sendChatMessage = async (
       data: {
         contact,
         conversation,
-        message,
+        message: message as OutgoingMessage,
       },
     })
 
@@ -317,7 +337,7 @@ export const sendChatMessage = async (
       data: {
         contact,
         conversation,
-        message,
+        message: message as OutgoingMessage,
       },
     })
 
@@ -338,7 +358,7 @@ export const sendChatMessage = async (
       promises.push(
         sendMessageToExternal({
           conversation,
-          message,
+          message: message as OutgoingMessage,
         }),
       )
     }
@@ -360,11 +380,13 @@ export const sendTyping = async (
     data: { conversation, typing },
   } = props
 
-  const inbox = await prisma.inbox.findFirstOrThrow({
-    where: {
+  const inbox = await findOrFail<InboxModel>(
+    inboxModel,
+    {
       id: conversation.inboxId,
     },
-  })
+    `Inbox ${conversation.inboxId} not found for conversationId: ${conversation.id}`,
+  )
 
   await allIntegrations[
     inbox.inboxType
