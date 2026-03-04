@@ -1,4 +1,4 @@
-import { db, findOrFail } from "@aha.chat/database/client"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
 import {
   attachmentModel,
   contactModel,
@@ -242,10 +242,12 @@ export async function sendFlowStep({
           const firstMessageId = result?.messageIds?.[0]
 
           if (firstMessageId && message && typeof message !== "string") {
-            await prisma.message.update({
-              where: { id: message.id },
-              data: { sourceId: firstMessageId },
-            })
+            await db
+              .update(messageModel)
+              .set({
+                sourceId: firstMessageId,
+              })
+              .where(eq(messageModel.id, message.id))
           }
         }),
       )
