@@ -75,6 +75,11 @@ export const aiEmbeddingStatus = pgEnum("AIEmbeddingStatus", [
   "error",
   "processing",
 ])
+export const conditionOwnerType = pgEnum("ConditionOwnerType", [
+  "trigger",
+  "webhook",
+  "broadcast",
+])
 
 export const aiTriggerToIntegrationOpenAIModel = pgTable(
   "_AITriggerToIntegrationOpenAI",
@@ -1918,6 +1923,43 @@ export const whatsappMessageTemplateModel = pgTable(
       "btree",
       table.integrationWhatsappId.asc().nullsLast().op("text_ops"),
       table.sourceId.asc().nullsLast().op("text_ops"),
+    ),
+  ],
+)
+
+export const conditionModel = pgTable(
+  "Condition",
+  {
+    id: text().primaryKey(),
+    createdAt: timestamp({ precision: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp({ precision: 3 })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`),
+    ownerType: conditionOwnerType().notNull(),
+    ownerId: text().notNull(),
+    type: integer().notNull(),
+    sourceId: text(),
+    operator: text(),
+    value: jsonb(),
+  },
+  (table) => [
+    index("Condition_type_sourceId_idx").using(
+      "btree",
+      table.type.asc().nullsLast(),
+      table.sourceId.asc().nullsLast().op("text_ops"),
+    ),
+    index("Condition_ownerType_ownerId_idx").using(
+      "btree",
+      table.ownerType.asc().nullsLast().op("enum_ops"),
+      table.ownerId.asc().nullsLast().op("text_ops"),
+    ),
+    index("Condition_type_sourceId_ownerType_ownerId_idx").using(
+      "btree",
+      table.type.asc().nullsLast(),
+      table.sourceId.asc().nullsLast().op("text_ops"),
+      table.ownerType.asc().nullsLast().op("enum_ops"),
+      table.ownerId.asc().nullsLast().op("text_ops"),
     ),
   ],
 )
