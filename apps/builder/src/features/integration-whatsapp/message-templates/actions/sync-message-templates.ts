@@ -88,6 +88,7 @@ export const syncMessageTemplateAction = chatbotActionClient
                 language: template.language,
                 category: template.category,
                 status: template.status,
+                components: template.components,
               })
               .where(eq(whatsappMessageTemplateModel.id, existing.id))
           } else {
@@ -100,6 +101,7 @@ export const syncMessageTemplateAction = chatbotActionClient
                 category: template.category,
                 status: template.status,
                 sourceId: template.id,
+                components: template.components,
               },
             ])
           }
