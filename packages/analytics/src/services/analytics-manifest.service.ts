@@ -1,6 +1,8 @@
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray, lt } from "@aha.chat/database/client"
+import { analyticsManifestStatusModel } from "@aha.chat/database/schema"
 import { uploader } from "@aha.chat/filesystem"
 import type { NdjsonIngestManifestStore } from "@aha.chat/filesystem/server"
+import { sql } from "drizzle-orm"
 
 export class AnalyticsManifestService implements NdjsonIngestManifestStore {
   async getS3Files(prefix: string): Promise<string[]> {
@@ -13,12 +15,12 @@ export class AnalyticsManifestService implements NdjsonIngestManifestStore {
       return []
     }
 
-    const processed = await prisma.analyticsManifestStatus.findMany({
-      where: {
-        objectKey: { in: s3Keys },
-        status: "ingested",
-      },
-      select: { objectKey: true },
+    const processed = await db.query.analyticsManifestStatusModel.findMany({
+      where: and(
+        inArray(analyticsManifestStatusModel.objectKey, s3Keys),
+        eq(analyticsManifestStatusModel.status, "ingested"),
+      ),
+      columns: { objectKey: true },
     })
 
     const processedSet = new Set(processed.map((p) => p.objectKey))
@@ -31,8 +33,8 @@ export class AnalyticsManifestService implements NdjsonIngestManifestStore {
 
   async claimForProcessing(objectKey: string): Promise<number | null> {
     try {
-      const existing = await prisma.analyticsManifestStatus.findUnique({
-        where: { objectKey },
+      const existing = await db.query.analyticsManifestStatusModel.findFirst({
+        where: eq(analyticsManifestStatusModel.objectKey, objectKey),
       })
 
       if (
@@ -42,21 +44,23 @@ export class AnalyticsManifestService implements NdjsonIngestManifestStore {
         return null
       }
 
-      const result = await prisma.analyticsManifestStatus.upsert({
-        where: { objectKey },
-        create: {
+      const result = await db
+        .insert(analyticsManifestStatusModel)
+        .values({
           objectKey,
           status: "processing",
           attempts: 1,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        update: {
-          status: "processing",
-          attempts: { increment: 1 },
-          updatedAt: new Date(),
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: analyticsManifestStatusModel.objectKey,
+          set: {
+            status: "processing",
+            attempts: sql`${analyticsManifestStatusModel.attempts} + 1`,
+            updatedAt: new Date(),
+          },
+        })
+        .returning()
+        .then((res) => res[0])
 
       return result.attempts
     } catch (error) {
@@ -69,25 +73,25 @@ export class AnalyticsManifestService implements NdjsonIngestManifestStore {
   }
 
   async markIngested(objectKey: string): Promise<void> {
-    await prisma.analyticsManifestStatus.update({
-      where: { objectKey },
-      data: {
+    await db
+      .update(analyticsManifestStatusModel)
+      .set({
         status: "ingested",
         ingestedAt: new Date(),
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(eq(analyticsManifestStatusModel.objectKey, objectKey))
   }
 
   async markFailed(objectKey: string, error: string): Promise<void> {
-    await prisma.analyticsManifestStatus.update({
-      where: { objectKey },
-      data: {
+    await db
+      .update(analyticsManifestStatusModel)
+      .set({
         status: "failed",
         lastError: error,
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(eq(analyticsManifestStatusModel.objectKey, objectKey))
   }
 
   async deleteS3File(objectKey: string): Promise<void> {
@@ -103,18 +107,20 @@ export class AnalyticsManifestService implements NdjsonIngestManifestStore {
 
   async resetStuckProcessing(olderThanMinutes = 30): Promise<number> {
     const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000)
-    const result = await prisma.analyticsManifestStatus.updateMany({
-      where: {
-        status: "processing",
-        updatedAt: { lt: cutoff },
-      },
-      data: {
+    const result = await db
+      .update(analyticsManifestStatusModel)
+      .set({
         status: "failed",
         lastError: "Processing timeout - reset by cleanup job",
         updatedAt: new Date(),
-      },
-    })
-    return result.count
+      })
+      .where(
+        and(
+          eq(analyticsManifestStatusModel.status, "processing"),
+          lt(analyticsManifestStatusModel.updatedAt, cutoff),
+        ),
+      )
+    return result.rowCount
   }
 }
 

@@ -5,6 +5,7 @@ import type {
   OrganizationSettings,
 } from "@aha.chat/database/types"
 import { ReactFlowProvider } from "@xyflow/react"
+import { AIToolsStoreProvider } from "../ai-triggers/provider/ai-tools-store-context"
 import { CustomFieldStoreProvider } from "../custom-fields/provider/custom-field-store-context"
 import { InboxStoreProvider } from "../inboxes/provider/inbox-store-context"
 import { TagStoreProvider } from "../tags/provider/tag-store-context"
@@ -34,18 +35,14 @@ export function FlowDetail({
           activeFlowId: flow.id,
         }}
       >
-        <InboxStoreProvider autoInitialize={true} chatbotId={flow.chatbotId}>
-          <FlowStoreProvider autoInitialize={true} chatbotId={flow.chatbotId}>
-            <TagStoreProvider autoInitialize={true} chatbotId={flow.chatbotId}>
-              <UserStoreProvider
-                autoInitializeAgentsAndInboxTeams={true}
-                chatbotId={flow.chatbotId}
-              >
-                <CustomFieldStoreProvider
-                  autoInitialize={true}
-                  chatbotId={flow.chatbotId}
-                >
-                  <ReactFlowFrame flow={flow} flowVersion={flowVersion} />
+        <InboxStoreProvider chatbotId={flow.chatbotId}>
+          <FlowStoreProvider chatbotId={flow.chatbotId}>
+            <TagStoreProvider chatbotId={flow.chatbotId}>
+              <UserStoreProvider chatbotId={flow.chatbotId}>
+                <CustomFieldStoreProvider chatbotId={flow.chatbotId}>
+                  <AIToolsStoreProvider chatbotId={flow.chatbotId}>
+                    <ReactFlowFrame flow={flow} flowVersion={flowVersion} />
+                  </AIToolsStoreProvider>
                 </CustomFieldStoreProvider>
               </UserStoreProvider>
             </TagStoreProvider>

@@ -1,6 +1,6 @@
 "use client"
 
-import { CustomFieldType } from "@aha.chat/database/types"
+import type { CustomFieldType } from "@aha.chat/database/types"
 import { FieldOperationType } from "@aha.chat/flow-config"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import {
@@ -43,13 +43,14 @@ export const CustomFieldSelect = (props: CustomFieldSelectProps) => {
     customFieldTypes,
     includeReserved,
   })
+
   const getAllCustomFields = useCustomFieldStore(
     (state) => state.getAllCustomFields,
   )
 
   const handleSuccess = useCallback(() => {
-    getAllCustomFields(params.chatbotId)
-  }, [getAllCustomFields, params.chatbotId])
+    getAllCustomFields()
+  }, [getAllCustomFields])
 
   const showLabel = label && label !== ""
 
@@ -103,10 +104,7 @@ const getOperationOptions = (
   customFieldType: CustomFieldType | null,
   t: ReturnType<typeof useTranslations>,
 ): SelectOption[] => {
-  if (
-    customFieldType === CustomFieldType.shortText ||
-    customFieldType === CustomFieldType.longText
-  ) {
+  if (customFieldType === "shortText" || customFieldType === "longText") {
     return [
       {
         label: t("fields.customField.set_value"),
@@ -123,7 +121,7 @@ const getOperationOptions = (
     ]
   }
 
-  if (customFieldType === CustomFieldType.number) {
+  if (customFieldType === "number") {
     return [
       {
         label: t("fields.customField.set_value"),

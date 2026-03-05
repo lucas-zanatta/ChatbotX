@@ -9,7 +9,7 @@ import type {
   SendTextStepSchema,
   SendVideoStepSchema,
 } from "@aha.chat/flow-config"
-import type { ConversationEntity, MessageEntity } from "@aha.chat/sdk"
+import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
 import {
   defaultJobOptions,
@@ -21,13 +21,15 @@ import { queueName } from "../../lib/types"
 export const ChatJobAction = {
   sendExternalMessage: "sendExternalMessage",
   sendFlowMessage: "sendFlowMessage",
+  sendChatMessage: "sendChatMessage",
+  sendTyping: "sendTyping",
 } as const
 
-export type ChatJobSendMessage = {
+export type ChatJobSendExternalMessage = {
   type: typeof ChatJobAction.sendExternalMessage
   data: {
-    conversation: ConversationEntity
-    message: MessageEntity
+    conversation: OutgoingConversation
+    message: OutgoingMessage
   }
 }
 
@@ -50,7 +52,28 @@ export type ChatJobSendFlowStep = {
   }
 }
 
-export type ChatJobData = ChatJobSendMessage | ChatJobSendFlowStep
+export type ChatJobSendChatMessage = {
+  type: typeof ChatJobAction.sendChatMessage
+  data: {
+    conversation: OutgoingConversation
+    text?: string
+    url?: string
+  }
+}
+
+export type ChatJobSendTyping = {
+  type: typeof ChatJobAction.sendTyping
+  data: {
+    conversation: OutgoingConversation
+    typing: boolean
+  }
+}
+
+export type ChatJobData =
+  | ChatJobSendExternalMessage
+  | ChatJobSendFlowStep
+  | ChatJobSendChatMessage
+  | ChatJobSendTyping
 
 export const chatQueue =
   process.env.NEXT_PHASE !== "phase-production-build"

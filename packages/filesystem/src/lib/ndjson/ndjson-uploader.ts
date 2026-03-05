@@ -11,9 +11,9 @@ const stat = promisify(fs.stat)
 const rm = promisify(fs.rm)
 
 export interface NdjsonUploaderConfig {
+  concurrency: number
   rootPath: string
   s3Prefix: string
-  concurrency: number
 }
 
 export class NdjsonUploader {

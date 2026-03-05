@@ -1,4 +1,4 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import type { SearchParams } from "next/dist/server/request/search-params"
 import { notFound } from "next/navigation"
 import z from "zod"
@@ -18,6 +18,7 @@ export default async function WebchatPage(props: WebchatPageProps) {
     .object({
       chatbotId: z.cuid2(),
       webchatId: z.cuid2(),
+      ref: z.string().optional(),
     })
     .safeParse(searchParams)
 
@@ -25,19 +26,20 @@ export default async function WebchatPage(props: WebchatPageProps) {
     return notFound()
   }
 
-  const integrationWebchat = await prisma.integrationWebchat.findFirst({
+  const targetWebchat = await db.query.integrationWebchatModel.findFirst({
     where: {
       id: data.webchatId,
       chatbotId: data.chatbotId,
     },
   })
-  if (!integrationWebchat) {
+
+  if (!targetWebchat) {
     return notFound()
   }
 
   return (
-    <GuestSessionStoreProvider config={integrationWebchat}>
-      <WebchatWrapper />
+    <GuestSessionStoreProvider config={targetWebchat}>
+      <WebchatWrapper referral={data.ref} />
     </GuestSessionStoreProvider>
   )
 }

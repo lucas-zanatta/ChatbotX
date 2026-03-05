@@ -1,15 +1,17 @@
+import { db, findOrFail } from "@aha.chat/database/client"
 import {
-  ContentType,
-  MessageType,
-  type Prisma,
-  prisma,
-  SenderType,
-} from "@aha.chat/database"
+  attachmentModel,
+  contactModel,
+  inboxModel,
+  messageModel,
+} from "@aha.chat/database/schema"
 import {
   type AttachmentModel,
+  type ContactModel,
+  type InboxModel,
   WEBCHAT_SOURCE_PREFIX,
 } from "@aha.chat/database/types"
-import { uploader } from "@aha.chat/filesystem"
+import { uploadFileFromUrl } from "@aha.chat/filesystem"
 import {
   type ButtonStepProps,
   ButtonType,
@@ -22,20 +24,24 @@ import {
   broadcastToGuestParty,
   RealtimeEventType,
 } from "@aha.chat/partysocket-config"
-import {
-  type ConversationEntity,
-  guessFileTypeFromMimeType,
-  type MessageButtonTemplate,
-  type MessageCardTemplate,
-  type MessageTemplateEntity,
-  type SendFlowStepData,
+import type {
+  AuthValue,
+  MessageButtonTemplate,
+  MessageCardTemplate,
+  MessageTemplateEntity,
+  OutgoingMessage,
+  SendFlowStepData,
+  SendTypingProps,
 } from "@aha.chat/sdk"
-import type { ChatJobSendFlowStep } from "@aha.chat/worker-config"
+import type {
+  ChatJobSendChatMessage,
+  ChatJobSendFlowStep,
+} from "@aha.chat/worker-config"
 import { createId } from "@paralleldrive/cuid2"
-import { format } from "date-fns"
-import imageSize from "image-size"
+import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
+import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
-import { sendFlowStepToExternal } from "./send-message"
+import { sendFlowStepToExternal, sendMessageToExternal } from "./send-message"
 
 const convertButtonsToTemplate = (props: {
   flowId: string
@@ -95,23 +101,24 @@ export async function sendFlowStep({
   flowVersionId,
   step,
 }: ChatJobSendFlowStep["data"]) {
-  const conversation = await prisma.conversation.findFirst({
+  const conversation = await db.query.conversationModel.findFirst({
     where: { id: conversationId },
-    include: { contact: true },
+    with: { contact: true },
   })
   if (!conversation) {
     return
   }
 
   try {
-    const message = await prisma.$transaction(async (tx) => {
-      const messageData: Prisma.MessageUncheckedCreateInput = {
+    const message = await db.transaction(async (tx) => {
+      const messageData: typeof messageModel.$inferInsert = {
+        id: createId(),
         inboxId: conversation.inboxId,
         chatbotId: conversation.chatbotId,
         conversationId: conversation.id,
-        messageType: MessageType.outgoing,
-        contentType: ContentType.text,
-        senderType: SenderType.bot,
+        messageType: "outgoing",
+        contentType: "text",
+        senderType: "bot",
         sourceId: null,
         content: step.stepType === StepType.sendText ? step.message : null,
       }
@@ -141,60 +148,31 @@ export async function sendFlowStep({
           },
         } satisfies MessageTemplateEntity
       }
-      const newMessage = await prisma.message.create({
-        data: messageData,
-      })
+      const newMessage = await tx
+        .insert(messageModel)
+        .values(messageData)
+        .returning()
+        .then((result) => result[0])
 
       // Upload file if exists
       let attachment: AttachmentModel | undefined
       if ("url" in step) {
-        const response = await fetch(step.url, {
-          headers: {
-            "User-Agent": "node",
-          },
-        })
-        if (response.ok && response.body) {
-          const originPath = `public/chatbots/${newMessage.chatbotId}/${format(new Date(), "yyyyMMdd")}/${createId()}`
-          const bytes = await response.arrayBuffer()
-          const mimeType =
-            response.headers.get("content-type") ?? "application/octet-stream"
-          const fileType = guessFileTypeFromMimeType(mimeType)
+        const uploadedFile = await uploadFileFromUrl(
+          step.url,
+          `public/chatbots/${newMessage.chatbotId}/conversations/${conversation.id}/${createId()}`,
+        )
 
-          await uploader.putObject(originPath, Buffer.from(bytes), {
-            ACL: "public-read",
-            ContentType: mimeType,
+        attachment = await tx
+          .insert(attachmentModel)
+          .values({
+            id: createId(),
+            chatbotId: conversation.chatbotId,
+            conversationId: conversation.id,
+            messageId: newMessage.id,
+            ...uploadedFile,
           })
-
-          const imageProperties: {
-            width?: number
-            height?: number
-          } = {}
-          if (mimeType.startsWith("image/")) {
-            // Retrieve width / height
-            const arrayBytes = new Uint8Array(bytes)
-            const dimensions = imageSize(arrayBytes)
-            imageProperties.width = dimensions.width
-            imageProperties.height = dimensions.height
-          }
-
-          attachment = await tx.attachment.create({
-            data: {
-              chatbotId: conversation.chatbotId,
-              conversationId: conversation.id,
-              messageId: newMessage.id,
-              originPath: step.url,
-              name: "Attachment",
-              mimeType,
-              size: Number.parseInt(
-                response.headers.get("content-length") ?? "0",
-                10,
-              ),
-              fileType,
-              sourceId: null,
-              ...imageProperties,
-            },
-          })
-        }
+          .returning()
+          .then((result) => result[0])
 
         ;(newMessage as { attachments?: AttachmentModel[] }).attachments =
           attachment ? [attachment] : undefined
@@ -205,21 +183,21 @@ export async function sendFlowStep({
 
     const promises: Promise<unknown>[] = [
       broadcastToChatbotParty(conversation.chatbotId, {
-        eventType: RealtimeEventType.CREATE_MESSAGE,
+        eventType: RealtimeEventType.messageCreated,
         data: message,
       }),
     ]
     if (conversation.sourceId?.startsWith(WEBCHAT_SOURCE_PREFIX)) {
       promises.push(
         broadcastToGuestParty(conversation.sourceId, {
-          eventType: RealtimeEventType.CREATE_MESSAGE,
+          eventType: RealtimeEventType.messageCreated,
           data: message,
         }),
       )
     } else {
       promises.push(
         sendFlowStepToExternal({
-          conversation: conversation as ConversationEntity,
+          conversation,
           flowId,
           flowVersionId,
           step: step as SendFlowStepData,
@@ -229,38 +207,150 @@ export async function sendFlowStep({
 
     await Promise.all(promises)
   } catch (error) {
-    logger.error("sendFlowStep error", error)
+    logger.error(
+      error,
+      `sendFlowStep error for conversationId: ${conversationId}`,
+    )
   }
+}
 
-  // else if (step.stepType === StepType.sendText) {
-  //   // Only SEND_TEXT and SEND_IMAGE are supported for external at this layer
-  //   promises.push(
-  //     sendFlowStepToExternal({
-  //       conversation: conversation as ConversationEntity,
-  //       flowVersionId,
-  //       step: {
-  //         id: step.id,
-  //         stepType: StepType.sendText,
-  //         message: step.message,
-  //         buttons: step.buttons,
-  //       },
-  //     }),
-  //   )
-  // } else if (step.stepType === StepType.sendImage) {
-  //   promises.push(
-  //     sendFlowStepToExternal({
-  //       conversation: conversation as ConversationEntity,
-  //       flowVersionId,
-  //       step: {
-  //         id: step.id,
-  //         stepType: StepType.sendImage,
-  //         mode: step.mode,
-  //         url: step.url,
-  //         buttons: step.buttons,
-  //         // attachment is optional in schema
-  //         attachment: step.attachment,
-  //       },
-  //     }),
-  //   )
-  // }
+export const sendChatMessage = async (
+  props: ChatJobSendChatMessage["data"],
+) => {
+  const { conversation, text, url } = props
+
+  try {
+    const message = await db.transaction(async (tx) => {
+      const newMessage = await db
+        .insert(messageModel)
+        .values({
+          id: createId(),
+          inboxId: conversation.inboxId,
+          chatbotId: conversation.chatbotId,
+          conversationId: conversation.id,
+          messageType: "outgoing",
+          contentType: "text",
+          senderType: "bot",
+          sourceId: null,
+          content: text,
+        })
+        .returning()
+        .then((result) => result[0])
+
+      if (url) {
+        const uploadedFile = await uploadFileFromUrl(
+          url,
+          `public/chatbots/${newMessage.chatbotId}/conversations/${conversation.id}/${createId()}`,
+        )
+
+        const attachment = await tx
+          .insert(attachmentModel)
+          .values({
+            id: createId(),
+            chatbotId: conversation.chatbotId,
+            conversationId: conversation.id,
+            messageId: newMessage.id,
+            ...uploadedFile,
+          })
+          .returning()
+          .then((result) => result[0])
+        ;(newMessage as { attachments?: AttachmentModel[] }).attachments = [
+          attachment,
+        ]
+      }
+
+      return newMessage
+    })
+
+    const { inbox, auth } = await getInboxWithAuthFromInboxId(
+      conversation.inboxId,
+    )
+
+    const contact = await findOrFail<ContactModel>(
+      contactModel,
+      {
+        where: { id: conversation.contactId },
+      },
+      `Contact not found for conversationId: ${conversation.id}`,
+    )
+
+    await allIntegrations[
+      inbox.inboxType
+    ]?.channels?.channel?.message?.sendMessage?.({
+      ctx: {
+        chatbot: inbox.chatbot,
+        auth,
+      },
+      data: {
+        contact,
+        conversation,
+        message: message as OutgoingMessage,
+      },
+    })
+
+    await allIntegrations.chatbotx?.channels?.channel?.message?.sendMessage?.({
+      ctx: {
+        chatbot: inbox.chatbot,
+        auth,
+      },
+      data: {
+        contact,
+        conversation,
+        message: message as OutgoingMessage,
+      },
+    })
+
+    const promises: Promise<unknown>[] = [
+      broadcastToChatbotParty(conversation.chatbotId, {
+        eventType: RealtimeEventType.messageCreated,
+        data: message,
+      }),
+    ]
+    if (conversation.sourceId?.startsWith(WEBCHAT_SOURCE_PREFIX)) {
+      promises.push(
+        broadcastToGuestParty(conversation.sourceId, {
+          eventType: RealtimeEventType.messageCreated,
+          data: message,
+        }),
+      )
+    } else {
+      promises.push(
+        sendMessageToExternal({
+          conversation,
+          message: message as OutgoingMessage,
+        }),
+      )
+    }
+
+    await Promise.all(promises)
+  } catch (error) {
+    logger.error(
+      error,
+      `sendChatMessage error for conversationId: ${conversation.id}`,
+    )
+  }
+}
+
+export const sendTyping = async (
+  props: SendTypingProps<AuthValue>,
+): Promise<void> => {
+  const {
+    ctx,
+    data: { conversation, typing },
+  } = props
+
+  const inbox = await findOrFail<InboxModel>(
+    inboxModel,
+    {
+      id: conversation.inboxId,
+    },
+    `Inbox ${conversation.inboxId} not found for conversationId: ${conversation.id}`,
+  )
+
+  await allIntegrations[
+    inbox.inboxType
+  ]?.channels?.channel?.conversation?.sendTyping?.({
+    ctx,
+    data: { conversation, typing },
+  })
 }

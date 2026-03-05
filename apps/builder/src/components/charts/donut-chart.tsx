@@ -12,10 +12,10 @@ import ChartHeader from "./chart-header"
 import { COLORS } from "./constants"
 
 export interface DonutChartProps {
-  name: string
-  valueLabel: string
   data: Array<{ name: string; value: number; color?: string }>
   helpMessage?: string
+  name: string
+  valueLabel: string
 }
 
 export function DonutChart({

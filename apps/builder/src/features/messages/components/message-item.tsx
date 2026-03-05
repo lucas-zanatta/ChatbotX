@@ -1,4 +1,3 @@
-import { FileType, MessageType } from "@aha.chat/database/types"
 import type {
   MessageButtonTemplate,
   MessageTemplateEntity,
@@ -17,6 +16,7 @@ import { format } from "date-fns"
 import { ExternalLinkIcon, PaperclipIcon } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { getAttachmentUrl } from "@/features/attachments/schemas"
 import type { MessageResource } from "../schemas"
 import { MessageBubble } from "./message-bubble"
 
@@ -37,10 +37,10 @@ export const MessageItem = (props: MessageItemProps) => {
 
   let variant: "left" | "right" | "full" = "full"
   switch (message.messageType) {
-    case MessageType.incoming:
+    case "incoming":
       variant = guestDisplay ? "right" : "left"
       break
-    case MessageType.outgoing:
+    case "outgoing":
       variant = guestDisplay ? "left" : "right"
       break
     default:
@@ -77,18 +77,18 @@ const RenderAttachments = (props: { message: MessageResource }) => {
     <div className="grid grid-cols-auto gap-2">
       {(message.attachments ?? []).map((attachment) => {
         switch (attachment.fileType) {
-          case FileType.image:
+          case "image":
             return (
               <Image
                 alt={attachment.name || "Attachment"}
                 className="max-w-80 rounded-xl"
                 height={attachment.height || 0}
                 key={attachment.id}
-                src={attachment.url}
+                src={getAttachmentUrl(attachment)}
                 width={attachment.width || 0}
               />
             )
-          case FileType.video:
+          case "video":
             return (
               <video
                 controls
@@ -98,14 +98,20 @@ const RenderAttachments = (props: { message: MessageResource }) => {
                 width="320"
               >
                 <track default kind="captions" />
-                <source src={attachment.url} type={attachment.mimeType} />
+                <source
+                  src={getAttachmentUrl(attachment)}
+                  type={attachment.mimeType}
+                />
               </video>
             )
-          case FileType.audio:
+          case "audio":
             return (
               <audio controls key={attachment.id} preload="none">
                 <track default kind="captions" />
-                <source src={attachment.url} type={attachment.mimeType} />
+                <source
+                  src={getAttachmentUrl(attachment)}
+                  type={attachment.mimeType}
+                />
               </audio>
             )
           default:
@@ -115,8 +121,8 @@ const RenderAttachments = (props: { message: MessageResource }) => {
                 key={attachment.id}
               >
                 <PaperclipIcon className="size-5 flex-none" />
-                <Link className="truncate" href={attachment.url ?? "/#"}>
-                  {attachment.url}
+                <Link className="truncate" href={getAttachmentUrl(attachment)}>
+                  {getAttachmentUrl(attachment)}
                 </Link>
               </div>
             )
@@ -175,24 +181,21 @@ const RenderContentAttributes = (props: MessageItemProps) => {
             >
               <CarouselContent className="ml-0">
                 {contentAttributes.payload.cards.map((card, _) => (
-                  <CarouselItem
-                    className="w-32 pl-0 md:basis-1/2 lg:basis-1/3"
-                    key={card.id}
-                  >
+                  <CarouselItem className="w-32 pl-0" key={card.id}>
                     <div className="p-1">
                       <Card className="py-0">
                         <CardContent className="flex aspect-square flex-col items-center justify-center overflow-hidden p-0">
-                          <div className="flex flex-1 flex-col gap-1">
+                          <div className="flex w-full flex-1 flex-col gap-1">
                             {"imageUrl" in card && card.imageUrl && (
                               <Image
                                 alt={card.title || "Attachment"}
-                                className="max-h-20 w-full object-contain"
+                                className="max-h-64 w-full object-contain"
                                 height={100}
                                 src={card.imageUrl}
                                 width={100}
                               />
                             )}
-                            <span className="truncate font-semibold text-4xl">
+                            <span className="truncate px-2 font-semibold">
                               {card.title}
                             </span>
                             {"subtitle" in card && card.subtitle && (

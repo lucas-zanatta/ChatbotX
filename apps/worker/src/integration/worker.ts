@@ -1,5 +1,3 @@
-import { SenderType } from "@aha.chat/database"
-import type { OutgoingMessageEntity } from "@aha.chat/sdk"
 import {
   defaultWorkerOptions,
   getRedisConnection,
@@ -9,116 +7,115 @@ import {
   queueName,
 } from "@aha.chat/worker-config"
 import { type Job, Worker } from "bullmq"
-import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
 import { triggerAutomatedResponse } from "./handlers/automated-response"
-import { trackBotResponse } from "./handlers/automated-response/track-bot-response"
-import { readMessage } from "./handlers/read-message"
-import { receiveMessage } from "./handlers/received-message"
-import { sendBroadcast } from "./handlers/send-broadcast"
-import { sendFlowNode } from "./handlers/send-flow-node"
+import { runChallenge } from "./handlers/challenge"
 import {
-  sendFlowPostback,
-  sendFlowQuickReply,
-} from "./handlers/send-flow-postback"
+  broadcastBlockContactEvent,
+  broadcastUnblockContactEvent,
+} from "./handlers/contact"
+import {
+  agentMarkAsRead,
+  broadcastAssignConversation,
+  contactMarkAsRead,
+} from "./handlers/conversation"
+import {
+  runFlowNode,
+  runFlowPostback,
+  runFlowQuickReply,
+} from "./handlers/flow"
+import { receiveMessage } from "./handlers/received-message"
+import { runRef } from "./handlers/ref"
+import { sendBroadcast } from "./handlers/send-broadcast"
 
-async function startIntegrationWorker() {
-  try {
-    await ensureBootstrapped()
-    logger.info("Analytics bootstrapped successfully")
-  } catch (err) {
-    logger.error("Failed to bootstrap analytics", err)
-    process.exit(1)
-  }
+const worker = new Worker(
+  queueName.integration,
+  async (job: Job<IntegrationJobData>) => {
+    logger.info(job.data, "Worker received job")
+    switch (job.data.type) {
+      case IntegrationJobAction.incomingMessage: {
+        const { message, postbackAction, quickReplyAction, conversation } =
+          await receiveMessage(job.data.data)
 
-  const worker = new Worker(
-    queueName.integration,
-    async (job: Job<IntegrationJobData>) => {
-      switch (job.data.type) {
-        case IntegrationJobAction.incomingMessage: {
-          const { message, postbackAction, quickReplyAction } =
-            await receiveMessage(job.data.data)
-
-          // Trigger automated response if the message is from a user
-          if (
-            !(postbackAction || quickReplyAction) &&
-            message.content &&
-            message.senderType === SenderType.contact
-          ) {
-            await integrationQueue.add(
-              IntegrationJobAction.triggerAutomatedResponse,
-              {
-                type: IntegrationJobAction.triggerAutomatedResponse,
-                data: {
-                  message: message as OutgoingMessageEntity,
-                  messageId: message.id,
-                },
+        // Trigger automated response if the message is from a user
+        if (
+          !(postbackAction || quickReplyAction) &&
+          message.content &&
+          message.senderType === "contact"
+        ) {
+          await integrationQueue.add(
+            IntegrationJobAction.triggerAutomatedResponse,
+            {
+              type: IntegrationJobAction.triggerAutomatedResponse,
+              data: {
+                message,
+                conversation,
               },
-            )
-          } else if (!(postbackAction || quickReplyAction)) {
-            // Track no response for messages without content or not from contact
-            // (postback/quickReply are tracked in their own handlers)
-            await trackBotResponse({
-              chatbotId: message.chatbotId,
-              conversationId: message.conversationId,
-              messageId: message.id,
-              hasResponse: false,
-              responseType: "none",
-              routeType: "FALLBACK",
-              result: "fallback",
-              aiProvider: "none",
-              metadata: {
-                fallbackReason: message.content
-                  ? "NOT_FROM_CONTACT"
-                  : "NO_CONTENT",
-              },
-              startTime: Date.now(),
-            })
-          }
-          return
+            },
+          )
         }
-        case IntegrationJobAction.sendFlow: {
-          await sendFlowNode(job.data)
-          return
-        }
-        case IntegrationJobAction.sendFlowPostback: {
-          await sendFlowPostback(job.data.data)
-          return
-        }
-        case IntegrationJobAction.sendFlowQuickReply: {
-          await sendFlowQuickReply(job.data.data)
-          return
-        }
-        case IntegrationJobAction.triggerAutomatedResponse: {
-          await triggerAutomatedResponse(job.data.data)
-          return
-        }
-        case IntegrationJobAction.readMessage: {
-          await readMessage(job.data.data)
-          return
-        }
-        case IntegrationJobAction.sendBroadcast: {
-          await sendBroadcast(job.data.data.broadcastId)
-          return
-        }
-        default:
-          return
+        return
       }
-    },
-    {
-      connection: getRedisConnection(),
-      ...defaultWorkerOptions,
-    },
-  )
-
-  worker.on("failed", (job, err) => {
-    if (job) {
-      logger.error(`${job.id} has failed`, err)
+      case IntegrationJobAction.sendFlow: {
+        await runFlowNode(job.data)
+        return
+      }
+      case IntegrationJobAction.runFlowPostback: {
+        await runFlowPostback(job.data.data)
+        return
+      }
+      case IntegrationJobAction.runFlowQuickReply: {
+        await runFlowQuickReply(job.data.data)
+        return
+      }
+      case IntegrationJobAction.triggerAutomatedResponse: {
+        await triggerAutomatedResponse(job.data.data)
+        return
+      }
+      case IntegrationJobAction.agentMarkAsRead: {
+        await agentMarkAsRead(job.data.data)
+        return
+      }
+      case IntegrationJobAction.contactMarkAsRead: {
+        await contactMarkAsRead(job.data.data)
+        return
+      }
+      case IntegrationJobAction.sendBroadcast: {
+        await sendBroadcast(job.data.data.broadcastId)
+        return
+      }
+      case IntegrationJobAction.runRef: {
+        await runRef(job.data.data)
+        return
+      }
+      case IntegrationJobAction.runChallenge: {
+        await runChallenge(job.data.data)
+        return
+      }
+      case IntegrationJobAction.blockContact: {
+        await broadcastBlockContactEvent(job.data.data)
+        return
+      }
+      case IntegrationJobAction.unblockContact: {
+        await broadcastUnblockContactEvent(job.data.data)
+        return
+      }
+      case IntegrationJobAction.assignConversation: {
+        await broadcastAssignConversation(job.data.data)
+        return
+      }
+      default:
+        return
     }
-  })
-}
+  },
+  {
+    connection: getRedisConnection(),
+    ...defaultWorkerOptions,
+  },
+)
 
-startIntegrationWorker().catch((err) => {
-  logger.error("Failed to start integration worker", err)
-  process.exit(1)
+worker.on("failed", (job, err) => {
+  if (job) {
+    logger.error(err, `Job ${job.id} has failed`)
+  }
 })

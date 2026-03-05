@@ -1,7 +1,8 @@
 "use server"
 
 import { contactTrackingService } from "@aha.chat/analytics"
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { contactModel } from "@aha.chat/database/schema"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -22,30 +23,21 @@ export const deleteContactAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
     }) => {
-      const contacts = await prisma.contact.findMany({
+      const contacts = await db.query.contactModel.findMany({
         where: {
           chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
+          id: { in: parsedInput.ids },
         },
-        select: {
-          id: true,
-          sourceId: true,
-          source: true,
-          updatedAt: true,
-        },
+        columns: { id: true, sourceId: true, source: true, updatedAt: true },
       })
-      await prisma.$transaction(async (tx) => {
-        await tx.contact.deleteMany({
-          where: {
-            chatbotId,
-            id: {
-              in: parsedInput.ids,
-            },
-          },
-        })
-      })
+      await db
+        .delete(contactModel)
+        .where(
+          and(
+            eq(contactModel.chatbotId, chatbotId),
+            inArray(contactModel.id, parsedInput.ids),
+          ),
+        )
 
       const events = contacts
         .filter((contact) => Boolean(contact.sourceId))

@@ -1,6 +1,6 @@
 "use client"
 
-import { FolderType, type TagModel } from "@aha.chat/database/types"
+import type { TagModel } from "@aha.chat/database/types"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
@@ -84,8 +84,8 @@ export function TagsTable({ promises, chatbotId }: TagsTableProps) {
       <ChangeFolderDialog
         chatbotId={chatbotId}
         currentFolderId={rowAction?.row.original?.folderId || null}
-        folderType={FolderType.tag}
-        modelId={rowAction?.row.original?.id || null}
+        folderType="tag"
+        modelIds={rowAction?.row.original ? [rowAction?.row.original.id] : null}
         onOpenChange={() => setRowAction(null)}
         open={rowAction?.variant === "move"}
       />

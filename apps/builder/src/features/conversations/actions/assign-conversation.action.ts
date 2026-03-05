@@ -1,7 +1,9 @@
 "use server"
 
 import { conversationTrackingService } from "@aha.chat/analytics"
-import { prisma } from "@aha.chat/database"
+import { db, inArray } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
+import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -33,10 +35,9 @@ export const assignConversationAction = chatbotActionClient
         assignedInboxTeamId: null,
       }
 
-      // Verify again assigned
-      if (parsedInput.assignedId.startsWith("u_")) {
+      if (parsedInput.assignedId?.startsWith("u_")) {
         const userId = parsedInput.assignedId.substring(2)
-        const chatbotMember = await prisma.chatbotMember.findFirst({
+        const chatbotMember = await db.query.chatbotMemberModel.findFirst({
           where: {
             chatbotId,
             userId,
@@ -50,9 +51,9 @@ export const assignConversationAction = chatbotActionClient
           })
         }
         updatedData.assignedUserId = chatbotMember.userId
-      } else if (parsedInput.assignedId.startsWith("t_")) {
+      } else if (parsedInput.assignedId?.startsWith("t_")) {
         const inboxteamId = parsedInput.assignedId.substring(2)
-        const inboxTeam = await prisma.inboxTeam.findFirst({
+        const inboxTeam = await db.query.inboxTeamModel.findFirst({
           where: {
             chatbotId,
             id: inboxteamId,
@@ -68,31 +69,33 @@ export const assignConversationAction = chatbotActionClient
         updatedData.assignedInboxTeamId = inboxTeam.id
       }
 
-      const conversations = await prisma.conversation.findMany({
+      const conversations = await db.query.conversationModel.findMany({
         where: {
           chatbotId,
           contactId: {
             in: parsedInput.contactIds,
           },
         },
-        include: {
+        columns: { id: true },
+        with: {
           inbox: {
-            select: {
-              inboxType: true,
-            },
+            columns: { inboxType: true },
           },
         },
       })
+      const conversationIds = conversations.map((c) => c.id)
+      if (conversationIds.length === 0) {
+        return
+      }
 
-      await prisma.conversation.updateMany({
-        where: {
-          chatbotId,
-          contactId: {
-            in: parsedInput.contactIds,
-          },
-        },
-        data: updatedData,
-      })
+      const updatedConversations = await db
+        .update(conversationModel)
+        .set({
+          assignedUserId: updatedData.assignedUserId,
+          assignedInboxTeamId: updatedData.assignedInboxTeamId,
+        })
+        .where(inArray(conversationModel.id, conversationIds))
+        .returning()
 
       const toAssignee =
         updatedData.assignedUserId || updatedData.assignedInboxTeamId
@@ -104,7 +107,7 @@ export const assignConversationAction = chatbotActionClient
             eventType: "conversation_assigned",
             toAssignee,
             occurredAt: new Date(),
-            channel: conv.inbox.inboxType,
+            channel: conv.inbox?.inboxType as string,
           })
         }
       }
@@ -113,5 +116,12 @@ export const assignConversationAction = chatbotActionClient
         `chatbots:${chatbotId}#conversations`,
         `chatbots:${chatbotId}#contacts`,
       ])
+
+      await integrationQueue.add(IntegrationJobAction.assignConversation, {
+        type: IntegrationJobAction.assignConversation,
+        data: {
+          conversations: updatedConversations,
+        },
+      })
     },
   )

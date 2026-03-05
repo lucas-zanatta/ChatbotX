@@ -19,7 +19,8 @@
     "zod": "^4.2.1",
     "dotenv-cli": "^11.0.0",
     "@aha.chat/filesystem": "workspace:*",
-    "@aha.chat/database": "workspace:*"
+    "@aha.chat/database": "workspace:*",
+    "drizzle-orm": "^1.0.0-beta.15"
   },
   "devDependencies": {
     "@aha.chat/typescript-config": "workspace:*",

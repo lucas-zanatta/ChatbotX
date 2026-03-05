@@ -1,26 +1,27 @@
 import {
-  type AttachmentEntity,
   ContentType,
   type Context,
-  type ConversationEntity,
-  type MessageEntity,
+  type IncomingAttachment,
+  type IncomingConversation,
+  type IncomingMessage,
   MessageType,
+  type ReceivedMessageResult,
 } from "@aha.chat/sdk"
 
 import { getMessageAttachmentEntity } from "./apis/page"
 import { MessengerException } from "./exception"
 import { logger } from "./lib/logger"
-import type {
-  MessengerAuthValue,
-  MessengerMessage,
-  MessengerMessagingEvent,
-  MessengerWebhookEvent,
+import {
+  type MessengerAuthValue,
+  type MessengerMessage,
+  type MessengerMessagingEvent,
+  messengerWebhookEventSchema,
 } from "./schemas"
 
 const getMessageAttachments = async (
   ctx: Context<MessengerAuthValue>,
   message: MessengerMessage,
-): Promise<AttachmentEntity[]> => {
+): Promise<IncomingAttachment[]> => {
   if (!message.attachments) {
     return []
   }
@@ -38,24 +39,26 @@ const getMessageAttachments = async (
     const attachmentResults = await Promise.allSettled(attachmentPromises)
     return attachmentResults
       .filter(
-        (result): result is PromiseFulfilledResult<AttachmentEntity> =>
+        (result): result is PromiseFulfilledResult<IncomingAttachment> =>
           result.status === "fulfilled" && result.value !== null,
       )
       .map((result) => result.value)
-  } catch (_error) {
-    logger.error("Error getting message attachments", _error)
+  } catch (error) {
+    logger.error(error, "Error getting message attachments")
     return []
   }
 }
 
-export const parseIncomingMessage = async ({
+export const receiveMessage = async ({
   ctx,
   data,
 }: {
   ctx: Context<MessengerAuthValue>
-  data: MessengerWebhookEvent
-}) => {
-  const entry = data.entry[0]
+  data: unknown
+}): Promise<ReceivedMessageResult> => {
+  const validatedData = messengerWebhookEventSchema.parse(data)
+
+  const entry = validatedData.entry[0]
 
   if (!entry.messaging[0]) {
     throw new MessengerException("No messaging found")
@@ -72,7 +75,7 @@ export const parseIncomingMessage = async ({
     messaging,
   )
 
-  const conversation: ConversationEntity = {
+  const conversation: IncomingConversation = {
     sourceId,
     conversationAttributes: {},
     contact: {
@@ -83,25 +86,24 @@ export const parseIncomingMessage = async ({
     },
   }
 
-  return Promise.resolve({
+  return {
     message,
     conversation,
     postbackAction,
     quickReplyAction,
-  })
+    ref: null,
+  }
 }
 
 const getMessageEntity = async (
   ctx: Context<MessengerAuthValue>,
   messaging: MessengerMessagingEvent,
-): Promise<{
-  message: MessageEntity
-  postbackAction: string | null
-  quickReplyAction: string | null
-}> => {
-  let message: MessageEntity | null = null
+): Promise<Omit<ReceivedMessageResult, "conversation">> => {
+  let message: IncomingMessage | null = null
   let postbackAction: string | null = null
   let quickReplyAction: string | null = null
+  let ref: string | null = null
+
   if (messaging.message) {
     message = {
       sourceId: messaging.message.mid,
@@ -126,8 +128,12 @@ const getMessageEntity = async (
     postbackAction = messaging.postback.payload
   }
 
+  if (messaging.referral) {
+    ref = messaging.referral.ref
+  }
+
   if (message) {
-    return { message, postbackAction, quickReplyAction }
+    return { message, postbackAction, quickReplyAction, ref }
   }
 
   throw new MessengerException("No message found")

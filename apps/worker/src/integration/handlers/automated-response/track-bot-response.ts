@@ -8,20 +8,20 @@ import {
 } from "@aha.chat/analytics"
 
 interface TrackBotResponseParams {
+  aiProvider: BotMessageAIProvider
   chatbotId: string
   conversationId: string
-  messageId: string
   hasResponse: boolean
-  responseType: BotMessageResponseType
-  routeType?: BotMessageRouteType
-  result?: BotMessageResult
-  aiProvider: BotMessageAIProvider
+  messageId: string
   metadata?: {
     flowId?: string
     intentId?: string
     intentConfidence?: number
     fallbackReason?: BotMessageFallbackReason
   }
+  responseType: BotMessageResponseType
+  result?: BotMessageResult
+  routeType?: BotMessageRouteType
   startTime: number
 }
 

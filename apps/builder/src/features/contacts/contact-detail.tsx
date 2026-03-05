@@ -1,6 +1,5 @@
 "use client"
 
-import { CustomFieldType } from "@aha.chat/database/types"
 import {
   Avatar,
   AvatarFallback,
@@ -49,28 +48,28 @@ export const ContactDetail = () => {
             icon: AtSignIcon,
             label: "Email",
             value: conversation.contact.email,
-            customFieldType: CustomFieldType.shortText,
+            customFieldType: "shortText",
           },
           {
             key: "firstName",
             icon: TextIcon,
             label: "First Name",
             value: conversation.contact.firstName,
-            customFieldType: CustomFieldType.shortText,
+            customFieldType: "shortText",
           },
           {
             key: "lastName",
             icon: TextIcon,
             label: "Last Name",
             value: conversation.contact.lastName,
-            customFieldType: CustomFieldType.shortText,
+            customFieldType: "shortText",
           },
           {
             key: "phoneNumber",
             icon: PhoneIcon,
             label: "Phone Number",
             value: conversation.contact.phoneNumber,
-            customFieldType: CustomFieldType.shortText,
+            customFieldType: "shortText",
           },
         ]
 
@@ -122,7 +121,9 @@ export const ContactDetail = () => {
           <div className="flex w-full items-center gap-1" key={editable.key}>
             <div className="flex basis-1/3 flex-wrap items-center gap-1 truncate">
               <editable.icon className="size-4" />
-              <div className="flex-1 truncate">{editable.label}</div>
+              <div className="flex-1 truncate dark:text-white">
+                {editable.label}
+              </div>
             </div>
 
             <Button
@@ -132,7 +133,9 @@ export const ContactDetail = () => {
               variant="ghost"
             >
               {editable.value && editable.value.length > 0 ? (
-                <span className="truncate">{editable.value}</span>
+                <span className="truncate dark:text-white">
+                  {editable.value}
+                </span>
               ) : (
                 <span className="italic">-- {t("actions.clickToEdit")} --</span>
               )}

@@ -1,22 +1,20 @@
-import { prisma } from "@aha.chat/database"
-import { SenderType } from "@aha.chat/database/types"
-import type { OutgoingMessageEntity } from "@aha.chat/sdk"
+import { db } from "@aha.chat/database/client"
+import type { IntegrationJobTriggerAutomatedResponse } from "@aha.chat/worker-config"
 import type { ModelMessage } from "ai"
+import { getAIToolset } from "../generate-text/tools"
 import {
   replyByAutomatedResponse,
   replyByGemini,
   replyByOpenAI,
 } from "./replies"
-import { getSelectedTools } from "./tools"
 import { trackBotResponse } from "./track-bot-response"
 
-export async function triggerAutomatedResponse({
-  message,
-  messageId,
-}: {
-  message: OutgoingMessageEntity
-  messageId: string
-}) {
+export async function triggerAutomatedResponse(
+  props: IntegrationJobTriggerAutomatedResponse["data"],
+) {
+  const { message } = props
+  const messageId = (message as { id?: string }).id ?? ""
+  const startTime = Date.now()
   if (!message.content) {
     await trackBotResponse({
       chatbotId: message.chatbotId,
@@ -36,39 +34,11 @@ export async function triggerAutomatedResponse({
     return
   }
 
-  const startTime = Date.now()
-
-  // messageId should always come from DB message table
-  if (!messageId) {
-    throw new Error("messageId is required for tracking")
-  }
-
-  // Step 1: Try automated response matching (intent/flow matching)
-  const automatedResult = await replyByAutomatedResponse({ message, messageId })
-  if (automatedResult.replied) {
-    if (automatedResult.isFlow) {
-      // Flow response will be tracked in send-flow-node.ts with routeType: "FLOW"
-    } else {
-      await trackBotResponse({
-        chatbotId: message.chatbotId,
-        conversationId: message.conversationId,
-        messageId,
-        hasResponse: true,
-        responseType: "automated_response",
-        routeType: "FLOW",
-        result: "success",
-        aiProvider: "none",
-        startTime,
-        metadata: {
-          automatedResponseId: automatedResult.automatedResponseId,
-        },
-      })
-    }
+  if (await replyByAutomatedResponse(props)) {
     return
   }
 
-  // Step 2: Check if AI Agent exists for routing decision
-  const aiAgent = await prisma.aIAgent.findFirst({
+  const aiAgent = await db.query.aiAgentModel.findFirst({
     where: { chatbotId: message.chatbotId, isDefault: true },
   })
   if (!aiAgent) {
@@ -90,28 +60,28 @@ export async function triggerAutomatedResponse({
     return
   }
 
-  const last100Messages = await prisma.message.findMany({
+  const last100Messages = await db.query.messageModel.findMany({
     where: { conversationId: message.conversationId },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    limit: 100,
   })
   const lastAIMessages: ModelMessage[] = []
   for (const msg of last100Messages) {
     if (!msg.content) {
       continue
     }
-    if (msg.senderType === SenderType.contact) {
-      lastAIMessages.push({ role: "user", content: msg.content })
-    } else if (
-      msg.senderType === SenderType.user ||
-      msg.senderType === SenderType.bot
-    ) {
+    if (msg.senderType === "contact") {
+      lastAIMessages.push({
+        role: "user",
+        content: msg.content,
+      })
+    } else if (msg.senderType === "user" || msg.senderType === "bot") {
       lastAIMessages.push({ role: "assistant", content: msg.content })
     }
   }
   lastAIMessages.reverse()
 
-  const { tools, availableTools } = await getSelectedTools(aiAgent)
+  const toolset = await getAIToolset(aiAgent.chatbotId, aiAgent.tools)
 
   // Step 3: AI Agent exists → Route to AGENT
   if (
@@ -119,8 +89,12 @@ export async function triggerAutomatedResponse({
       message,
       lastAIMessages,
       aiAgent,
-      tools,
-      availableTools,
+      tools: toolset,
+      availableTools: {
+        fileTools: [],
+        functionTools: [],
+        mcpTools: [],
+      },
     })
   ) {
     await trackBotResponse({
@@ -141,8 +115,12 @@ export async function triggerAutomatedResponse({
       message,
       lastAIMessages,
       aiAgent,
-      tools,
-      availableTools,
+      tools: toolset,
+      availableTools: {
+        fileTools: [],
+        functionTools: [],
+        mcpTools: [],
+      },
     })
   ) {
     await trackBotResponse({

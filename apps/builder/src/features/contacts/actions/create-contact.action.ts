@@ -1,7 +1,15 @@
 "use server"
 
 import { contactTrackingService } from "@aha.chat/analytics"
-import { prisma } from "@aha.chat/database"
+import { db, eq, findOrFail, sql } from "@aha.chat/database/client"
+import {
+  chatbotUsageModel,
+  contactModel,
+  conversationModel,
+  inboxModel,
+} from "@aha.chat/database/schema"
+import type { ChatbotUsageModel, InboxModel } from "@aha.chat/database/types"
+import { createId } from "@paralleldrive/cuid2"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -25,7 +33,8 @@ export const createContactAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: CreateContactRequest
     }) => {
-      const existedContact = await prisma.contact.findFirst({
+      // Make sure phone number is not exists in the chatbot
+      const existedContact = await db.query.contactModel.findFirst({
         where: {
           chatbotId,
           phoneNumber: parsedInput.phoneNumber,
@@ -40,19 +49,17 @@ export const createContactAction = chatbotActionClient
         })
       }
 
-      const inbox = await prisma.inbox.findFirstOrThrow({
-        where: {
-          chatbotId,
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-        select: { id: true, inboxType: true },
-      })
+      const inbox = await findOrFail<InboxModel>(
+        inboxModel,
+        { chatbotId, inboxType: "webchat" },
+        "Inbox not found",
+      )
 
-      const chatbotUsage = await prisma.chatbotUsage.findFirstOrThrow({
-        where: { chatbotId },
-      })
+      const chatbotUsage = await findOrFail<ChatbotUsageModel>(
+        chatbotUsageModel,
+        { chatbotId },
+        "Chatbot usage not found",
+      )
       if (chatbotUsage.contactsCount >= chatbotUsage.maxContacts) {
         return returnValidationErrors(createContactRequest, {
           _errors: ["Validation Exception"],
@@ -62,26 +69,31 @@ export const createContactAction = chatbotActionClient
         })
       }
 
-      const contact = await prisma.$transaction(async (tx) => {
-        const contact = await tx.contact.create({
-          data: { ...parsedInput, chatbotId, source: "whatsapp" },
-        })
-
-        await tx.chatbotUsage.update({
-          where: { chatbotId },
-          data: {
-            contactsCount: {
-              increment: 1,
-            },
-          },
-        })
-
-        await tx.conversation.create({
-          data: {
+      const contact = await db.transaction(async (tx) => {
+        const contact = await tx
+          .insert(contactModel)
+          .values({
+            ...parsedInput,
             chatbotId,
-            contactId: contact.id,
-            inboxId: inbox.id,
-          },
+            source: inbox.inboxType,
+            id: createId(),
+          })
+          .returning()
+          .then((result) => result[0])
+
+        await tx
+          .update(chatbotUsageModel)
+          .set({
+            contactsCount: sql`${chatbotUsageModel.contactsCount} + 1`,
+          })
+          .where(eq(chatbotUsageModel.chatbotId, chatbotId))
+
+        await tx.insert(conversationModel).values({
+          inboxType: inbox.inboxType,
+          chatbotId,
+          contactId: contact.id,
+          inboxId: inbox.id,
+          id: createId(),
         })
 
         return contact

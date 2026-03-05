@@ -1,14 +1,14 @@
 export interface S3StorageConfig {
-  endpoint: string
-  bucket: string
   accessKey: string
-  secretKey: string
+  bucket: string
+  endpoint: string
   region: string
+  secretKey: string
 }
 
 export interface ClickhouseConfig {
-  database: string
   batchSize: number
+  database: string
   maxRetries: number
 }
 
