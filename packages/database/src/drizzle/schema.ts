@@ -21,6 +21,7 @@ export const analyticsManifestStatusEnum = pgEnum("AnalyticsManifestStatus", [
   "ingested",
   "failed",
 ])
+export * from "drizzle-orm/zod"
 
 export const logType = pgEnum("LogType", ["error", "audit"])
 export const customFieldType = pgEnum("CustomFieldType", [
@@ -67,15 +68,6 @@ export const broadcastSchedulesType = pgEnum("BroadcastSchedulesType", [
 export const inboxType = pgEnum("InboxType", [
   "webchat",
   "messenger",
-  "whatsapp",
-  "zalo",
-])
-export const integrationType = pgEnum("IntegrationType", [
-  "webchat",
-  "googleSheets",
-  "messenger",
-  "openai",
-  "gemini",
   "whatsapp",
   "zalo",
 ])
@@ -533,6 +525,7 @@ export const chatbotModel = pgTable("Chatbot", {
       name: "Chatbot_organizationId_fkey",
     }),
   plan: text().default("free").notNull(),
+  token: text(),
 })
 
 export const chatbotMemberModel = pgTable("ChatbotMember", {
@@ -749,7 +742,7 @@ export const conversationModel = pgTable(
     archivedAt: timestamp({ precision: 3 }),
     inboxType: inboxType().notNull().default("webchat"),
     sourceId: text(),
-    conversationAttributes: jsonb(),
+    conversationAttributes: jsonb().$type<{ [x: string]: unknown }>(),
     contactLastSeenAt: timestamp({ precision: 3 }),
     agentLastSeenAt: timestamp({ precision: 3 }),
     lastActivityAt: timestamp({ precision: 3 }).defaultNow().notNull(),
@@ -969,8 +962,10 @@ export const flowVersionModel = pgTable("FlowVersion", {
       onUpdate: "cascade",
       name: "FlowVersion_flowId_fkey",
     }),
-  nodes: jsonb().notNull(),
-  edges: jsonb().notNull(),
+  // biome-ignore lint/suspicious/noExplicitAny: use any
+  nodes: jsonb().$type<any[]>().notNull(),
+  // biome-ignore lint/suspicious/noExplicitAny: use any
+  edges: jsonb().$type<any[]>().notNull(),
   isDraft: boolean().notNull(),
   isLatest: boolean().default(false).notNull(),
   startNodeId: text().notNull(),
@@ -1114,12 +1109,17 @@ export const integrationModel = pgTable(
         onUpdate: "cascade",
         name: "Integration_chatbotId_fkey",
       }),
-    integrationType: integrationType().notNull(),
+    integrationType: text().notNull(),
   },
   (table) => [
     index("Integration_chatbotId_idx").using(
       "btree",
       table.chatbotId.asc().nullsLast().op("text_ops"),
+    ),
+    index("Integration_chatbotId_integrationType_key").using(
+      "btree",
+      table.chatbotId.asc().nullsLast().op("text_ops"),
+      table.integrationType.asc().nullsLast().op("text_ops"),
     ),
   ],
 )
@@ -1590,7 +1590,7 @@ export const messageModel = pgTable(
         name: "Message_chatbotId_fkey",
       }),
     content: text(),
-    contentAttributes: jsonb(),
+    contentAttributes: jsonb().$type<{ [x: string]: unknown }>(),
     messageType: messageType().notNull(),
     contentType: contentType().notNull(),
     senderType: senderType().notNull(),
@@ -1854,4 +1854,15 @@ export const whatsappMessageTemplateModel = pgTable("WhatsappMessageTemplate", {
   language: text().notNull(),
   category: text().notNull(),
   status: text().notNull(),
+})
+
+export const jwkModel = pgTable("jwks", {
+  id: text().primaryKey(),
+  publicKey: text().notNull(),
+  privateKey: text().notNull(),
+  createdAt: timestamp({
+    precision: 6,
+    withTimezone: true,
+  }).notNull(),
+  expiresAt: timestamp({ precision: 6, withTimezone: true }),
 })
