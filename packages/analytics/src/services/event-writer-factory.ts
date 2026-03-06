@@ -10,6 +10,7 @@ export interface EventRow {
   inserted_at: number
   metadata: string | null
   occurred_at: number
+  sender_type: string
   source: string | null
   source_id: string | null
 }
@@ -27,6 +28,7 @@ export interface BotMessageEventRow {
   occurred_at: number
   response_type: string
   result: string
+  route_type: string
   source: string | null
 }
 

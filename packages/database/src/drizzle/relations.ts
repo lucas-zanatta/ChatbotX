@@ -358,6 +358,7 @@ export const relations = defineRelations(schema, (r) => ({
     integrationZalo: r.one.integrationZaloModel(),
     messages: r.many.messageModel(),
     integrationWhatsapp: r.one.integrationWhatsappModel(),
+    contactStats: r.one.inboxContactStatsModel(),
   },
   conversationParticipantModel: {
     chatbot: r.one.chatbotModel({
@@ -638,6 +639,12 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.contactsToTagsModel.tagId,
       to: r.tagModel.id,
       optional: false,
+    }),
+  },
+  inboxContactStatsModel: {
+    inbox: r.one.inboxModel({
+      from: r.inboxContactStatsModel.inboxId,
+      to: r.inboxModel.id,
     }),
   },
 }))

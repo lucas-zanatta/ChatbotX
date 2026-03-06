@@ -1,3 +1,4 @@
+import { contactTrackingService } from "@aha.chat/analytics"
 import { db, findOrFail } from "@aha.chat/database/client"
 import {
   attachmentModel,
@@ -73,6 +74,8 @@ export const receiveMessage = async (
   const { message, conversation, postbackAction, quickReplyAction, ref } =
     parsedMessage
 
+  let isNewlyCreatedContact = false
+
   const result = await db.transaction(async (tx) => {
     let newContact = await tx.query.contactModel.findFirst({
       where: {
@@ -80,6 +83,7 @@ export const receiveMessage = async (
         sourceId: conversation.contact.sourceId,
       },
     })
+    console.log({ newContact })
 
     if (!newContact) {
       if (canGetUserProfileIfNeeded(integrationType)) {
@@ -122,6 +126,8 @@ export const receiveMessage = async (
         })
         .returning()
         .then((result) => result[0])
+
+      isNewlyCreatedContact = true
     }
 
     if (!newContact) {
@@ -206,6 +212,41 @@ export const receiveMessage = async (
 
     return { message: newMessage, conversation: newConversation }
   })
+
+  if (isNewlyCreatedContact && conversation.contact.sourceId) {
+    contactTrackingService
+      .trackEvent({
+        chatbotId,
+        contactId: conversation.contact.sourceId,
+        eventType: "contact_created",
+        occurredAt: result.message.createdAt,
+        source: integrationType,
+        sourceId: conversation.contact.sourceId,
+        channel: inbox.inboxType,
+      })
+      .catch((error) => {
+        logger.error(error, "[receiveMessage] Failed to track contact_created")
+      })
+  }
+
+  if (conversation.contact.sourceId) {
+    contactTrackingService
+      .trackEvent({
+        chatbotId,
+        contactId: conversation.contact.sourceId,
+        eventType: "contact_message_in",
+        occurredAt: result.message.createdAt,
+        source: integrationType,
+        sourceId: conversation.contact.sourceId,
+        channel: inbox.inboxType,
+      })
+      .catch((error) => {
+        logger.error(
+          error,
+          "[receiveMessage] Failed to track contact_message_in",
+        )
+      })
+  }
 
   if (postbackAction) {
     await integrationQueue.add(IntegrationJobAction.runFlowPostback, {

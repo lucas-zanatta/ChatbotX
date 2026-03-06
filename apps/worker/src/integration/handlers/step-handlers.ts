@@ -1,3 +1,4 @@
+import { conversationTrackingService } from "@aha.chat/analytics"
 import {
   and,
   db,
@@ -274,6 +275,19 @@ export async function stepUnassignConversation({
       assignedInboxTeamId: null,
     })
     .where(eq(conversationModel.id, conversation.id))
+
+  conversationTrackingService
+    .trackEvent({
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      eventType: "conversation_unassigned",
+      fromAssignee:
+        conversation.assignedUserId || conversation.assignedInboxTeamId || "",
+      occurredAt: new Date(),
+    })
+    .catch((error) => {
+      console.error("[stepUnassignConversation] Failed to track", error)
+    })
 }
 
 export async function stepFollowConversation({

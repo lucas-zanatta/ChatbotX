@@ -7,6 +7,7 @@ import { getUserProfile } from "./apis/user"
 import { agentMarkAsRead, sendTyping } from "./conversation"
 import { MessengerAPIException } from "./exception"
 import { webhookHandler } from "./handlers/webhook"
+import { receiveMessage } from "./incomming-message"
 import { sendFlowStep, sendMessage } from "./outgoing-message"
 import type {
   MessengerActions,
@@ -24,6 +25,7 @@ const config: IntegrationDefinition<
     channel: {
       message: {
         sendMessage,
+        receiveMessage,
       },
       conversation: {
         sendTyping,

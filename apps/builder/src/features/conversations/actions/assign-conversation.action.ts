@@ -110,6 +110,16 @@ export const assignConversationAction = chatbotActionClient
             channel: conv.inbox?.inboxType as string,
           })
         }
+      } else {
+        for (const conv of conversations) {
+          await conversationTrackingService.trackEvent({
+            chatbotId,
+            conversationId: conv.id,
+            eventType: "conversation_unassigned",
+            occurredAt: new Date(),
+            channel: conv.inbox?.inboxType as string,
+          })
+        }
       }
 
       revalidateCacheTags([
