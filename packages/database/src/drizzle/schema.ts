@@ -1408,6 +1408,20 @@ export const analyticsManifestStatusModel = pgTable("AnalyticsManifestStatus", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 })
 
+export const inboxContactStatsModel = pgTable("InboxContactStats", {
+  inboxId: text("inboxId")
+    .primaryKey()
+    .references(() => inboxModel.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+      name: "InboxContactStats_inboxId_fkey",
+    }),
+  totalContacts: integer("totalContacts").notNull().default(0),
+  updatedAt: timestamp("updatedAt", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const integrationZaloModel = pgTable(
   "IntegrationZalo",
   {
