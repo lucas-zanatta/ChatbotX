@@ -2,6 +2,7 @@
   "actions": {
     "copy": "Copy",
     "actions": "Actions",
+    "clear": "Clear",
     "add": "Add",
     "addContactNotes": "Add Contact Notes",
     "addContactTag": "Add Contact Tag",
@@ -1100,6 +1101,21 @@
     },
     "chatbotToken": {
       "label": "API Access Token"
+    },
+    "today": {
+      "label": "Today"
+    },
+    "yesterday": {
+      "label": "Yesterday"
+    },
+    "last7days": {
+      "label": "Last 7 days"
+    },
+    "last30days": {
+      "label": "Last 30 days"
+    },
+    "customRange": {
+      "label": "Custom Range"
     }
   },
   "flows": {

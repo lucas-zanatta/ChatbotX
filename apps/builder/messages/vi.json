@@ -2,6 +2,7 @@
   "actions": {
     "copy": "Sao chép",
     "actions": "Hành động",
+    "clear": "Xóa",
     "add": "Thêm",
     "addContactNotes": "Thêm ghi chú liên hệ",
     "addContactTag": "Thêm thẻ liên hệ",
@@ -1100,6 +1101,21 @@
     },
     "chatbotToken": {
       "label": "Token truy cập API"
+    },
+    "today": {
+      "label": "Hôm nay"
+    },
+    "yesterday": {
+      "label": "Hôm qua"
+    },
+    "last7days": {
+      "label": "7 ngày qua"
+    },
+    "last30days": {
+      "label": "30 ngày qua"
+    },
+    "customRange": {
+      "label": "Khoảng tùy chỉnh"
     }
   },
   "flows": {
