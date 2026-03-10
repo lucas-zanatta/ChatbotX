@@ -9,68 +9,90 @@ import {
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
-  type RemoveContactTagRequest,
-  removeContactTagRequest,
+  type RemoveContactTagsRequest,
+  removeContactTagsRequest,
 } from "../schemas/contact-tag"
 
 export const removeContactTagAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdRequestParams)
-  .inputSchema(removeContactTagRequest)
+  .inputSchema(removeContactTagsRequest)
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
-      parsedInput: RemoveContactTagRequest
+      parsedInput: RemoveContactTagsRequest
     }) => {
-      const contacts = await db.query.contactModel.findMany({
-        where: {
-          chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
-        },
-        columns: {
-          id: true,
-        },
+      await removeContactTags({
+        chatbotId,
+        parsedInput,
       })
+    },
+  )
 
-      if (contacts.length === 0) {
-        return
-      }
+export const removeContactTags = async ({
+  chatbotId,
+  parsedInput,
+}: {
+  chatbotId: string
+  parsedInput: RemoveContactTagsRequest
+}) => {
+  const contacts = await db.query.contactModel.findMany({
+    where: {
+      chatbotId,
+      id: {
+        in: parsedInput.ids,
+      },
+    },
+    columns: {
+      id: true,
+    },
+  })
 
-      await db.transaction(async (tx) => {
-        const allTags = await tx.query.tagModel.findMany({
-          where: {
-            chatbotId,
+  if (contacts.length === 0) {
+    return
+  }
+
+  await db.transaction(async (tx) => {
+    const allTags = await tx.query.tagModel.findMany({
+      where: {
+        chatbotId,
+        OR: [
+          {
             name: {
               in: parsedInput.tags,
             },
           },
-          columns: {
-            id: true,
+          {
+            id: {
+              in: parsedInput.tags,
+            },
           },
-        })
+        ],
+      },
+      columns: {
+        id: true,
+      },
+    })
 
-        const allTagIds = allTags.map((tag) => tag.id)
+    const allTagIds = allTags.map((tag) => tag.id)
 
-        for (const contact of contacts) {
-          await tx
-            .delete(contactsToTagsModel)
-            .where(
-              and(
-                eq(contactsToTagsModel.contactId, contact.id),
-                inArray(contactsToTagsModel.tagId, allTagIds),
-              ),
-            )
-        }
-      })
+    for (const contact of contacts) {
+      await tx
+        .delete(contactsToTagsModel)
+        .where(
+          and(
+            eq(contactsToTagsModel.contactId, contact.id),
+            inArray(contactsToTagsModel.tagId, allTagIds),
+          ),
+        )
+    }
+  })
 
-      revalidateCacheTags([
-        `chatbots:${chatbotId}#contacts`,
-        `chatbots:${chatbotId}#conversations`,
-        `chatbots:${chatbotId}#tags`,
-      ])
-    },
-  )
+  revalidateCacheTags([
+    `chatbots:${chatbotId}#contacts`,
+    `chatbots:${chatbotId}#conversations`,
+    `chatbots:${chatbotId}#tags`,
+  ])
+}

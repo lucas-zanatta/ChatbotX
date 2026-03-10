@@ -1,4 +1,5 @@
 import { createId } from "@paralleldrive/cuid2"
+import { bootstrapAnalytics } from "../lib/bootstrap"
 import type { CreateContactEvent } from "../models"
 
 type Redis = {
@@ -42,7 +43,11 @@ export abstract class BaseService {
   private redis?: Redis
   private dedupTTL = 3600
 
-  private readonly dedupKeys = new Set<string>(["contact_message_in"])
+  private readonly dedupKeys = new Set<string>()
+
+  protected async ensureBootstrapped(): Promise<void> {
+    await bootstrapAnalytics()
+  }
 
   setRedis(redis: Redis, ttl = 3600) {
     this.redis = redis

@@ -1,5 +1,4 @@
 import crypto from "crypto"
-import { once } from "events"
 import fs from "fs"
 import path from "path"
 import { NDJSON_EXT } from "./ndjson-constants"
@@ -160,7 +159,9 @@ export class NdjsonSpooler {
       return
     }
 
-    await once(stream, "drain")
+    await new Promise<void>((resolve) => {
+      stream.once("drain", resolve)
+    })
   }
 
   private getDirectoryPath(date: Date): string {

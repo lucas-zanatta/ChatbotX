@@ -273,7 +273,7 @@ export class BotMessageStatsRepository extends BaseRepository {
       ...timeFilter.params,
     })
 
-    return result.map((row) => ({
+    const rows = result.map((row) => ({
       chatbotId,
       timestamp: new Date(row.timestamp),
       hasResponse: true,
@@ -282,6 +282,35 @@ export class BotMessageStatsRepository extends BaseRepository {
       aiProvider: row.ai_provider as BotMessageStats["aiProvider"],
       count: Number(row.count),
     }))
+
+    if (granularity !== "day") {
+      return rows
+    }
+
+    const { getUtcDayKey, iterateUtcDays } = await import("../lib/time-series")
+
+    const byDay = new Map<string, BotMessageStats[]>()
+    for (const r of rows) {
+      const dayKey = getUtcDayKey(r.timestamp)
+      if (!byDay.has(dayKey)) {
+        byDay.set(dayKey, [])
+      }
+      const dayRows = byDay.get(dayKey)
+      if (dayRows) {
+        dayRows.push(r)
+      }
+    }
+
+    const filled: BotMessageStats[] = []
+    for (const d of iterateUtcDays(timeRange.from, timeRange.to)) {
+      const dayKey = getUtcDayKey(d)
+      const dayRows = byDay.get(dayKey)
+      if (dayRows && dayRows.length > 0) {
+        filled.push(...dayRows)
+      }
+    }
+
+    return filled
   }
 
   async getAIProviderStats(

@@ -4,12 +4,12 @@ import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins"
 import { onError } from "@orpc/server"
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4"
 import { router } from "@/routers"
-import "../../../polyfill"
+import "@/polyfill"
 
 const openAPIHandler = new OpenAPIHandler(router, {
   interceptors: [
     onError((error) => {
-      console.error(error)
+      console.log(error)
     }),
   ],
   plugins: [
@@ -57,7 +57,7 @@ const openAPIHandler = new OpenAPIHandler(router, {
   ],
 })
 
-async function handleRequest(request: Request) {
+export async function handleRequest(request: Request) {
   const { response } = await openAPIHandler.handle(request, {
     prefix: "/api",
     context: { headers: request.headers },
@@ -66,7 +66,6 @@ async function handleRequest(request: Request) {
   return response ?? new Response("Not found", { status: 404 })
 }
 
-export const HEAD = handleRequest
 export const GET = handleRequest
 export const POST = handleRequest
 export const PUT = handleRequest

@@ -6,6 +6,8 @@ import { getDefaultEventWriter } from "./event-writer-factory"
 
 export class ContactTrackingService extends BaseService {
   async trackEvent(event: CreateContactEvent): Promise<void> {
+    await this.ensureBootstrapped()
+
     if (
       !(event.occurredAt instanceof Date) ||
       Number.isNaN(event.occurredAt.getTime())

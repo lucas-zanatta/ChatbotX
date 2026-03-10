@@ -48,6 +48,7 @@ export function TotalContactsChart({ chatbotId }: TotalContactsChartProps) {
             value: item.totalContacts,
           }
         })
+        console.log("chartData", chartData)
 
         setData(chartData)
       } catch (error) {

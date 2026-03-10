@@ -1,27 +1,50 @@
 import { Operator } from "@aha.chat/database/enums"
-import type { ContactModel } from "@aha.chat/database/types"
-import { getSortingStateParser } from "@aha.chat/ui/lib/parsers"
-import {
-  createSearchParamsCache,
-  parseAsArrayOf,
-  parseAsInteger,
-  parseAsString,
-} from "nuqs/server"
 import z from "zod"
+import { inboxTeamResource } from "@/enterprise/features/inbox-teams/schemas/resource"
+import { conversationResource } from "@/features/conversations/schemas/resource"
+import { publicCustomFieldResource } from "@/features/custom-fields/schemas/resource"
+import { inboxResource } from "@/features/inboxes/schemas/resource"
+import {
+  publicTagResource,
+  tagResource,
+} from "@/features/tags/schemas/resource"
+import { userResource } from "@/features/users/schemas/resource"
+import { basePaginationRequest } from "@/lib/pagination"
+import { contactCustomFieldResource } from "./contact-custom-field"
+import { contactNoteResource } from "./contact-note"
+import { contactResource, publicContactResource } from "./resource"
 
-export const listContactsRequest = createSearchParamsCache({
-  page: parseAsInteger.withDefault(1),
-  perPage: parseAsInteger.withDefault(10),
-  keyword: parseAsString.withDefault(""),
-  sort: getSortingStateParser<ContactModel>().withDefault([
-    { id: "createdAt", desc: true },
-  ]),
-  includes: parseAsArrayOf(parseAsString),
+export const listContactsRequest = basePaginationRequest.and(
+  z.object({
+    keyword: z.string().optional(),
+  }),
+)
+export type ListContactsRequest = z.infer<typeof listContactsRequest>
+
+export const listContactsItem = contactResource.and(
+  z.object({
+    contactCustomFields: z.array(contactCustomFieldResource).optional(),
+    tags: z.array(tagResource).optional(),
+    contactNotes: z.array(contactNoteResource).optional(),
+    conversation: conversationResource
+      .and(
+        z.object({
+          assignedUser: userResource.nullish(),
+          assignedInboxTeam: inboxTeamResource.nullish(),
+          inbox: inboxResource.nullish(),
+        }),
+      )
+      .nullable()
+      .optional(),
+  }),
+)
+export type ListContactsItem = z.infer<typeof listContactsItem>
+
+export const listContactsResponse = z.object({
+  data: z.array(listContactsItem),
+  pageCount: z.number(),
 })
-
-export type ListContactsRequest = Awaited<
-  ReturnType<typeof listContactsRequest.parse>
-> & { chatbotId: string }
+export type ListContactsResponse = z.infer<typeof listContactsResponse>
 
 export const contactFilterRequest = z.object({
   contactFilter: z.object({
@@ -36,3 +59,34 @@ export const contactFilterRequest = z.object({
   }),
 })
 export type ContactFilterRequest = z.infer<typeof contactFilterRequest>
+
+export const findContactRequest = contactResource
+  .pick({ id: true, chatbotId: true })
+  .partial()
+export type FindContactRequest = z.infer<typeof findContactRequest>
+
+export const publicFindContactResponse = publicContactResource.and(
+  z.object({
+    tags: z.array(publicTagResource),
+    customFields: z.array(publicCustomFieldResource),
+  }),
+)
+export type PublicFindContactResponse = z.infer<
+  typeof publicFindContactResponse
+>
+
+export const publicListContactsResponse = z.object({
+  data: z.array(publicFindContactResponse),
+})
+export type PublicListContactsResponse = z.infer<
+  typeof publicListContactsResponse
+>
+
+export const publicListContactsByCustomFieldRequest = z.object({
+  customFieldId: z.string(),
+  value: z.string(),
+})
+
+export type PublicListContactsByCustomFieldRequest = z.infer<
+  typeof publicListContactsByCustomFieldRequest
+>

@@ -37,7 +37,7 @@ export abstract class BaseRepository {
 
     if (columnType === "Date") {
       return {
-        sql: `${field} >= toDate(toDateTime({from:UInt32}, 'UTC')) AND ${field} < toDate(toDateTime({to:UInt32}, 'UTC'))`,
+        sql: `${field} >= toDate(toDateTime({from:UInt32}, 'UTC')) AND ${field} <= toDate(toDateTime({to:UInt32}, 'UTC'))`,
         params: {
           from: fromTimestamp,
           to: toTimestamp,
@@ -46,7 +46,7 @@ export abstract class BaseRepository {
     }
 
     return {
-      sql: `${field} >= {from:UInt32} AND ${field} < {to:UInt32}`,
+      sql: `${field} >= {from:UInt32} AND ${field} <= {to:UInt32}`,
       params: {
         from: fromTimestamp,
         to: toTimestamp,

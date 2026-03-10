@@ -22,18 +22,18 @@ class Uploader {
 
   constructor() {
     this.#client = new S3Client({
-      endpoint: env.AWS_URL,
+      endpoint: env.S3_ENDPOINT,
       credentials:
-        env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
+        env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
           ? {
-              accessKeyId: env.AWS_ACCESS_KEY_ID,
-              secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+              accessKeyId: env.S3_ACCESS_KEY_ID,
+              secretAccessKey: env.S3_SECRET_ACCESS_KEY,
             }
           : undefined,
-      region: env.AWS_REGION,
-      forcePathStyle: Boolean(env.AWS_URL),
+      region: env.S3_REGION,
+      forcePathStyle: Boolean(env.S3_ENDPOINT),
     })
-    this.#bucketName = env.AWS_BUCKET
+    this.#bucketName = env.S3_BUCKET
   }
 
   static getInstance(): Uploader {
@@ -61,15 +61,15 @@ class Uploader {
   async getPresignedUpload(filePath: string): Promise<string> {
     const client = new AwsClient({
       service: "s3",
-      region: env.AWS_REGION,
-      accessKeyId: env.AWS_ACCESS_KEY_ID ?? "",
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY ?? "",
+      region: env.S3_REGION,
+      accessKeyId: env.S3_ACCESS_KEY_ID ?? "",
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? "",
     })
 
     return (
       await client.sign(
         new Request(
-          `${env.AWS_URL}/${env.AWS_BUCKET}/${filePath}?X-Amz-Expires=${5 * 60}`,
+          `${env.S3_ENDPOINT}/${env.S3_BUCKET}/${filePath}?X-Amz-Expires=${5 * 60}`,
           {
             method: "PUT",
           },
@@ -83,7 +83,7 @@ class Uploader {
 
   async headObject(path: string) {
     const command = new HeadObjectCommand({
-      Bucket: env.AWS_BUCKET,
+      Bucket: env.S3_BUCKET,
       Key: path,
     })
 
@@ -92,7 +92,7 @@ class Uploader {
 
   async getObject(path: string): Promise<Buffer> {
     const command = new GetObjectCommand({
-      Bucket: env.AWS_BUCKET,
+      Bucket: env.S3_BUCKET,
       Key: path,
     })
 
@@ -115,7 +115,7 @@ class Uploader {
 
   async getObjectStream(path: string): Promise<Readable> {
     const command = new GetObjectCommand({
-      Bucket: env.AWS_BUCKET,
+      Bucket: env.S3_BUCKET,
       Key: path,
     })
 
@@ -143,7 +143,7 @@ class Uploader {
 
   async deleteObject(path: string) {
     const command = new DeleteObjectCommand({
-      Bucket: env.AWS_BUCKET,
+      Bucket: env.S3_BUCKET,
       Key: path,
     })
     return await this.#client.send(command)

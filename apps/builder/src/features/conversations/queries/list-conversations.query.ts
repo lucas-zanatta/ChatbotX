@@ -21,12 +21,12 @@ import {
   userModel,
 } from "@aha.chat/database/schema"
 import type { InboxType } from "@aha.chat/database/types"
+import { getPaginationWithDefaults } from "@aha.chat/database/utils"
 import type {
   FindConversationSchema,
   ListConversationsRequest,
 } from "@/features/conversations/schemas/query"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import { getPaginationWithDefaults } from "@/lib/pagination"
 import type {
   FindConversationResponse,
   ListConversationsResponse,
@@ -100,6 +100,7 @@ export const listConversations = async (
       ),
     )
     .orderBy(desc(messageModel.createdAt))
+    .limit(1)
 
   const conversations = await db
     .select()
@@ -113,6 +114,7 @@ export const listConversations = async (
       eq(conversationModel.assignedInboxTeamId, inboxTeamModel.id),
     )
     .where(and(...where))
+    .orderBy(desc(conversationModel.lastActivityAt))
     .limit(pagination.limit)
 
   return {
@@ -164,4 +166,24 @@ export const findConversation = async (
       messages: lastMessage ? [lastMessage] : [],
     },
   }
+}
+
+export const findConversationByContact = async ({
+  chatbotId,
+  contactId,
+  inboxType,
+}: {
+  chatbotId: string
+  contactId: string
+  inboxType: InboxType
+}) => {
+  return await db.query.conversationModel.findFirst({
+    where: {
+      chatbotId,
+      contactId,
+      inbox: {
+        inboxType,
+      },
+    },
+  })
 }

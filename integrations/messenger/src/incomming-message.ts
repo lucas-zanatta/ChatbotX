@@ -56,6 +56,7 @@ export const receiveMessage = async ({
   ctx: Context<MessengerAuthValue>
   data: {
     integrationType: string
+    integrationIdentifier: string
     payload: unknown
   }
 }): Promise<ReceivedMessageResult> => {
@@ -72,20 +73,20 @@ export const receiveMessage = async ({
     throw new MessengerException("No message found")
   }
 
-  const sourceId = entry.id
   const { message, postbackAction, quickReplyAction } = await getMessageEntity(
     ctx,
     messaging,
   )
 
+  const sourceId =
+    message.messageType === MessageType.outgoing
+      ? messaging.recipient.id
+      : messaging.sender.id
   const conversation: IncomingConversation = {
     sourceId,
     conversationAttributes: {},
     contact: {
-      sourceId:
-        message.messageType === MessageType.outgoing
-          ? messaging.recipient.id
-          : messaging.sender.id,
+      sourceId,
     },
   }
 

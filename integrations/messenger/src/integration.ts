@@ -24,8 +24,8 @@ const config: IntegrationDefinition<
   channels: {
     channel: {
       message: {
-        sendMessage,
         receiveMessage,
+        sendMessage,
       },
       conversation: {
         sendTyping,

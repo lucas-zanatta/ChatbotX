@@ -6,6 +6,8 @@ import { getDefaultEventWriter } from "./event-writer-factory"
 
 export class ConversationTrackingService extends BaseService {
   async trackEvent(event: CreateConversationEvent): Promise<void> {
+    await this.ensureBootstrapped()
+
     if (
       !(event.occurredAt instanceof Date) ||
       Number.isNaN(event.occurredAt.getTime())

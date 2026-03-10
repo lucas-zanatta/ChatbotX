@@ -13,7 +13,14 @@ type RegistryEntry = {
   initPromise: Promise<NdjsonSpooler> | null
 }
 
-const registry = new Map<string, RegistryEntry>()
+const REGISTRY_KEY = "__aha_analytics_spooler_registry__"
+const globalForRegistry = globalThis as typeof globalThis & {
+  [REGISTRY_KEY]?: Map<string, RegistryEntry>
+}
+if (!globalForRegistry[REGISTRY_KEY]) {
+  globalForRegistry[REGISTRY_KEY] = new Map()
+}
+const registry = globalForRegistry[REGISTRY_KEY]
 
 function getEntry(type: string): RegistryEntry {
   const existing = registry.get(type)

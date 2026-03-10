@@ -246,7 +246,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily_created AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS created_contacts
+          countMerge(event_count_state) AS created_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day < toStartOfMonth(toDate(toDateTime({from:UInt32}, 'UTC')))
@@ -256,7 +256,7 @@ export class ContactStatsRepository extends BaseRepository {
       daily_deleted AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS deleted_contacts
+          countMerge(event_count_state) AS deleted_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day < toStartOfMonth(toDate(toDateTime({from:UInt32}, 'UTC')))
@@ -273,7 +273,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS created_contacts
+          countMerge(event_count_state) AS created_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day <= toDate(toDateTime({to:UInt32}, 'UTC'))
@@ -305,7 +305,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS deleted_contacts
+          countMerge(event_count_state) AS deleted_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day <= toDate(toDateTime({to:UInt32}, 'UTC'))
@@ -396,7 +396,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily_created AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS created_contacts
+          countMerge(event_count_state) AS created_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day < toDate(toDateTime({from:UInt32}, 'UTC'))
@@ -406,7 +406,7 @@ export class ContactStatsRepository extends BaseRepository {
       daily_deleted AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS deleted_contacts
+          countMerge(event_count_state) AS deleted_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day < toDate(toDateTime({from:UInt32}, 'UTC'))
@@ -423,7 +423,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS created_contacts
+          countMerge(event_count_state) AS created_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day <= toDate(toDateTime({to:UInt32}, 'UTC'))
@@ -448,7 +448,7 @@ export class ContactStatsRepository extends BaseRepository {
       WITH daily AS (
         SELECT
           day,
-          uniqMerge(unique_contacts_state) AS deleted_contacts
+          countMerge(event_count_state) AS deleted_contacts
         FROM contact_stats_daily
         WHERE chatbot_id = {chatbotId:String}
           AND day <= toDate(toDateTime({to:UInt32}, 'UTC'))
@@ -648,6 +648,7 @@ export class ContactStatsRepository extends BaseRepository {
       WHERE chatbot_id = {chatbotId:String}
         AND ${timeFilter.sql}
     `
+    console.log({ sql, ...timeFilter.params })
 
     const result = await this.query<{ active_contacts: string }>(sql, {
       chatbotId,
@@ -727,7 +728,7 @@ export class ContactStatsRepository extends BaseRepository {
       FROM ${table}
       WHERE chatbot_id = {chatbotId:String}
         AND ${timeFilter.sql}
-        AND event_type = 'contact_message_out'
+        AND event_type IN ('contact_message_in', 'contact_message_out')
         AND sender_type != ''
       GROUP BY chatbot_id, ${timeColumn}, channel, sender_type
       ORDER BY ${timeColumn} ASC, channel ASC, sender_type ASC

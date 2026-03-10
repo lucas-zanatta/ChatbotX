@@ -1,9 +1,13 @@
 import { db, eq, relationsFilterToSQL } from "@aha.chat/database/client"
 import { rootFolderId } from "@aha.chat/database/enums"
 import { contactsToTagsModel, tagModel } from "@aha.chat/database/schema"
+import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import { parseOrderByAsObject, parsePagination } from "@/lib/pagination"
-import type { ListTagsRequest, ListTagsResponse } from "../schemas/query"
+import type {
+  FindTagRequest,
+  ListTagsRequest,
+  ListTagsResponse,
+} from "../schemas/query"
 
 export const listTagsRSC = async (
   input: ListTagsRequest & { chatbotId: string },
@@ -53,4 +57,14 @@ export async function listTags(
     : 1
 
   return { data, pageCount }
+}
+
+export const findTag = async (input: FindTagRequest) => {
+  const { folderId, ...where } = input
+  return await db.query.tagModel.findFirst({
+    where: {
+      ...where,
+      folderId: folderId === null ? { isNull: true as const } : folderId,
+    },
+  })
 }
