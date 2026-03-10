@@ -23,6 +23,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/lib/ndjson/server.ts"
+    "./server": "./src/lib/ndjson/server.ts",
+    "./constants": "./src/lib/ndjson/ndjson-constants.ts"
   }
 }

@@ -112,22 +112,25 @@ export const createMessageAction = chatbotActionClient
       })
 
       if (conversation.contact?.sourceId) {
-        await contactTrackingService.trackEvent({
-          chatbotId: message.chatbotId,
-          contactId: conversation.contact.sourceId,
-          eventType: "contact_message_out",
-          senderType: "human",
-          occurredAt,
-          source: conversation.contact.source,
-          sourceId: conversation.contact.sourceId,
-          channel: inbox.inboxType,
-          country: undefined,
-          metadata: {
-            messageId: message.id,
-            conversationId: message.conversationId,
-            adminId: ctx.user.id,
+        await contactTrackingService.trackEvent(
+          {
+            chatbotId: message.chatbotId,
+            contactId: conversation.contact.sourceId,
+            eventType: "contact_message_out",
+            senderType: "human",
+            occurredAt,
+            source: conversation.contact.source,
+            sourceId: conversation.contact.sourceId,
+            channel: inbox.inboxType,
+            country: undefined,
+            metadata: {
+              messageId: message.id,
+              conversationId: message.conversationId,
+              adminId: ctx.user.id,
+            },
           },
-        })
+          { skipSpooler: true },
+        )
       }
 
       const promises: Promise<unknown>[] = [
