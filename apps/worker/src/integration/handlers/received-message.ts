@@ -44,7 +44,8 @@ export const receiveMessage = async (
   quickReplyAction: string | null
   ref?: string | null
 }> => {
-  const { integrationType, integrationIdentifier } = props
+  const { integrationType, payload } = props
+  const integrationIdentifier = payload.entry[0].id
 
   if (!Object.hasOwn(allIntegrations, integrationType)) {
     throw new Error(`Unsupported integration: ${integrationType}`)
@@ -83,7 +84,6 @@ export const receiveMessage = async (
         sourceId: conversation.contact.sourceId,
       },
     })
-    console.log({ newContact })
 
     if (!newContact) {
       if (canGetUserProfileIfNeeded(integrationType)) {
@@ -126,6 +126,7 @@ export const receiveMessage = async (
         })
         .returning()
         .then((result) => result[0])
+      console.log({ newContact })
 
       isNewlyCreatedContact = true
     }
@@ -187,7 +188,7 @@ export const receiveMessage = async (
       .then((result) => result[0])
 
     if (
-      message.attachments &&
+      message.attachments?.length &&
       newMessage.createdAt.getTime() === now.getTime()
     ) {
       await tx.insert(attachmentModel).values(
@@ -235,6 +236,7 @@ export const receiveMessage = async (
         chatbotId,
         contactId: conversation.contact.sourceId,
         eventType: "contact_message_in",
+        senderType: "human",
         occurredAt: result.message.createdAt,
         source: integrationType,
         sourceId: conversation.contact.sourceId,

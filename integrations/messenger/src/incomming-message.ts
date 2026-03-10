@@ -54,9 +54,12 @@ export const receiveMessage = async ({
   data,
 }: {
   ctx: Context<MessengerAuthValue>
-  data: unknown
+  data: {
+    integrationType: string
+    payload: unknown
+  }
 }): Promise<ReceivedMessageResult> => {
-  const validatedData = messengerWebhookEventSchema.parse(data)
+  const validatedData = messengerWebhookEventSchema.parse(data.payload)
 
   const entry = validatedData.entry[0]
 
