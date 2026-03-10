@@ -1139,6 +1139,24 @@
     "spreadsheet": {
       "label": "Spreadsheet"
     },
+    "conversationType": {
+      "label": "Conversation Type"
+    },
+    "source": {
+      "label": "Source"
+    },
+    "password": {
+      "label": "Password"
+    },
+    "passwordConfirmation": {
+      "label": "Re-enter password"
+    },
+    "newPassword": {
+      "label": "New Password"
+    },
+    "chatbotToken": {
+      "label": "API Access Token"
+    },
     "today": {
       "label": "Today"
     },
@@ -1162,24 +1180,6 @@
     },
     "customRange": {
       "label": "Custom Range"
-    },
-    "conversationType": {
-      "label": "Conversation Type"
-    },
-    "source": {
-      "label": "Source"
-    },
-    "password": {
-      "label": "Password"
-    },
-    "passwordConfirmation": {
-      "label": "Re-enter password"
-    },
-    "newPassword": {
-      "label": "New Password"
-    },
-    "chatbotToken": {
-      "label": "API Access Token"
     }
   },
   "flows": {

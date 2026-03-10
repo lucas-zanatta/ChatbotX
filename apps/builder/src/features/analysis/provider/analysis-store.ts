@@ -1,58 +1,78 @@
+import ky, { HTTPError } from "ky"
 import { createStore } from "zustand/vanilla"
 
-function getDefaultDateRange() {
-  const now = new Date()
-  const start = new Date(now)
-  start.setDate(now.getDate() - 6)
-
-  const fromDate = new Date(
-    start.getFullYear(),
-    start.getMonth(),
-    start.getDate(),
-    0,
-    0,
-    0,
-    0,
-  )
-
-  const toDate = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    23,
-    59,
-    59,
-    999,
-  )
-
-  return {
-    from: fromDate.getTime(),
-    to: toDate.getTime(),
-  }
-}
-
 export type AnalysisState = {
+  loading: boolean
+  error: string | null
+
   chatbotId: string
   from: number | null
   to: number | null
 }
 
 export type AnalysisActions = {
-  setRange: (from: number, to: number) => void
+  loadAnalysisData: (chatbotId: string) => Promise<void>
+  getTotalContacts: (chatbotId: string) => Promise<void>
+  setRange: (from: number, to: number) => Promise<void>
 }
 
 export type AnalysisStore = AnalysisState & AnalysisActions
 
-export const createAnalysisStore = () => {
-  const defaultRange = getDefaultDateRange()
+export const createAnalysisStore = () =>
+  createStore<AnalysisStore>((set, get) => ({
+    loading: false,
+    error: null,
 
-  return createStore<AnalysisStore>((set) => ({
     chatbotId: "",
-    from: defaultRange.from,
-    to: defaultRange.to,
+    from: null,
+    to: null,
 
-    setRange: (from: number, to: number) => {
+    loadAnalysisData: async (chatbotId: string) => {
+      const { getTotalContacts } = get()
+      set({ loading: true, error: null })
+
+      try {
+        await Promise.all([getTotalContacts(chatbotId)])
+        set({
+          loading: false,
+        })
+      } catch (error: unknown) {
+        if (error instanceof HTTPError) {
+          set({
+            error: error.message,
+            loading: false,
+          })
+        } else {
+          set({
+            error: "Failed to fetch analysis data",
+            loading: false,
+          })
+        }
+      }
+    },
+
+    getTotalContacts: async (chatbotId: string) => {
+      const { from, to } = get()
+      if (from === null || to === null) {
+        return
+      }
+      const searchParams = new URLSearchParams({
+        from: from.toString(),
+        to: to.toString(),
+      })
+      const { data } = await ky
+        .get(
+          `/api/chatbots/${chatbotId}/total-contacts?${searchParams.toString()}`,
+        )
+        .json()
+      console.log(data)
+
+      // set({ totalContacts: data })
+    },
+
+    setRange: async (from: number, to: number) => {
       set({ from, to })
+      const { loadAnalysisData, chatbotId } = get()
+      await loadAnalysisData(chatbotId)
     },
   }))
-}
