@@ -121,12 +121,17 @@ export const createMessageAction = chatbotActionClient
             occurredAt,
             source: conversation.contact.source,
             sourceId: conversation.contact.sourceId,
-            channel: inbox.inboxType,
+            channel: inbox?.inboxType || "messenger",
             country: undefined,
             metadata: {
               messageId: message.id,
               conversationId: message.conversationId,
               adminId: ctx.user.id,
+              triggerContext: {
+                triggerSource: "api",
+                triggerHandler: "createMessage",
+                triggerType: "manual_message",
+              },
             },
           },
           { skipSpooler: true },

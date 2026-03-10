@@ -769,7 +769,7 @@ export class ContactStatsRepository extends BaseRepository {
         FROM contact_stats_hourly
         WHERE chatbot_id = {chatbotId:String}
           AND ${timeFilter.sql}
-          AND event_type IN ('contact_message_in', 'contact_message_out')
+          AND event_type IN ('contact_message_out')
           AND sender_type != ''
         GROUP BY chatbot_id, time_group, channel, sender_type
       )

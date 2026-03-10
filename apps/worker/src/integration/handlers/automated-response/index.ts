@@ -1,4 +1,3 @@
-import { contactTrackingService } from "@aha.chat/analytics"
 import { db } from "@aha.chat/database/client"
 import type { IntegrationJobTriggerAutomatedResponse } from "@aha.chat/worker-config"
 import type { ModelMessage } from "ai"
@@ -8,7 +7,7 @@ import {
   replyByGemini,
   replyByOpenAI,
 } from "./replies"
-import { trackBotResponse } from "./track-bot-response"
+import { createTrackingContext, trackBotResponse } from "./track-bot-response"
 
 export async function triggerAutomatedResponse(
   props: IntegrationJobTriggerAutomatedResponse["data"],
@@ -30,24 +29,29 @@ export async function triggerAutomatedResponse(
       metadata: {
         fallbackReason: "NO_CONTENT",
       },
+      triggerContext: {
+        triggerSource: "worker",
+        triggerHandler: "triggerAutomatedResponse",
+        triggerType: "bot_response_fallback_no_content",
+      },
     })
 
     return
   }
 
-  if (await replyByAutomatedResponse(props)) {
-    await trackBotResponse({
-      chatbotId: message.chatbotId,
-      conversationId: message.conversationId,
-      messageId,
-      hasResponse: true,
-      responseType: "automated_response",
-      routeType: "FLOW",
-      result: "success",
-      aiProvider: "none",
-      startTime,
-    })
-    await trackBotMessageOutAsContactEvent(message)
+  if (
+    await replyByAutomatedResponse(
+      props,
+      createTrackingContext({
+        messageId,
+        chatbotId: message.chatbotId,
+        conversationId: message.conversationId,
+        responseType: "automated_response",
+        aiProvider: "none",
+        triggerType: "bot_response_automated_response",
+      }),
+    )
+  ) {
     return
   }
 
@@ -69,6 +73,11 @@ export async function triggerAutomatedResponse(
         fallbackReason: "NO_AI_AGENT",
       },
       startTime,
+      triggerContext: {
+        triggerSource: "worker",
+        triggerHandler: "triggerAutomatedResponse",
+        triggerType: "bot_response_fallback_no_ai_agent",
+      },
     })
     return
   }
@@ -98,57 +107,53 @@ export async function triggerAutomatedResponse(
 
   // Step 3: AI Agent exists → Route to AGENT
   if (
-    await replyByOpenAI({
-      message,
-      lastAIMessages,
-      aiAgent,
-      tools: toolset,
-      availableTools: {
-        fileTools: [],
-        functionTools: [],
-        mcpTools: [],
+    await replyByOpenAI(
+      {
+        message,
+        lastAIMessages,
+        aiAgent,
+        tools: toolset,
+        availableTools: {
+          fileTools: [],
+          functionTools: [],
+          mcpTools: [],
+        },
       },
-    })
+      createTrackingContext({
+        messageId,
+        chatbotId: message.chatbotId,
+        conversationId: message.conversationId,
+        responseType: "ai_agent",
+        aiProvider: "openai",
+        triggerType: "bot_response_ai_agent_openai",
+      }),
+    )
   ) {
-    await trackBotResponse({
-      chatbotId: message.chatbotId,
-      conversationId: message.conversationId,
-      messageId,
-      hasResponse: true,
-      responseType: "ai_agent",
-      routeType: "AGENT",
-      result: "success",
-      aiProvider: "openai",
-      startTime,
-    })
-    await trackBotMessageOutAsContactEvent(message)
     return
   }
   if (
-    await replyByGemini({
-      message,
-      lastAIMessages,
-      aiAgent,
-      tools: toolset,
-      availableTools: {
-        fileTools: [],
-        functionTools: [],
-        mcpTools: [],
+    await replyByGemini(
+      {
+        message,
+        lastAIMessages,
+        aiAgent,
+        tools: toolset,
+        availableTools: {
+          fileTools: [],
+          functionTools: [],
+          mcpTools: [],
+        },
       },
-    })
+      createTrackingContext({
+        messageId,
+        chatbotId: message.chatbotId,
+        conversationId: message.conversationId,
+        responseType: "ai_agent",
+        aiProvider: "gemini",
+        triggerType: "bot_response_ai_agent_gemini",
+      }),
+    )
   ) {
-    await trackBotResponse({
-      chatbotId: message.chatbotId,
-      conversationId: message.conversationId,
-      messageId,
-      hasResponse: true,
-      responseType: "ai_agent",
-      routeType: "AGENT",
-      result: "success",
-      aiProvider: "gemini",
-      startTime,
-    })
-    await trackBotMessageOutAsContactEvent(message)
     return
   }
 
@@ -167,37 +172,10 @@ export async function triggerAutomatedResponse(
       fallbackReason: "NO_INTENT_MATCH",
     },
     startTime,
+    triggerContext: {
+      triggerSource: "worker",
+      triggerHandler: "triggerAutomatedResponse",
+      triggerType: "bot_response_ai_agent_failed",
+    },
   })
-}
-
-async function trackBotMessageOutAsContactEvent(
-  message: IntegrationJobTriggerAutomatedResponse["data"]["message"],
-) {
-  try {
-    const conversation = await db.query.conversationModel.findFirst({
-      where: { id: message.conversationId },
-      with: {
-        contact: { columns: { sourceId: true, source: true } },
-        inbox: { columns: { inboxType: true } },
-      },
-    })
-
-    if (conversation?.contact?.sourceId) {
-      await contactTrackingService.trackEvent({
-        chatbotId: message.chatbotId,
-        contactId: conversation.contact.sourceId,
-        eventType: "contact_message_out",
-        senderType: "bot",
-        occurredAt: new Date(),
-        source: conversation.contact.source ?? undefined,
-        sourceId: conversation.contact.sourceId,
-        channel: conversation.inbox?.inboxType ?? undefined,
-      })
-    }
-  } catch (error) {
-    console.error(
-      "[triggerAutomatedResponse] Failed to track bot contact_message_out",
-      error,
-    )
-  }
 }

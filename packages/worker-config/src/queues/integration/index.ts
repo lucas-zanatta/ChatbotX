@@ -7,6 +7,7 @@ import {
   getRedisConnection,
 } from "../../lib/connection"
 import { queueName } from "../../lib/types"
+import type { BotResponseTrackingContext } from "../types"
 
 export const IntegrationJobAction = {
   sendFlow: "sendFlow",
@@ -41,6 +42,7 @@ export type IntegrationJobRunFlowNode = {
     flowId: string
     flowVersionId?: string
     nodeId?: string
+    trackingContext?: BotResponseTrackingContext
   }
 }
 

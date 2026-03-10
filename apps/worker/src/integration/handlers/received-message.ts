@@ -225,6 +225,13 @@ export const receiveMessage = async (
         source: integrationType,
         sourceId: conversation.contact.sourceId,
         channel: inbox.inboxType,
+        metadata: {
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "receiveMessage",
+            triggerType: "contact_created",
+          },
+        },
       })
       .catch((error) => {
         logger.error(error, "[receiveMessage] Failed to track contact_created")
@@ -242,6 +249,13 @@ export const receiveMessage = async (
         source: integrationType,
         sourceId: conversation.contact.sourceId,
         channel: inbox.inboxType,
+        metadata: {
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "receiveMessage",
+            triggerType: "contact_message_in",
+          },
+        },
       })
       .catch((error) => {
         logger.error(

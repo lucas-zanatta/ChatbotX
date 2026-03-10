@@ -13,7 +13,13 @@ export interface ContactEvent {
   country?: string
   eventId: string
   eventType: ContactEventType
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown> & {
+    triggerContext?: {
+      triggerSource: string
+      triggerHandler: string
+      triggerType: string
+    }
+  }
   occurredAt: Date
   senderType?: ContactSenderType
   source?: string
