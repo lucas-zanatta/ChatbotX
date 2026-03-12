@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitContactCreated } from "@aha.chat/events"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -61,33 +61,48 @@ export const createContactAction = chatbotActionClient
         })
       }
 
-      const contactId = await prisma.$transaction(async (tx) => {
-        const contact = await tx.contact.create({
-          data: { ...parsedInput, chatbotId, source: "whatsapp" },
-        })
+      const { contactId, contactData } = await prisma.$transaction(
+        async (tx) => {
+          const contact = await tx.contact.create({
+            data: { ...parsedInput, chatbotId, source: "whatsapp" },
+          })
 
-        await tx.chatbotUsage.update({
-          where: { chatbotId },
-          data: {
-            contactsCount: {
-              increment: 1,
+          await tx.chatbotUsage.update({
+            where: { chatbotId },
+            data: {
+              contactsCount: {
+                increment: 1,
+              },
             },
-          },
-        })
+          })
 
-        await tx.conversation.create({
-          data: {
-            chatbotId,
+          await tx.conversation.create({
+            data: {
+              chatbotId,
+              contactId: contact.id,
+              inboxId: inbox.id,
+            },
+          })
+
+          return {
             contactId: contact.id,
-            inboxId: inbox.id,
-          },
-        })
-
-        return contact.id
-      })
+            contactData: {
+              name: contact.firstName,
+              phone: contact.phoneNumber,
+              email: contact.email,
+            },
+          }
+        },
+      )
 
       try {
-        await TriggerEventEmitter.contactCreated(chatbotId, contactId)
+        await emitContactCreated(
+          chatbotId,
+          contactId,
+          contactData.name || undefined,
+          contactData.phone || undefined,
+          contactData.email || undefined,
+        )
       } catch (error) {
         console.error("Failed to emit contactCreated event:", error)
       }

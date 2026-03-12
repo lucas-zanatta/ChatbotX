@@ -6,7 +6,7 @@ import {
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -78,6 +78,7 @@ export const updateContactAction = chatbotActionClient
 
         const updated: Array<{
           customFieldId: string
+          customFieldName: string
           oldValue: string | null
           newValue: string
         }> = []
@@ -110,8 +111,10 @@ export const updateContactAction = chatbotActionClient
               },
             })
 
+            const customField = allCustomFieldsMap.get(key)
             updated.push({
               customFieldId: key,
+              customFieldName: customField?.name || key,
               oldValue: existing?.value || null,
               newValue: value as string,
             })
@@ -123,10 +126,11 @@ export const updateContactAction = chatbotActionClient
 
       for (const field of updatedCustomFields) {
         try {
-          await TriggerEventEmitter.customFieldChanged(
+          await emitCustomFieldChanged(
             chatbotId,
             id,
             field.customFieldId,
+            field.customFieldName,
             field.oldValue,
             field.newValue,
           )

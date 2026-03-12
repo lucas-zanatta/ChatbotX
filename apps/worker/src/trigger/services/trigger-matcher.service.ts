@@ -1,5 +1,5 @@
 import { prisma } from "@aha.chat/database"
-import { TriggerCondition as TriggerConditionEnum } from "@aha.chat/database/enums"
+import { Condition as ConditionEnum } from "@aha.chat/database/enums"
 import type { ChatbotModel } from "@aha.chat/database/types"
 import type { TriggerEventData, TriggerWithConditions } from "../types"
 import { ConditionEvaluator } from "./condition-evaluator"
@@ -27,7 +27,7 @@ export class TriggerMatcherService {
       where: {
         chatbotId,
         active: true,
-        triggerConditions: {
+        conditions: {
           some: {
             type: { in: conditionTypes },
             ...(sourceId ? { sourceId } : {}),
@@ -35,7 +35,7 @@ export class TriggerMatcherService {
         },
       },
       include: {
-        triggerConditions: true,
+        conditions: true,
       },
     })
 
@@ -68,13 +68,13 @@ export class TriggerMatcherService {
     eventData: TriggerEventData,
     chatbot: ChatbotModel,
   ): Promise<boolean> {
-    const { triggerConditions } = trigger
+    const { conditions } = trigger
 
-    if (triggerConditions.length === 0) {
+    if (conditions.length === 0) {
       return false
     }
 
-    for (const condition of triggerConditions) {
+    for (const condition of conditions) {
       const isMatch = await this.conditionEvaluator.evaluate({
         condition,
         eventData,
@@ -95,34 +95,34 @@ export class TriggerMatcherService {
 
   private mapEventTypeToConditionTypes(eventType: number): number[] {
     const mapping: Record<number, number[]> = {
-      [TriggerConditionEnum.tagApplied]: [TriggerConditionEnum.tagApplied],
-      [TriggerConditionEnum.tagRemoved]: [TriggerConditionEnum.tagRemoved],
-      [TriggerConditionEnum.customFieldValueChanged]: [
-        TriggerConditionEnum.customFieldValueChanged,
+      [ConditionEnum.tagApplied]: [ConditionEnum.tagApplied],
+      [ConditionEnum.tagRemoved]: [ConditionEnum.tagRemoved],
+      [ConditionEnum.customFieldValueChanged]: [
+        ConditionEnum.customFieldValueChanged,
       ],
-      [TriggerConditionEnum.conversationTransferredToHuman]: [
-        TriggerConditionEnum.conversationTransferredToHuman,
+      [ConditionEnum.conversationTransferredToHuman]: [
+        ConditionEnum.conversationTransferredToHuman,
       ],
-      [TriggerConditionEnum.conversationTransferredToBot]: [
-        TriggerConditionEnum.conversationTransferredToBot,
+      [ConditionEnum.conversationTransferredToBot]: [
+        ConditionEnum.conversationTransferredToBot,
       ],
-      [TriggerConditionEnum.newContact]: [TriggerConditionEnum.newContact],
-      [TriggerConditionEnum.contactUnsubscribedFormBroadcast]: [
-        TriggerConditionEnum.contactUnsubscribedFormBroadcast,
+      [ConditionEnum.newContact]: [ConditionEnum.newContact],
+      [ConditionEnum.contactUnsubscribedFormBroadcast]: [
+        ConditionEnum.contactUnsubscribedFormBroadcast,
       ],
-      [TriggerConditionEnum.archived]: [TriggerConditionEnum.archived],
-      [TriggerConditionEnum.followUp]: [TriggerConditionEnum.followUp],
-      [TriggerConditionEnum.conversationAssigned]: [
-        TriggerConditionEnum.conversationAssigned,
+      [ConditionEnum.archived]: [ConditionEnum.archived],
+      [ConditionEnum.followUp]: [ConditionEnum.followUp],
+      [ConditionEnum.conversationAssigned]: [
+        ConditionEnum.conversationAssigned,
       ],
-      [TriggerConditionEnum.conversationUnassigned]: [
-        TriggerConditionEnum.conversationUnassigned,
+      [ConditionEnum.conversationUnassigned]: [
+        ConditionEnum.conversationUnassigned,
       ],
-      [TriggerConditionEnum.subscribedToSequence]: [
-        TriggerConditionEnum.subscribedToSequence,
+      [ConditionEnum.subscribedToSequence]: [
+        ConditionEnum.subscribedToSequence,
       ],
-      [TriggerConditionEnum.unsubscribedFromSequence]: [
-        TriggerConditionEnum.unsubscribedFromSequence,
+      [ConditionEnum.unsubscribedFromSequence]: [
+        ConditionEnum.unsubscribedFromSequence,
       ],
     }
 

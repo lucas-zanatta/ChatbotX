@@ -19,6 +19,8 @@ export function getFolderTypeFromFeature(
       return FolderType.tag
     case "triggers":
       return FolderType.trigger
+    case "webhooks":
+      return FolderType.webhook
     default:
       return null
   }

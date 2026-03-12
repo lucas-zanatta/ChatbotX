@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { updateTriggerCache } from "@aha.chat/trigger-events"
+import { updateTriggerCache } from "@aha.chat/events"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -26,7 +26,7 @@ export const updateTriggerAction = chatbotActionClient
       const { conditions, actions } = parsedInput
 
       const result = await prisma.$transaction(async (tx) => {
-        const existingConditions = await tx.triggerCondition.findMany({
+        const existingConditions = await tx.condition.findMany({
           where: { triggerId: id },
         })
 
@@ -55,7 +55,7 @@ export const updateTriggerAction = chatbotActionClient
         })
 
         if (conditionsToDelete.length > 0) {
-          await tx.triggerCondition.deleteMany({
+          await tx.condition.deleteMany({
             where: {
               id: { in: conditionsToDelete.map((c) => c.id) },
             },
@@ -63,7 +63,7 @@ export const updateTriggerAction = chatbotActionClient
         }
 
         for (const condition of conditionsToUpdate) {
-          await tx.triggerCondition.update({
+          await tx.condition.update({
             where: { id: condition.id as string },
             data: {
               type: condition.type,
@@ -78,7 +78,7 @@ export const updateTriggerAction = chatbotActionClient
         }
 
         if (conditionsToCreate.length > 0) {
-          await tx.triggerCondition.createMany({
+          await tx.condition.createMany({
             data: conditionsToCreate.map((c) => ({
               triggerId: id,
               type: c.type,

@@ -1,4 +1,9 @@
 import { prisma } from "@aha.chat/database"
+import {
+  emitCustomFieldChanged,
+  emitTagApplied,
+  emitTagRemoved,
+} from "@aha.chat/events"
 import type {
   AddContactTagStepSchema,
   AddNotesStepSchema,
@@ -10,7 +15,6 @@ import type {
   OptOutEmailStepSchema,
   SetCustomFieldStepSchema,
 } from "@aha.chat/flow-config"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import type { FlowStepProps } from "./step-handler"
 
 export async function setContactCustomField({
@@ -27,27 +31,33 @@ export async function setContactCustomField({
   })
 
   await prisma.contactCustomField.upsert({
-    create: {
-      contactId: conversation.contactId,
-      customFieldId: step.inputCfId,
-      value: step.value,
-    },
     where: {
       contactId_customFieldId: {
         contactId: conversation.contactId,
         customFieldId: step.inputCfId,
       },
     },
+    create: {
+      contactId: conversation.contactId,
+      customFieldId: step.inputCfId,
+      value: step.value,
+    },
     update: {
       value: step.value,
     },
   })
 
+  const customField = await prisma.field.findUnique({
+    where: { id: step.inputCfId },
+    select: { name: true },
+  })
+
   try {
-    await TriggerEventEmitter.customFieldChanged(
+    await emitCustomFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
       step.inputCfId,
+      customField?.name || step.inputCfId,
       existing?.value || null,
       step.value,
     )
@@ -146,7 +156,7 @@ export async function addContactTag({
 
   for (const tag of tags) {
     try {
-      await TriggerEventEmitter.tagApplied(
+      await emitTagApplied(
         conversation.chatbotId,
         conversation.contactId,
         tag.id,
@@ -191,7 +201,7 @@ export async function removeContactTag({
 
   for (const tag of tags) {
     try {
-      await TriggerEventEmitter.tagRemoved(
+      await emitTagRemoved(
         conversation.chatbotId,
         conversation.contactId,
         tag.id,

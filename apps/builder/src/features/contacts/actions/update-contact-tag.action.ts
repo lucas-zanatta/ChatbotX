@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitTagApplied, emitTagRemoved } from "@aha.chat/events"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -29,7 +29,7 @@ async function emitTagEvents(
 
   for (const tag of newlyAppliedTags) {
     try {
-      await TriggerEventEmitter.tagApplied(chatbotId, contactId, tag.id)
+      await emitTagApplied(chatbotId, contactId, tag.id)
     } catch (error) {
       console.error("Failed to emit tagApplied event:", error)
     }
@@ -37,7 +37,7 @@ async function emitTagEvents(
 
   for (const tagId of removedTagIds) {
     try {
-      await TriggerEventEmitter.tagRemoved(chatbotId, contactId, tagId)
+      await emitTagRemoved(chatbotId, contactId, tagId)
     } catch (error) {
       console.error("Failed to emit tagRemoved event:", error)
     }

@@ -11,19 +11,19 @@ import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useFieldArray } from "react-hook-form"
 import { toast } from "sonner"
+import { ConditionEditor } from "../conditions/editor"
 import { updateTriggerAction } from "./actions/update-trigger-action"
 import { AddAction } from "./add-action"
 import { AddCondition } from "./add-condition"
 import { BaseEditor } from "./base-editor"
 import { ActionEditor } from "./components/actions/editor"
-import { ConditionEditor } from "./components/conditions/editor"
 import {
   type UpdateTriggerSchema,
   updateTriggerSchema,
 } from "./schemas/update-trigger-schema"
 
 type TriggerWithConditions = TriggerModel & {
-  triggerConditions?: Array<{
+  conditions?: Array<{
     id: string
     type: number
     sourceId: string | null
@@ -68,7 +68,7 @@ export default function UpdateTriggerForm(props: UpdateTriggerFormProps) {
       formProps: {
         mode: "onChange",
         defaultValues: {
-          conditions: (trigger.triggerConditions || []).map((tc) => ({
+          conditions: (trigger.conditions || []).map((tc) => ({
             id: tc.id,
             type: tc.type,
             sourceId: tc.sourceId || undefined,

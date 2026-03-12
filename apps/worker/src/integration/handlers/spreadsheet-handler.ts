@@ -3,6 +3,7 @@ import type {
   ConversationModel,
   SpreadsheetModel,
 } from "@aha.chat/database/types"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import type {
   EdgeSchema,
   FilterMode,
@@ -18,7 +19,6 @@ import {
   integration as integrationGooglesheets,
 } from "@aha.chat/integration-google-sheets"
 import { SdkException } from "@aha.chat/sdk"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import { isMatchedRow } from "./operator-handler"
@@ -330,6 +330,15 @@ const updateContactCustomFields = async ({
   headers: string[]
   foundRow: string[]
 }) => {
+  const customFieldIds = step.map
+    .map((m) => m.customFieldId)
+    .filter(Boolean) as string[]
+  const customFields = await prisma.field.findMany({
+    where: { id: { in: customFieldIds } },
+    select: { id: true, name: true },
+  })
+  const customFieldMap = new Map(customFields.map((f) => [f.id, f.name]))
+
   for (const mapItem of step.map) {
     const headerIndex = headers.indexOf(mapItem.header)
     if (headerIndex !== -1 && mapItem.customFieldId) {
@@ -362,10 +371,11 @@ const updateContactCustomFields = async ({
       })
 
       try {
-        await TriggerEventEmitter.customFieldChanged(
+        await emitCustomFieldChanged(
           conversation.chatbotId,
           conversation.contactId,
           mapItem.customFieldId,
+          customFieldMap.get(mapItem.customFieldId) || mapItem.customFieldId,
           existing?.value || null,
           value,
         )

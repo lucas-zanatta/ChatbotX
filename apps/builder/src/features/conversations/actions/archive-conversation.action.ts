@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitConversationArchived } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -18,9 +18,11 @@ export const archiveConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
+      ctx: { user: { id: string } }
     }) => {
       const conversations = await prisma.conversation.findMany({
         where: {
@@ -49,9 +51,11 @@ export const archiveConversationAction = chatbotActionClient
 
       for (const conv of conversations) {
         try {
-          await TriggerEventEmitter.conversationArchived(
+          await emitConversationArchived(
             chatbotId,
             conv.contactId,
+            conv.id,
+            ctx.user.id,
           )
         } catch (error) {
           console.error("Failed to emit conversationArchived event:", error)

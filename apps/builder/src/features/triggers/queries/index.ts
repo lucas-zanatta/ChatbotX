@@ -49,7 +49,7 @@ export async function getTriggers(
       where,
       orderBy,
       include: {
-        triggerConditions: true,
+        conditions: true,
       },
     }),
     prisma.trigger.count({ where }),
@@ -66,7 +66,7 @@ export async function findTrigger(
   return await prisma.trigger.findFirst({
     where,
     include: {
-      triggerConditions: true,
+      conditions: true,
     },
   })
 }

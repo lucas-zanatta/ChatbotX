@@ -4,4 +4,5 @@ export const queueName = {
   aiAgent: "aiAgent",
   schedule: "schedule",
   trigger: "trigger",
+  webhook: "webhook",
 } as const

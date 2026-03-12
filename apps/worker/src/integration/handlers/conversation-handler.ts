@@ -1,5 +1,13 @@
 import { type Prisma, prisma } from "@aha.chat/database"
 import {
+  emitConversationArchived,
+  emitConversationAssigned,
+  emitConversationFollowUp,
+  emitConversationTransferredToBot,
+  emitConversationTransferredToHuman,
+  emitConversationUnassigned,
+} from "@aha.chat/events"
+import {
   type ArchiveConversationStepSchema,
   type AssignConversationStepSchema,
   AutoAssignConversationRule,
@@ -11,7 +19,6 @@ import {
   type UnassignConversationStepSchema,
   type UnfollowConversationStepSchema,
 } from "@aha.chat/flow-config"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { subHours } from "date-fns"
 import type { FlowStepProps } from "./step-handler"
 
@@ -24,9 +31,11 @@ export async function archiveConversation({
   })
 
   try {
-    await TriggerEventEmitter.conversationArchived(
+    await emitConversationArchived(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationArchived event:", error)
@@ -82,9 +91,12 @@ export async function assignConversation({
 
   if (assigned) {
     try {
-      await TriggerEventEmitter.conversationAssigned(
+      await emitConversationAssigned(
         conversation.chatbotId,
         conversation.contactId,
+        conversation.id,
+        step.assignedId,
+        "system",
       )
     } catch (error) {
       console.error("Failed to emit conversationAssigned event:", error)
@@ -246,9 +258,14 @@ export async function autoAssignConversation({
   })
 
   try {
-    await TriggerEventEmitter.conversationAssigned(
+    await emitConversationAssigned(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      allocation[smallestKey].assignedUserId ||
+        allocation[smallestKey].assignedInboxTeamId ||
+        "system",
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationAssigned event:", error)
@@ -267,9 +284,11 @@ export async function unassignConversation({
   })
 
   try {
-    await TriggerEventEmitter.conversationUnassigned(
+    await emitConversationUnassigned(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationUnassigned event:", error)
@@ -285,9 +304,11 @@ export async function followConversation({
   })
 
   try {
-    await TriggerEventEmitter.conversationFollowUp(
+    await emitConversationFollowUp(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationFollowed event:", error)
@@ -312,9 +333,11 @@ export async function disableBot({
   })
 
   try {
-    await TriggerEventEmitter.conversationTransferredToHuman(
+    await emitConversationTransferredToHuman(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "bot",
     )
   } catch (error) {
     console.error("Failed to emit conversationTransferredToHuman event:", error)
@@ -330,9 +353,11 @@ export async function enableBot({
   })
 
   try {
-    await TriggerEventEmitter.conversationTransferredToBot(
+    await emitConversationTransferredToBot(
       conversation.chatbotId,
       conversation.contactId,
+      conversation.id,
+      "system",
     )
   } catch (error) {
     console.error("Failed to emit conversationTransferredToBot event:", error)

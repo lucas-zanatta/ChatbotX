@@ -1,5 +1,5 @@
 import { prisma } from "@aha.chat/database"
-import { TriggerCondition } from "@aha.chat/database/enums"
+import { Condition } from "@aha.chat/database/enums"
 import { getRedisConnection } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import type {
@@ -37,16 +37,16 @@ async function fetchTriggerChunk(
   const triggers = await prisma.trigger.findMany({
     where: {
       active: true,
-      triggerConditions: {
+      conditions: {
         some: {
-          type: TriggerCondition.dateTimeBasedTrigger,
+          type: Condition.dateTimeBasedTrigger,
         },
       },
     },
     include: {
-      triggerConditions: {
+      conditions: {
         where: {
-          type: TriggerCondition.dateTimeBasedTrigger,
+          type: Condition.dateTimeBasedTrigger,
         },
       },
       chatbot: true,
@@ -61,7 +61,7 @@ async function fetchTriggerChunk(
   for (const trigger of triggers) {
     const conditions: DateTimeCondition[] = []
 
-    for (const condition of trigger.triggerConditions) {
+    for (const condition of trigger.conditions) {
       if (!condition?.sourceId) {
         continue
       }

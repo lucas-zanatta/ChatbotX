@@ -1,5 +1,5 @@
 import { prisma } from "@aha.chat/database"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
+import { emitConversationTransferredToBot } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -16,9 +16,11 @@ export const disableLiveChatConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
+      ctx: { user: { id: string } }
     }) => {
       const conversations = await prisma.conversation.findMany({
         where: {
@@ -47,9 +49,11 @@ export const disableLiveChatConversationAction = chatbotActionClient
 
       for (const conv of conversations) {
         try {
-          await TriggerEventEmitter.conversationTransferredToBot(
+          await emitConversationTransferredToBot(
             chatbotId,
             conv.contactId,
+            conv.id,
+            ctx.user.id,
           )
         } catch (error) {
           console.error(

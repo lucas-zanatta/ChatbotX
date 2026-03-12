@@ -78,6 +78,8 @@ function findResourceModel(folderType: FolderType): any {
       return prisma.automatedResponse
     case FolderType.trigger:
       return prisma.trigger
+    case FolderType.webhook:
+      return prisma.webhook
     default:
       throw new FolderException("Invalid folder type")
   }

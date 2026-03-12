@@ -1,5 +1,6 @@
 import { prisma } from "@aha.chat/database"
 import { FieldType } from "@aha.chat/database/types"
+import { emitCustomFieldChanged } from "@aha.chat/events"
 import {
   type CountCharactersStepSchema,
   type FormatDateStepSchema,
@@ -7,7 +8,6 @@ import {
   GenerateCodeType,
   type GetDataFromJsonStepSchema,
 } from "@aha.chat/flow-config"
-import { TriggerEventEmitter } from "@aha.chat/trigger-events"
 import { faker } from "@faker-js/faker"
 import { format } from "date-fns"
 import { getProperty } from "dot-prop"
@@ -68,11 +68,17 @@ export async function countCharacters({
     },
   })
 
+  const customField = await prisma.field.findUnique({
+    where: { id: step.outputCfId },
+    select: { name: true },
+  })
+
   try {
-    await TriggerEventEmitter.customFieldChanged(
+    await emitCustomFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
       step.outputCfId,
+      customField?.name || step.outputCfId,
       existing?.value || null,
       value,
     )
@@ -123,11 +129,17 @@ export async function formatDate({
     },
   })
 
+  const customField = await prisma.field.findUnique({
+    where: { id: step.outputCfId },
+    select: { name: true },
+  })
+
   try {
-    await TriggerEventEmitter.customFieldChanged(
+    await emitCustomFieldChanged(
       conversation.chatbotId,
       conversation.contactId,
       step.outputCfId,
+      customField?.name || step.outputCfId,
       existing?.value || null,
       newValue,
     )
@@ -187,11 +199,17 @@ export async function generateCode({
       },
     })
 
+    const customField = await prisma.field.findUnique({
+      where: { id: step.outputCfId },
+      select: { name: true },
+    })
+
     try {
-      await TriggerEventEmitter.customFieldChanged(
+      await emitCustomFieldChanged(
         conversation.chatbotId,
         conversation.contactId,
         step.outputCfId,
+        customField?.name || step.outputCfId,
         existing?.value || null,
         value,
       )
@@ -232,13 +250,16 @@ export async function getDataFromJSON({
     },
     select: {
       id: true,
+      name: true,
     },
   })
   const validCustomFieldIds = validCustomFields.map((v) => v.id)
+  const customFieldMap = new Map(validCustomFields.map((f) => [f.id, f.name]))
 
   const updatedFields = await prisma.$transaction(async (tx) => {
     const updated: Array<{
       customFieldId: string
+      customFieldName: string
       oldValue: string | null
       newValue: string
     }> = []
@@ -278,6 +299,8 @@ export async function getDataFromJSON({
 
           updated.push({
             customFieldId: data.outputCfId,
+            customFieldName:
+              customFieldMap.get(data.outputCfId) || data.outputCfId,
             oldValue: existing?.value || null,
             newValue: encodedValue,
           })
@@ -290,10 +313,11 @@ export async function getDataFromJSON({
 
   for (const field of updatedFields) {
     try {
-      await TriggerEventEmitter.customFieldChanged(
+      await emitCustomFieldChanged(
         conversation.chatbotId,
         conversation.contactId,
         field.customFieldId,
+        field.customFieldName,
         field.oldValue,
         field.newValue,
       )
