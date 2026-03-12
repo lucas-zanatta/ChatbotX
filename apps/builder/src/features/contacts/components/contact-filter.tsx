@@ -211,7 +211,7 @@ const getFieldConfigs = ({
   },
   {
     name: ConditionField.fullName,
-    conditionType: ConditionType.text,
+    conditionType: ConditionType.shortText,
   },
   {
     name: ConditionField.country,
@@ -379,11 +379,11 @@ const getFieldConfigs = ({
   },
   {
     name: ConditionField.email,
-    conditionType: ConditionType.text,
+    conditionType: ConditionType.shortText,
   },
   {
     name: ConditionField.phone,
-    conditionType: ConditionType.text,
+    conditionType: ConditionType.shortText,
   },
   {
     name: ConditionField.tags,
@@ -729,7 +729,7 @@ function ContactFilterCondition({
               />
               <SelectField name="operator" options={activeOperationsList} />
               <div className="overflow-hidden truncate">
-                {valueType === ConditionType.text && (
+                {valueType === ConditionType.shortText && (
                   <InputField name="value" />
                 )}
                 {valueType === ConditionType.number && (
