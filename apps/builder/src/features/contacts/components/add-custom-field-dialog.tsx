@@ -1,6 +1,6 @@
 "use client"
 
-import { CustomFieldType } from "@aha.chat/database/types"
+import { CustomFieldType } from "@aha.chat/database/enums"
 import { FieldOperationType } from "@aha.chat/flow-config"
 import { DateTimePickerField } from "@aha.chat/ui/components/form/date-picker-field"
 import { InputField } from "@aha.chat/ui/components/form/input-field"

@@ -3,6 +3,7 @@ import { memo } from "react"
 import { addContactNotesStep } from "./add-contact-notes"
 import { addContactTagStep } from "./add-contact-tag"
 import { addNotesStep } from "./add-notes"
+import { aiGenerateTextStep } from "./ai-generate-text"
 import { archiveConversationStep } from "./archive-conversation"
 import { assignConversationStep } from "./assign-conversation"
 import { autoAssignConversationStep } from "./auto-assign-conversation"
@@ -13,12 +14,20 @@ import { countCharactersStep } from "./count-characters"
 import type { StepDefinition } from "./definition"
 import { deleteContactStep } from "./delete-contact"
 import { disableBotStep } from "./disable-bot"
+import emailButtonStep from "./email-button"
+import emailCodeStep from "./email-code"
+import emailH3Step from "./email-h3"
+import emailHeaderStep from "./email-header"
+import emailImageStep from "./email-image"
+import emailLineStep from "./email-line"
+import emailSpacingStep from "./email-spacing"
+import emailTextStep from "./email-text"
 import { enableBotStep } from "./enable-bot"
 import { followConversationStep } from "./follow-conversation"
 import { formatDateStep } from "./format-date"
 import { generateCodeStep } from "./generate-code"
 import { getDataFromJsonStep } from "./get-data-from-json"
-import { waitUserReplyStep } from "./get-user-input"
+import { getUserDataStep } from "./get-user-data"
 import { markEmailVerifiedStep } from "./mark-email-verified"
 import { openWebsiteStep } from "./open-website"
 import { optInEmailStep } from "./opt-in-email"
@@ -41,6 +50,7 @@ import startAnotherNodeStep from "./start-another-node"
 import { sendExternalFlowStep } from "./start-external-flow"
 import { sendExternalNodeStep } from "./start-external-node"
 import { subscribeBroadcastStep } from "./subscribe-broadcast"
+import typingStep from "./typing"
 import { unarchiveConversationStep } from "./unarchive-conversation"
 import { unassignConversationStep } from "./unassign-conversation"
 import { unfollowConversationStep } from "./unfollow-conversation"
@@ -52,7 +62,7 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [StepType.sendImage]: sendImageStep,
   [StepType.sendCard]: sendCarouselStep,
   [StepType.sendCarousel]: sendCarouselStep,
-  [StepType.getUserInput]: waitUserReplyStep,
+  [StepType.getUserData]: getUserDataStep,
   [StepType.sendVideo]: sendVideoStep,
   [StepType.sendGif]: sendGifStep,
   [StepType.setDebounce]: undefined,
@@ -99,7 +109,7 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [StepType.filterContact]: undefined,
   [StepType.addNotes]: addNotesStep,
   [StepType.waitUserReply]: undefined,
-  [StepType.aiGenerateText]: undefined,
+  [StepType.aiGenerateText]: aiGenerateTextStep,
   [StepType.aiGenerateTextAgent]: undefined,
   [StepType.aiGenerateImage]: undefined,
   [StepType.aiAnalyzeImage]: undefined,
@@ -112,6 +122,15 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [StepType.spreadsheetClearRow]: spreadsheetClearRowStep,
   [StepType.spreadsheetSendData]: spreadsheetSendDataStep,
   [StepType.sendQuickReply]: undefined,
+  [StepType.emailH3]: emailH3Step,
+  [StepType.emailText]: emailTextStep,
+  [StepType.emailImage]: emailImageStep,
+  [StepType.emailButton]: emailButtonStep,
+  [StepType.emailLine]: emailLineStep,
+  [StepType.emailSpacing]: emailSpacingStep,
+  [StepType.emailCode]: emailCodeStep,
+  [StepType.emailHeader]: emailHeaderStep,
+  [StepType.typing]: typingStep,
 }
 
 export const DynamicStepEditor = memo(

@@ -1,119 +1,189 @@
 "use server"
 
-import { type Prisma, prisma } from "@aha.chat/database"
-import type { ConversationModel, MessageModel } from "@aha.chat/database/types"
+import {
+  and,
+  db,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  type SQL,
+  sql,
+} from "@aha.chat/database/client"
+import {
+  contactModel,
+  conversationModel,
+  inboxModel,
+  inboxTeamModel,
+  messageModel,
+  userModel,
+} from "@aha.chat/database/schema"
+import type { InboxType } from "@aha.chat/database/types"
+import { getPaginationWithDefaults } from "@aha.chat/database/utils"
 import type {
   FindConversationSchema,
   ListConversationsRequest,
 } from "@/features/conversations/schemas/query"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import type {
-  ConversationCollection,
-  ConversationResource,
+  FindConversationResponse,
+  ListConversationsResponse,
 } from "../schemas/resource"
 
 export const listConversations = async (
   chatbotId: string,
-  input: ListConversationsRequest,
-): Promise<ConversationCollection> => {
+  input: ListConversationsRequest = {},
+): Promise<ListConversationsResponse> => {
   await assertCurrentUserCanAccessChatbot(chatbotId)
 
-  const perPage = (input.perPage || 10) + 1
-  const where: Prisma.ConversationWhereInput = {
-    chatbotId,
+  const pagination = getPaginationWithDefaults(input)
+
+  const where: SQL[] = [eq(conversationModel.chatbotId, chatbotId)]
+
+  if (input.liveChatEnabled !== null && input.liveChatEnabled !== undefined) {
+    where.push(eq(conversationModel.liveChatEnabled, input.liveChatEnabled))
   }
 
-  const params: Prisma.ConversationFindManyArgs = {
-    include: {
-      contact: {
-        include: {
-          contactCustomFields: true,
-          contactNotes: {
-            include: {
-              createdBy: true,
-            },
-          },
-          tags: true,
-        },
-      },
-      inbox: true,
-      assignedUser: true,
-      assignedInboxTeam: true,
-    },
-    take: perPage,
-    where,
-    cursor: input.cursor
-      ? {
-          id: input.cursor,
-        }
-      : undefined,
-    orderBy: [{ lastActivityAt: "desc" }, { id: "desc" }],
+  if (input.inboxType !== null && input.inboxType !== undefined) {
+    where.push(eq(conversationModel.inboxType, input.inboxType as InboxType))
   }
 
-  let conversations: ConversationResource[] =
-    await prisma.conversation.findMany(params)
-
-  // Get last message of conversation
-  const conversationIds = conversations.map((conversation) => conversation.id)
-  const lastMessages = await prisma.message.findMany({
-    where: {
-      conversationId: {
-        in: conversationIds,
-      },
-    },
-    distinct: ["conversationId"],
-    orderBy: {
-      createdAt: "desc",
-    },
-  })
-
-  const lastMessagesGroup: Record<string, MessageModel[]> = lastMessages.reduce(
-    (result, message) => {
-      if (!result[message.conversationId]) {
-        result[message.conversationId] = []
-      }
-      result[message.conversationId]?.push(message)
-
-      return result
-    },
-    {} as Record<string, MessageModel[]>,
-  )
-
-  // Mapping last message to conversation
-  for (const conversation of conversations) {
-    conversation.messages = lastMessagesGroup[conversation.id] ?? []
+  if (input.assignedId !== null && input.assignedId !== undefined) {
+    if (input.assignedId === "unassigned") {
+      where.push(isNull(conversationModel.assignedUserId))
+      where.push(isNull(conversationModel.assignedInboxTeamId))
+    } else if (input.assignedId.startsWith("u_")) {
+      where.push(
+        eq(conversationModel.assignedUserId, input.assignedId.substring(2)),
+      )
+    } else if (input.assignedId.startsWith("t_")) {
+      where.push(
+        eq(
+          conversationModel.assignedInboxTeamId,
+          input.assignedId.substring(2),
+        ),
+      )
+    }
   }
 
-  if (conversations.length === 0) {
-    return { data: [], nextCursor: null, prevCursor: null }
+  if (input.tags !== null && input.tags !== undefined) {
+    if (input.tags.includes("noAdminReply")) {
+      where.push(
+        gt(
+          conversationModel.contactRepliedAt,
+          conversationModel.adminRepliedAt,
+        ),
+      )
+    }
+    if (input.tags.includes("unread")) {
+      where.push(
+        gt(conversationModel.lastActivityAt, conversationModel.agentLastSeenAt),
+      )
+    }
+    if (input.tags.includes("followUp")) {
+      where.push(eq(conversationModel.followed, true))
+    }
+    if (input.tags.includes("archived")) {
+      where.push(isNotNull(conversationModel.archivedAt))
+    }
   }
 
-  let nextCursor: string | null = null
-  const prevCursor: string | null = null
-  if (conversations.length === perPage) {
-    const lastConversation = conversations.at(-1) as ConversationModel
-    nextCursor = lastConversation.id
+  const lastMessageQuery = db
+    .select()
+    .from(messageModel)
+    .where(
+      and(
+        eq(messageModel.conversationId, conversationModel.id),
+        inArray(messageModel.messageType, ["incoming", "outgoing"]),
+      ),
+    )
+    .orderBy(desc(messageModel.createdAt))
+    .limit(1)
 
-    conversations = conversations.slice(0, conversations.length - 1)
+  const conversations = await db
+    .select()
+    .from(conversationModel)
+    .leftJoinLateral(lastMessageQuery.as("lastMessage"), sql`true`)
+    .leftJoin(contactModel, eq(conversationModel.contactId, contactModel.id))
+    .leftJoin(inboxModel, eq(conversationModel.inboxId, inboxModel.id))
+    .leftJoin(userModel, eq(conversationModel.assignedUserId, userModel.id))
+    .leftJoin(
+      inboxTeamModel,
+      eq(conversationModel.assignedInboxTeamId, inboxTeamModel.id),
+    )
+    .where(and(...where))
+    .orderBy(desc(conversationModel.lastActivityAt))
+    .limit(pagination.limit)
+
+  return {
+    data: conversations.map((c) => ({
+      ...c.Conversation,
+      contact: c.Contact,
+      inbox: c.Inbox,
+      assignedUser: c.User,
+      assignedInboxTeam: c.InboxTeam,
+      messages: c.lastMessage ? [c.lastMessage] : [],
+    })),
+    nextCursor: null,
+    prevCursor: null,
   }
-
-  return { data: conversations, nextCursor, prevCursor }
 }
 
 export const findConversation = async (
   input: FindConversationSchema,
-): Promise<{
-  data: ConversationResource
-}> => {
+): Promise<FindConversationResponse> => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const conversation = await prisma.conversation.findFirstOrThrow({
-    include: {
+  const conversation = await db.query.conversationModel.findFirst({
+    with: {
       contact: true,
       inbox: true,
+      messages: true,
+      assignedUser: true,
+      assignedInboxTeam: true,
     },
     where: input,
   })
+  if (!conversation) {
+    throw new Error("Conversation not found")
+  }
 
-  return { data: conversation as ConversationResource }
+  const lastMessage = await db.query.messageModel.findFirst({
+    where: {
+      conversationId: conversation.id,
+      messageType: {
+        in: ["incoming", "outgoing"],
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return {
+    data: {
+      ...conversation,
+      messages: lastMessage ? [lastMessage] : [],
+    },
+  }
+}
+
+export const findConversationByContact = async ({
+  chatbotId,
+  contactId,
+  inboxType,
+}: {
+  chatbotId: string
+  contactId: string
+  inboxType: InboxType
+}) => {
+  return await db.query.conversationModel.findFirst({
+    where: {
+      chatbotId,
+      contactId,
+      inbox: {
+        inboxType,
+      },
+    },
+  })
 }

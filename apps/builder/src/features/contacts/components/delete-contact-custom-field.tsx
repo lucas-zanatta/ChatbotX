@@ -22,7 +22,7 @@ import { type ReactElement, useState } from "react"
 import { toast } from "sonner"
 import { useCustomFieldSelectOptions } from "@/features/custom-fields/provider/custom-field-hook"
 import { deleteContactCustomFieldAction } from "../actions/delete-contact-custom-field.action"
-import { deleteContactCustomFieldRequest } from "../schemas/contact-custom-field"
+import { deleteContactCustomFieldsRequest } from "../schemas/contact-custom-field"
 
 type ClearContactCustomFieldDialogProps = {
   trigger: ReactElement
@@ -41,7 +41,7 @@ export default function ClearContactCustomFieldDialog({
 
   const { form, handleSubmitWithAction } = useHookFormAction(
     deleteContactCustomFieldAction.bind(null, chatbotId),
-    zodResolver(deleteContactCustomFieldRequest),
+    zodResolver(deleteContactCustomFieldsRequest),
     {
       actionProps: {
         onSuccess: () => {
@@ -73,21 +73,22 @@ export default function ClearContactCustomFieldDialog({
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
-      <DialogContent className={"max-h-screen overflow-y-scroll lg:max-w-5xl"}>
+      <DialogContent className={"max-h-screen max-w-md"}>
         <DialogHeader>
-          <DialogTitle>{t("dialog.clearCustomField")}</DialogTitle>
+          <DialogTitle>{t("actions.clearCustomField")}</DialogTitle>
           <DialogDescription />
         </DialogHeader>
 
         <Form {...form}>
           <form
-            className="flex flex-col gap-2"
+            className="flex flex-col space-y-4"
             onSubmit={handleSubmitWithAction}
           >
             <ComboboxField
               label={t("fields.customField.label")}
               name="customFieldId"
               options={customFieldSelectOptions}
+              required
             />
 
             <DialogFooter>

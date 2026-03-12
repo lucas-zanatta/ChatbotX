@@ -7,6 +7,7 @@ import {
   PaperclipIcon,
   PictureInPicture2Icon,
   TextIcon,
+  TimerIcon,
   VideoIcon,
   Volume2Icon,
   ZapIcon,
@@ -41,14 +42,19 @@ export const sendMessageEditorMenus = (t: TranslationFn): MenuItem[] => [
     stepType: StepType.sendVideo,
   },
   {
-    label: t("flows.actions.getUserInput"),
+    label: t("flows.actions.getUserData"),
     icon: KeyboardIcon,
-    stepType: StepType.getUserInput,
+    stepType: StepType.getUserData,
   },
   {
     label: t("flows.actions.sendGif"),
     icon: ImagePlayIcon,
     stepType: StepType.sendGif,
+  },
+  {
+    label: t("flows.actions.typing"),
+    icon: TimerIcon,
+    stepType: StepType.typing,
   },
   {
     label: t("flows.actions.sendFile"),

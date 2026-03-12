@@ -1,11 +1,11 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, eq } from "@aha.chat/database/client"
+import { tagModel } from "@aha.chat/database/schema"
 import type { UserModel } from "@aha.chat/database/types"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { authActionClient } from "@/lib/safe-action"
 import { findChatbotOrFail } from "@/lib/user-permissions"
-import { TagException } from "../schemas/error"
 import {
   type UpdateTagBindSchema,
   type UpdateTagSchema,
@@ -28,33 +28,45 @@ export const updateTagAction = authActionClient
     }) => {
       await findChatbotOrFail(ctx.user.id, chatbotId)
 
-      const existingTag = await prisma.tag.findFirst({
-        select: {
-          id: true,
-        },
-        where: {
-          name: parsedInput.name,
-          chatbotId,
-          id: {
-            not: tagId,
-          },
-        },
-      })
-      if (existingTag) {
-        throw new TagException(
-          `Tag with the name "${parsedInput.name}" already exists.`,
-        )
-      }
-
-      await prisma.tag.update({
-        where: {
-          id: tagId,
-        },
-        data: {
-          name: parsedInput.name,
-        },
-      })
-
-      revalidateCacheTags(`chatbots:${chatbotId}#tags`)
+      await updateTag({ chatbotId, id: tagId, parsedInput })
     },
   )
+
+export const updateTag = async ({
+  chatbotId,
+  id,
+  parsedInput,
+}: {
+  chatbotId: string
+  id: string
+  parsedInput: UpdateTagSchema
+}) => {
+  const existingTag = await db.query.tagModel.findFirst({
+    columns: {
+      id: true,
+    },
+    where: {
+      name: parsedInput.name,
+      chatbotId,
+      id: {
+        ne: id,
+      },
+    },
+  })
+  if (existingTag) {
+    throw new Error(`Tag with the name "${parsedInput.name}" already exists.`)
+  }
+
+  const updatedTag = await db
+    .update(tagModel)
+    .set({
+      name: parsedInput.name,
+    })
+    .where(eq(tagModel.id, id))
+    .returning()
+    .then((result) => result[0])
+
+  revalidateCacheTags(`chatbots:${chatbotId}#tags`)
+
+  return updatedTag
+}

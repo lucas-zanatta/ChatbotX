@@ -60,7 +60,7 @@ const NodeEditorQuickReplies = () => {
   })
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Sortable
         getItemValue={(item) => item.id}
         onMove={({ activeIndex, overIndex }) =>
@@ -69,7 +69,7 @@ const NodeEditorQuickReplies = () => {
         value={quickReplies}
       >
         <SortableContent asChild>
-          <div className="flex gap-2">
+          <div className="contents gap-2">
             {quickReplies.map((field, index) => (
               <SortableItem asChild key={field.id} value={field.id}>
                 <ButtonStepEditor parentName={`quickReplies.${index}`} />
@@ -87,7 +87,7 @@ const NodeEditorQuickReplies = () => {
           )
         }
         type="button"
-        variant="secondary"
+        variant="dashed"
       >
         <PlusIcon />
         {t("fields.quickReply.label")}
@@ -102,7 +102,7 @@ const NodeEditorMenu = memo(
     onClick,
   }: {
     nodeType: NodeType
-    onClick: (stepType: StepType) => void
+    onClick: (menuItem: MenuItem) => void
   }) => {
     const t = useTranslations()
 
@@ -232,10 +232,12 @@ export const NodeEditor = memo((props: NodeEditorProps) => {
   }, [updatedButtonData, getValues, onChangeButtonData, setValue])
 
   const onAddStep = useCallback(
-    (name: StepType) => {
-      const newStep = allSteps[name]?.defaultFn()
-      if (newStep) {
-        appendStep(newStep)
+    (menuItem: MenuItem) => {
+      if (menuItem.stepType) {
+        const newStep = allSteps[menuItem.stepType]?.defaultFn(menuItem.props)
+        if (newStep) {
+          appendStep(newStep)
+        }
       }
     },
     [appendStep],
@@ -289,7 +291,7 @@ export const NodeEditor = memo((props: NodeEditorProps) => {
         />
       )}
 
-      <div className="my-2 flex flex-1 flex-col gap-2 overflow-y-auto">
+      <div className="my-2 flex flex-1 flex-col gap-2">
         <Sortable
           getItemValue={(item) => item.id}
           onMove={({ activeIndex, overIndex }) =>

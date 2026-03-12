@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
 import { emitConversationFollowUp } from "@aha.chat/events"
 import {
   type ChatbotIdAndIdRequestParams,
@@ -19,20 +20,35 @@ export const followConversationAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
       ctx: { user: { id: string } }
     }) => {
-      const conversation = await prisma.conversation.update({
+      // Get conversation before updating to emit event
+      const conversation = await db.query.conversationModel.findFirst({
         where: {
           id,
           chatbotId,
         },
-        data: {
-          followed: true,
-        },
-        select: {
+        columns: {
           id: true,
           contactId: true,
         },
       })
 
+      if (!conversation) {
+        throw new Error("Conversation not found")
+      }
+
+      await db
+        .update(conversationModel)
+        .set({
+          followed: true,
+        })
+        .where(
+          and(
+            eq(conversationModel.id, id),
+            eq(conversationModel.chatbotId, chatbotId),
+          ),
+        )
+
+      // Emit conversation follow up event
       try {
         await emitConversationFollowUp(
           chatbotId,

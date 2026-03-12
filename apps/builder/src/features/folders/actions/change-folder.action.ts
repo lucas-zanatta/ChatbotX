@@ -1,7 +1,15 @@
 "use server"
 
-import { FolderType, prisma } from "@aha.chat/database"
-import { rootFolderId } from "@aha.chat/database/enums"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { FolderType, rootFolderId } from "@aha.chat/database/enums"
+import {
+  automatedResponseModel,
+  fieldModel,
+  flowModel,
+  tagModel,
+  triggerModel,
+  webhookModel,
+} from "@aha.chat/database/schema"
 import { returnValidationErrors } from "next-safe-action"
 import { chatbotIdRequestParams } from "@/features/common/schemas"
 import { BaseException } from "@/lib/errors/exception"
@@ -16,16 +24,19 @@ export const changeFolderAction = chatbotActionClient
     const [chatbotId] = bindArgsParsedInputs
 
     const resourceModel = findResourceModel(parsedInput.folderType)
-    const resource = await resourceModel.findFirst({
-      where: {
-        chatbotId,
-        id: parsedInput.modelId,
-      },
-      select: {
-        id: true,
-      },
-    })
-    if (!resource) {
+
+    const resources = await db
+      .select({
+        id: resourceModel.id,
+      })
+      .from(resourceModel)
+      .where(
+        and(
+          eq(resourceModel.chatbotId, chatbotId),
+          inArray(resourceModel.id, parsedInput.modelIds),
+        ),
+      )
+    if (!resources || resources.length === 0) {
       throw new BaseException("Resource not found")
     }
 
@@ -33,13 +44,13 @@ export const changeFolderAction = chatbotActionClient
     const inputNewFolderId =
       parsedInput.newFolderId === rootFolderId ? null : parsedInput.newFolderId
     if (inputNewFolderId) {
-      const targetFolder = await prisma.folder.findFirst({
+      const targetFolder = await db.query.folderModel.findFirst({
         where: {
           chatbotId,
           id: parsedInput.newFolderId,
           folderType: parsedInput.folderType,
         },
-        select: {
+        columns: {
           id: true,
         },
       })
@@ -54,32 +65,34 @@ export const changeFolderAction = chatbotActionClient
       newFolderId = targetFolder.id
     }
 
-    // Try to find the folder
-    await resourceModel.update({
-      where: {
-        id: resource.id,
-      },
-      data: {
+    // Update all resources
+    await db
+      .update(resourceModel)
+      .set({
         folderId: newFolderId,
-      },
-    })
+      })
+      .where(
+        and(
+          eq(resourceModel.chatbotId, chatbotId),
+          inArray(resourceModel.id, parsedInput.modelIds),
+        ),
+      )
   })
 
-// biome-ignore lint/suspicious/noExplicitAny: skip checking prisma model
-function findResourceModel(folderType: FolderType): any {
+function findResourceModel(folderType: string) {
   switch (folderType) {
     case FolderType.tag:
-      return prisma.tag
+      return tagModel
     case FolderType.flow:
-      return prisma.flow
+      return flowModel
     case FolderType.customField:
-      return prisma.field
+      return fieldModel
     case FolderType.automatedResponse:
-      return prisma.automatedResponse
+      return automatedResponseModel
     case FolderType.trigger:
-      return prisma.trigger
+      return triggerModel
     case FolderType.webhook:
-      return prisma.webhook
+      return webhookModel
     default:
       throw new FolderException("Invalid folder type")
   }
