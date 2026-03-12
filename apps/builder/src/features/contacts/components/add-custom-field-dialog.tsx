@@ -179,11 +179,22 @@ export default function AddContactCustomFieldDialog({
 
 export const SetCustomField = ({ parentName }: { parentName: string }) => {
   const t = useTranslations()
+  const customFields = useCustomFieldStore((state) => state.customFields)
+  const watchCustomFieldId = useWatch({ name: `${parentName}.customFieldId` })
+
+  const selectedCustomFieldType = useMemo(() => {
+    if (!watchCustomFieldId) {
+      return null
+    }
+    const cf = customFields.find((f) => f.id === watchCustomFieldId)
+    return cf?.customFieldType ?? null
+  }, [watchCustomFieldId, customFields])
 
   return (
     <>
       <CustomFieldSelect label="" name={`${parentName}.customFieldId`} />
       <CustomFieldOperationSelect
+        customFieldType={selectedCustomFieldType}
         label={t("fields.operation.label")}
         name={`${parentName}.operation`}
       />
