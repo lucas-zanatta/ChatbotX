@@ -61,7 +61,7 @@ export type Operator = (typeof Operator)[keyof typeof Operator]
 export const ConditionType = {
   multiSelect: "multiSelect",
   select: "select",
-  text: "text",
+  shortText: "shortText",
   boolean: "boolean",
   datetime: "datetime",
   number: "number",
@@ -182,7 +182,7 @@ export type ConversationType =
   (typeof ConversationType)[keyof typeof ConversationType]
 
 export const CustomFieldType = {
-  text: "text",
+  shortText: "shortText",
   number: "number",
   date: "date",
   datetime: "datetime",
