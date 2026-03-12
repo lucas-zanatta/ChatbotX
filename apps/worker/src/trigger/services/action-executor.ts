@@ -1,5 +1,9 @@
-import { prisma } from "@aha.chat/database"
-import { TriggerAction } from "@aha.chat/database/enums"
+import { db } from "@aha.chat/database/client"
+import {
+  conversationModel,
+  flowModel,
+  tagModel,
+} from "@aha.chat/database/schema"
 import {
   FieldOperationType,
   type SpreadsheetClearRowSchema,
@@ -11,9 +15,9 @@ import {
   type SpreadsheetUpdateRowSchema,
   StepType,
 } from "@aha.chat/flow-config"
-
 import baseLogger from "@aha.chat/logger"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import {
   addContactTag,
   clearContactCustomField,
@@ -42,15 +46,17 @@ export class ActionExecutor {
     const { action, contactId, chatbotId } = context
     const actionType = action.type
 
-    const conversation = await prisma.conversation.findFirst({
-      where: {
-        contactId,
-        chatbotId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+    const [conversation] = await db
+      .select()
+      .from(conversationModel)
+      .where(
+        and(
+          eq(conversationModel.contactId, contactId),
+          eq(conversationModel.chatbotId, chatbotId),
+        ),
+      )
+      .orderBy(desc(conversationModel.createdAt))
+      .limit(1)
 
     if (!conversation) {
       baseLogger.warn(`No conversation found for contact ${contactId}`)
@@ -60,13 +66,15 @@ export class ActionExecutor {
     switch (actionType) {
       case TriggerAction.addTag: {
         const tagIds = action.tagIds as string[]
-        const tags = await prisma.tag.findMany({
-          where: {
-            id: { in: tagIds },
-            chatbotId,
-          },
-          select: { name: true },
-        })
+        const tags = await db
+          .select({ name: tagModel.name })
+          .from(tagModel)
+          .where(
+            and(
+              inArray(tagModel.id, tagIds),
+              eq(tagModel.chatbotId, chatbotId),
+            ),
+          )
 
         await addContactTag({
           conversation,
@@ -83,13 +91,15 @@ export class ActionExecutor {
 
       case TriggerAction.removeTag: {
         const tagIds = action.tagIds as string[]
-        const tags = await prisma.tag.findMany({
-          where: {
-            id: { in: tagIds },
-            chatbotId,
-          },
-          select: { name: true },
-        })
+        const tags = await db
+          .select({ name: tagModel.name })
+          .from(tagModel)
+          .where(
+            and(
+              inArray(tagModel.id, tagIds),
+              eq(tagModel.chatbotId, chatbotId),
+            ),
+          )
         await removeContactTag({
           conversation,
           flowId: "",
@@ -135,13 +145,17 @@ export class ActionExecutor {
 
       case TriggerAction.startAnotherFlow: {
         const flowId = action.flowId as string
-        const flow = await prisma.flow.findFirst({
-          where: {
-            id: flowId,
-            chatbotId,
-            active: true,
-          },
-        })
+        const [flow] = await db
+          .select()
+          .from(flowModel)
+          .where(
+            and(
+              eq(flowModel.id, flowId),
+              eq(flowModel.chatbotId, chatbotId),
+              eq(flowModel.active, true),
+            ),
+          )
+          .limit(1)
 
         if (!flow?.currentVersionId) {
           baseLogger.warn(

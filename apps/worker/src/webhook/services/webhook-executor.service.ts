@@ -1,5 +1,5 @@
-import { prisma } from "@aha.chat/database"
-import { Condition } from "@aha.chat/database/enums"
+import { db, eq } from "@aha.chat/database/client"
+import { tagModel } from "@aha.chat/database/schema"
 import { logger } from "../../lib/logger"
 import type { WebhookEventData, WebhookWithConditions } from "../types"
 
@@ -64,10 +64,11 @@ export class WebhookExecutor {
       eventData.eventType === Condition.tagApplied ||
       eventData.eventType === Condition.tagRemoved
     ) {
-      const tag = await prisma.tag.findUnique({
-        where: { id: data.tagId as string },
-        select: { name: true },
-      })
+      const [tag] = await db
+        .select({ name: tagModel.name })
+        .from(tagModel)
+        .where(eq(tagModel.id, data.tagId as string))
+        .limit(1)
 
       return {
         ...basePayload,

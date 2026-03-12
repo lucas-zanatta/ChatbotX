@@ -1,5 +1,10 @@
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
 import { Condition as ConditionEnum } from "@aha.chat/database/enums"
+import {
+  chatbotModel,
+  conditionModel,
+  triggerModel,
+} from "@aha.chat/database/schema"
 import type { ChatbotModel } from "@aha.chat/database/types"
 import type { TriggerEventData, TriggerWithConditions } from "../types"
 import { ConditionEvaluator } from "./condition-evaluator"
@@ -23,27 +28,37 @@ export class TriggerMatcherService {
 
     const sourceId = metadata.sourceId as string | undefined
 
-    const triggers = await prisma.trigger.findMany({
-      where: {
-        chatbotId,
-        active: true,
-        conditions: {
-          some: {
-            type: { in: conditionTypes },
-            ...(sourceId ? { sourceId } : {}),
-          },
-        },
-      },
-      include: {
+    const matchingConditions = await db
+      .select({ triggerId: conditionModel.triggerId })
+      .from(conditionModel)
+      .where(
+        and(
+          inArray(conditionModel.eventType, conditionTypes),
+          sourceId ? eq(conditionModel.eventSourceId, sourceId) : undefined,
+        ),
+      )
+
+    const triggerIds = [...new Set(matchingConditions.map((c) => c.triggerId))]
+    if (triggerIds.length === 0) {
+      return []
+    }
+
+    const triggers = await db.query.triggerModel.findMany({
+      where: and(
+        eq(triggerModel.chatbotId, chatbotId),
+        eq(triggerModel.active, true),
+        inArray(triggerModel.id, triggerIds),
+      ),
+      with: {
         conditions: true,
       },
     })
 
-    const chatbot = await prisma.chatbot.findUnique({
-      where: {
-        id: chatbotId,
-      },
-    })
+    const [chatbot] = await db
+      .select()
+      .from(chatbotModel)
+      .where(eq(chatbotModel.id, chatbotId))
+      .limit(1)
 
     if (triggers.length === 0 || !chatbot) {
       return []

@@ -1,5 +1,10 @@
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
 import { Condition as ConditionEnum } from "@aha.chat/database/enums"
+import {
+  chatbotModel,
+  conditionModel,
+  webhookModel,
+} from "@aha.chat/database/schema"
 import type { ChatbotModel } from "@aha.chat/database/types"
 import { logger } from "../../lib/logger"
 import { ConditionEvaluator } from "../../trigger/services/condition-evaluator"
@@ -25,18 +30,34 @@ export class WebhookMatcherService {
 
     const sourceId = metadata.sourceId as string | undefined
 
-    const webhooks = await prisma.webhook.findMany({
-      where: {
-        chatbotId,
-        active: true,
-        conditions: {
-          some: {
-            type: { in: conditionTypes },
-            ...(sourceId ? { sourceId } : {}),
-          },
-        },
-      },
-      include: {
+    const matchingConditions = await db
+      .select({ webhookId: conditionModel.webhookId })
+      .from(conditionModel)
+      .where(
+        and(
+          inArray(conditionModel.eventType, conditionTypes),
+          sourceId ? eq(conditionModel.eventSourceId, sourceId) : undefined,
+        ),
+      )
+
+    const webhookIds = [
+      ...new Set(
+        matchingConditions
+          .map((c) => c.webhookId)
+          .filter((id): id is string => !!id),
+      ),
+    ]
+    if (webhookIds.length === 0) {
+      return
+    }
+
+    const webhooks = await db.query.webhookModel.findMany({
+      where: and(
+        eq(webhookModel.chatbotId, chatbotId),
+        eq(webhookModel.active, true),
+        inArray(webhookModel.id, webhookIds),
+      ),
+      with: {
         conditions: true,
       },
     })
@@ -45,11 +66,11 @@ export class WebhookMatcherService {
       return
     }
 
-    const chatbot = await prisma.chatbot.findUnique({
-      where: {
-        id: chatbotId,
-      },
-    })
+    const [chatbot] = await db
+      .select()
+      .from(chatbotModel)
+      .where(eq(chatbotModel.id, chatbotId))
+      .limit(1)
 
     if (!chatbot) {
       return

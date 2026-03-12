@@ -1,5 +1,11 @@
-import { prisma } from "@aha.chat/database"
-import { Condition } from "@aha.chat/database/enums"
+import { and, asc, db, eq, inArray, sql } from "@aha.chat/database/client"
+import {
+  chatbotModel,
+  conditionModel,
+  contactCustomFieldModel,
+  triggerExecutionModel,
+  triggerModel,
+} from "@aha.chat/database/schema"
 import { getRedisConnection } from "@aha.chat/worker-config"
 import { logger } from "../../lib/logger"
 import type {
@@ -34,27 +40,49 @@ async function fetchTriggerChunk(
   cursor: string | undefined,
   chunkSize: number,
 ): Promise<{ triggerMap: TriggerMap; nextCursor: string | undefined }> {
-  const triggers = await prisma.trigger.findMany({
-    where: {
-      active: true,
-      conditions: {
-        some: {
-          type: Condition.dateTimeBasedTrigger,
-        },
-      },
-    },
-    include: {
-      conditions: {
-        where: {
-          type: Condition.dateTimeBasedTrigger,
-        },
-      },
-      chatbot: true,
-    },
-    take: chunkSize,
-    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    orderBy: { id: "asc" },
-  })
+  const baseQuery = db
+    .select()
+    .from(triggerModel)
+    .innerJoin(chatbotModel, eq(triggerModel.chatbotId, chatbotModel.id))
+    .where(eq(triggerModel.active, true))
+    .orderBy(asc(triggerModel.id))
+    .limit(chunkSize)
+
+  const triggersRaw = cursor
+    ? await baseQuery.where(
+        and(eq(triggerModel.active, true), sql`${triggerModel.id} > ${cursor}`),
+      )
+    : await baseQuery
+
+  const triggerIds = triggersRaw.map((t) => t.Trigger.id)
+  if (triggerIds.length === 0) {
+    return { triggerMap: {}, nextCursor: undefined }
+  }
+
+  const conditions = await db
+    .select()
+    .from(conditionModel)
+    .where(
+      and(
+        inArray(conditionModel.triggerId, triggerIds),
+        eq(conditionModel.eventType, Condition.dateTimeBasedTrigger),
+      ),
+    )
+
+  const conditionsByTriggerId = new Map<string, typeof conditions>()
+  for (const cond of conditions) {
+    const existing = conditionsByTriggerId.get(cond.triggerId) || []
+    existing.push(cond)
+    conditionsByTriggerId.set(cond.triggerId, existing)
+  }
+
+  const triggers = triggersRaw
+    .filter((t) => conditionsByTriggerId.has(t.Trigger.id))
+    .map((t) => ({
+      ...t.Trigger,
+      conditions: conditionsByTriggerId.get(t.Trigger.id) || [],
+      chatbot: t.Chatbot,
+    }))
 
   const triggerMap: TriggerMap = {}
 
@@ -192,16 +220,18 @@ async function getExecutedTriggers(
   triggerIds: string[],
   contactIds: string[],
 ): Promise<Set<string>> {
-  const executions = await prisma.triggerExecution.findMany({
-    where: {
-      triggerId: { in: triggerIds },
-      contactId: { in: contactIds },
-    },
-    select: {
-      triggerId: true,
-      contactId: true,
-    },
-  })
+  const executions = await db
+    .select({
+      triggerId: triggerExecutionModel.triggerId,
+      contactId: triggerExecutionModel.contactId,
+    })
+    .from(triggerExecutionModel)
+    .where(
+      and(
+        inArray(triggerExecutionModel.triggerId, triggerIds),
+        inArray(triggerExecutionModel.contactId, contactIds),
+      ),
+    )
 
   return new Set(executions.map((e) => `${e.triggerId}:${e.contactId}`))
 }
@@ -263,11 +293,11 @@ async function markTriggerExecuted(
   triggerInfo: TriggerMap[string],
   contactId: string,
 ): Promise<void> {
-  await prisma.$executeRaw`
+  await db.execute(sql`
     INSERT INTO "TriggerExecution" ("id", "triggerId", "contactId", "chatbotId", "createdAt", "executedAt")
     VALUES (gen_random_uuid(), ${triggerInfo.triggerId}, ${contactId}, ${triggerInfo.chatbotId}, NOW(), NOW())
     ON CONFLICT ("triggerId", "contactId") DO NOTHING
-  `
+  `)
 
   const cacheKey = `trigger:executed:${triggerInfo.triggerId}:${contactId}`
   await redis.setex(cacheKey, 86_400 * 90, "1")
@@ -332,20 +362,21 @@ async function processContactBatch(
     startOfMinute: number
   },
 ): Promise<{ results: DateTimeTriggerResult[]; hasMore: boolean }> {
-  const contactCustomFields = await prisma.contactCustomField.findMany({
-    where: {
-      customFieldId: { in: Array.from(allCustomFieldIds) },
-    },
-    include: {
+  const contactCustomFields = await db.query.contactCustomFieldModel.findMany({
+    where: inArray(
+      contactCustomFieldModel.customFieldId,
+      Array.from(allCustomFieldIds),
+    ),
+    with: {
       contact: {
-        select: {
+        columns: {
           id: true,
           chatbotId: true,
         },
       },
     },
-    skip,
-    take: batchSize,
+    limit: batchSize,
+    offset: skip,
   })
 
   if (contactCustomFields.length === 0) {
@@ -473,10 +504,10 @@ export async function cleanupOldExecutions(): Promise<number> {
   const ninetyDaysAgo = new Date()
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
 
-  const result = await prisma.$executeRaw`
+  const result = await db.execute(sql`
     DELETE FROM "TriggerExecution"
     WHERE "executedAt" < ${ninetyDaysAgo}
-  `
+  `)
 
-  return Number(result)
+  return Number(result.rowCount || 0)
 }

@@ -1,5 +1,5 @@
-import { prisma } from "@aha.chat/database"
-import { Condition as ConditionEnum } from "@aha.chat/database/enums"
+import { and, db, eq } from "@aha.chat/database/client"
+import { contactCustomFieldModel, fieldModel } from "@aha.chat/database/schema"
 import type { ChatbotModel } from "@aha.chat/database/types"
 import type { ConditionEvaluationContext } from "../types"
 import { parseDateTimeValue } from "../utils/datetime-calculator"
@@ -9,7 +9,12 @@ const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/
 export class ConditionEvaluator {
   async evaluate(context: ConditionEvaluationContext): Promise<boolean> {
     const { condition, eventData, chatbotId, contactId, chatbot } = context
-    const { type, sourceId, operator, value } = condition
+    const {
+      eventType: type,
+      eventSourceId: sourceId,
+      operator,
+      value,
+    } = condition
 
     switch (type) {
       case ConditionEnum.tagApplied:
@@ -87,20 +92,24 @@ export class ConditionEvaluator {
     if (customFieldId === actualCustomFieldId) {
       actualValue = metadata.newValue
     } else {
-      const contactCustomField = await prisma.contactCustomField.findFirst({
-        where: {
-          contactId,
-          customFieldId,
-        },
-        select: { value: true },
-      })
+      const [contactCustomField] = await db
+        .select({ value: contactCustomFieldModel.value })
+        .from(contactCustomFieldModel)
+        .where(
+          and(
+            eq(contactCustomFieldModel.contactId, contactId),
+            eq(contactCustomFieldModel.customFieldId, customFieldId),
+          ),
+        )
+        .limit(1)
       actualValue = contactCustomField?.value
     }
 
-    const customField = await prisma.field.findUnique({
-      where: { id: customFieldId },
-      select: { customFieldType: true },
-    })
+    const [customField] = await db
+      .select({ customFieldType: fieldModel.customFieldType })
+      .from(fieldModel)
+      .where(eq(fieldModel.id, customFieldId))
+      .limit(1)
 
     if (!operator) {
       return true
@@ -335,13 +344,16 @@ export class ConditionEvaluator {
       return false
     }
 
-    const contactCustomField = await prisma.contactCustomField.findFirst({
-      where: {
-        contactId,
-        customFieldId,
-      },
-      select: { value: true },
-    })
+    const [contactCustomField] = await db
+      .select({ value: contactCustomFieldModel.value })
+      .from(contactCustomFieldModel)
+      .where(
+        and(
+          eq(contactCustomFieldModel.contactId, contactId),
+          eq(contactCustomFieldModel.customFieldId, customFieldId),
+        ),
+      )
+      .limit(1)
 
     if (!contactCustomField?.value) {
       return false

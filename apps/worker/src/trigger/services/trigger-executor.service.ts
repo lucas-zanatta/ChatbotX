@@ -1,5 +1,10 @@
-import { prisma } from "@aha.chat/database"
+import { db, sql } from "@aha.chat/database/client"
+import {
+  triggerContactHistoryModel,
+  triggerStatsModel,
+} from "@aha.chat/database/schema"
 import { setTriggerExecutionContext } from "@aha.chat/events"
+import { createId } from "@paralleldrive/cuid2"
 import { logger } from "../../lib/logger"
 import type { TriggerWithConditions } from "../types"
 import { ActionExecutor } from "./action-executor"
@@ -37,13 +42,12 @@ export class TriggerExecutorService {
         }
       }
 
-      await prisma.triggerContactHistory.create({
-        data: {
-          triggerId,
-          contactId,
-          chatbotId,
-          firstEnteredAt: new Date(),
-        },
+      await db.insert(triggerContactHistoryModel).values({
+        id: createId(),
+        triggerId,
+        contactId,
+        chatbotId,
+        firstEnteredAt: new Date(),
       })
 
       await this.updateStats(triggerId, chatbotId, true)
@@ -71,14 +75,10 @@ export class TriggerExecutorService {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    await prisma.triggerStats.upsert({
-      where: {
-        triggerId_date: {
-          triggerId,
-          date: today,
-        },
-      },
-      create: {
+    await db
+      .insert(triggerStatsModel)
+      .values({
+        id: createId(),
         triggerId,
         chatbotId,
         date: today,
@@ -86,13 +86,19 @@ export class TriggerExecutorService {
         totalExecutions: 1,
         successCount: success ? 1 : 0,
         failureCount: success ? 0 : 1,
-      },
-      update: {
-        totalContacts: { increment: 1 },
-        totalExecutions: { increment: 1 },
-        successCount: success ? { increment: 1 } : undefined,
-        failureCount: success ? undefined : { increment: 1 },
-      },
-    })
+      })
+      .onConflictDoUpdate({
+        target: [triggerStatsModel.triggerId, triggerStatsModel.date],
+        set: {
+          totalContacts: sql`${triggerStatsModel.totalContacts} + 1`,
+          totalExecutions: sql`${triggerStatsModel.totalExecutions} + 1`,
+          successCount: success
+            ? sql`${triggerStatsModel.successCount} + 1`
+            : triggerStatsModel.successCount,
+          failureCount: success
+            ? triggerStatsModel.failureCount
+            : sql`${triggerStatsModel.failureCount} + 1`,
+        },
+      })
   }
 }
