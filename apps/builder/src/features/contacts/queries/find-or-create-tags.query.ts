@@ -1,19 +1,15 @@
 "use server"
 
-import { type Prisma, prisma } from "@aha.chat/database"
+import { type DrizzleTransaction, db } from "@aha.chat/database/client"
+import { tagModel } from "@aha.chat/database/schema"
+import type { TagModel } from "@aha.chat/database/types"
+import { createId } from "@paralleldrive/cuid2"
+import { and, eq, inArray } from "drizzle-orm"
 
-export type Tag = {
-  id: string
-  name: string
-  chatbotId: string
-  createdAt: Date
-  updatedAt: Date
-  folderId: string | null
-  syncToMessenger: boolean
-}
+export type Tag = TagModel
 
 export async function findOrCreateTags(
-  tx: Prisma.TransactionClient | null,
+  tx: DrizzleTransaction | null,
   chatbotId: string,
   tagNames: string[],
 ): Promise<{
@@ -21,14 +17,14 @@ export async function findOrCreateTags(
   newlyCreatedTags: Tag[]
   allTags: Tag[]
 }> {
-  const prismaClient = tx || prisma
+  const client = tx || db
 
-  const existingTags = await prismaClient.tag.findMany({
-    where: {
-      chatbotId,
-      name: { in: tagNames },
-    },
-  })
+  const existingTags = await client
+    .select()
+    .from(tagModel)
+    .where(
+      and(eq(tagModel.chatbotId, chatbotId), inArray(tagModel.name, tagNames)),
+    )
 
   const existingTagNames = new Set(existingTags.map((t) => t.name))
   const missingTagNames = tagNames.filter((name) => !existingTagNames.has(name))
@@ -36,13 +32,17 @@ export async function findOrCreateTags(
   let newlyCreatedTags: Tag[] = []
 
   if (missingTagNames.length > 0) {
-    newlyCreatedTags = await prismaClient.tag.createManyAndReturn({
-      data: missingTagNames.map((name) => ({
-        name,
-        chatbotId,
-      })),
-      skipDuplicates: true,
-    })
+    newlyCreatedTags = await client
+      .insert(tagModel)
+      .values(
+        missingTagNames.map((name) => ({
+          id: createId(),
+          name,
+          chatbotId,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning()
   }
 
   const allTags = [...existingTags, ...newlyCreatedTags]
