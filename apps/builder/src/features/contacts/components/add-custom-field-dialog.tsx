@@ -176,3 +176,19 @@ export default function AddContactCustomFieldDialog({
     </Dialog>
   )
 }
+
+export const SetCustomField = ({ parentName }: { parentName: string }) => {
+  const t = useTranslations()
+
+  return (
+    <>
+      <CustomFieldSelect label="" name={`${parentName}.customFieldId`} />
+      <CustomFieldOperationSelect
+        label={t("fields.operation.label")}
+        name={`${parentName}.operation`}
+      />
+      <Label>{t("fields.value.label")}</Label>
+      <InputField label="" name={`${parentName}.value`} />
+    </>
+  )
+}
