@@ -1390,9 +1390,68 @@
     "signUpTitle": "Đăng ký vào {name}"
   },
   "tags": {
+    "title": "Thẻ",
     "heading": {
       "title": "Thẻ"
     }
+  },
+  "trigger": {
+    "when": "Khi điều này xảy ra",
+    "conditions": {
+      "tagApplied": "Thẻ được áp dụng",
+      "tagRemoved": "Thẻ bị xóa",
+      "dateTimeBasedTrigger": "Kích hoạt dựa trên ngày giờ",
+      "customFieldValueChanged": "Trường tùy chỉnh thay đổi",
+      "conversationTransferredToHuman": "Hội thoại chuyển cho người",
+      "conversationTransferredToBot": "Hội thoại chuyển cho bot",
+      "newContact": "Liên hệ mới",
+      "contactUnsubscribedFormBroadcast": "Liên hệ hủy đăng ký khỏi broadcast",
+      "archived": "Đã lưu trữ",
+      "followUp": "Theo dõi",
+      "conversationAssigned": "Hội thoại được gán",
+      "conversationUnassigned": "Hội thoại bị bỏ gán",
+      "incomingCall": "Cuộc gọi đến",
+      "missedAudioCall": "Cuộc gọi thoại bị nhỡ",
+      "callEnded": "Cuộc gọi kết thúc",
+      "ticketCreated": "Ticket được tạo",
+      "ticketMovedToStage": "Ticket chuyển giai đoạn",
+      "ticketValueChanged": "Giá trị ticket thay đổi",
+      "ticketStatusChanged": "Trạng thái ticket thay đổi",
+      "ticketPriorityChanged": "Độ ưu tiên ticket thay đổi",
+      "subscribedToSequence": "Đăng ký chuỗi",
+      "unsubscribedFromSequence": "Hủy đăng ký chuỗi",
+      "WhatsappShoppingCartSent": "Giỏ hàng Whatsapp được gửi",
+      "userAskedAboutProduct": "Người dùng hỏi về sản phẩm",
+      "cartAbandoned": "Giỏ hàng bị bỏ",
+      "newOrder": "Đơn hàng mới",
+      "orderAccepted": "Đơn hàng được chấp nhận",
+      "orderShipped": "Đơn hàng được gửi",
+      "orderConcluded": "Đơn hàng hoàn thành",
+      "orderCancelled": "Đơn hàng bị hủy",
+      "categoryAddedToCart": "Danh mục được thêm vào giỏ",
+      "productAddedToCart": "Sản phẩm được thêm vào giỏ",
+      "productRemovedFromCart": "Sản phẩm bị xóa khỏi giỏ",
+      "productOrdered": "Sản phẩm được đặt hàng",
+      "contactReferredANewContact": "Liên hệ giới thiệu liên hệ mới",
+      "contactReferredExistingContact": "Liên hệ giới thiệu liên hệ hiện có"
+    },
+    "actions": {
+      "addTag": "Thêm thẻ",
+      "removeTag": "Xóa thẻ",
+      "setCustomField": "Đặt trường tùy chỉnh",
+      "clearCustomField": "Xóa trường tùy chỉnh",
+      "startAnotherFlow": "Bắt đầu luồng khác",
+      "notifyAdmins": "Thông báo quản trị viên",
+      "transferConversationToHuman": "Chuyển hội thoại cho người"
+    },
+    "triggerGoesOff": "Kích hoạt trigger",
+    "before": "Trước",
+    "after": "Sau",
+    "atTheDayOf": "Vào ngày",
+    "day": "Ngày",
+    "hour": "Giờ",
+    "minute": "Phút",
+    "at": "Lúc"
   },
   "texts": {
     "or": "hoặc"
