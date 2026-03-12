@@ -1,35 +1,37 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
 import {
-  ContentType,
-  MessageType,
-  SenderType,
+  attachmentModel,
+  conversationModel,
+  messageModel,
+} from "@aha.chat/database/schema"
+import {
+  type ConversationModel,
   type UserModel,
   WEBCHAT_SOURCE_PREFIX,
 } from "@aha.chat/database/types"
-import { uploader } from "@aha.chat/filesystem"
+import { getPublicUrl } from "@aha.chat/database/utils"
+import { type UploadedFile, uploadMultipleFiles } from "@aha.chat/filesystem"
 import {
   broadcastToChatbotParty,
   broadcastToGuestParty,
   RealtimeEventType,
 } from "@aha.chat/partysocket-config"
+import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import {
-  type AttachmentEntity,
-  type ConversationEntity,
-  guessFileTypeFromMimeType,
-} from "@aha.chat/sdk"
-import { ChatJobAction, chatQueue } from "@aha.chat/worker-config"
+  ChatJobAction,
+  chatQueue,
+  IntegrationJobAction,
+  integrationQueue,
+} from "@aha.chat/worker-config"
 import { createId } from "@paralleldrive/cuid2"
-import imageSize from "image-size"
 import type { AttachmentResource } from "@/features/attachments/schemas"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
 } from "@/features/common/schemas"
-import { findConversation } from "@/features/conversations/queries/list-conversations.query"
 import { revalidateCacheTags } from "@/lib/cache-helper"
-import { logger } from "@/lib/log"
 import { chatbotActionClient } from "@/lib/safe-action"
 import type { MessageResource } from "../schemas"
 import {
@@ -50,126 +52,142 @@ export const createMessageAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
       parsedInput: CreateMessageRequest
     }) => {
-      const { data: conversation } = await findConversation({
-        id: conversationId,
-        chatbotId,
-      })
+      const conversation = await findOrFail<ConversationModel>(
+        conversationModel,
+        {
+          id: conversationId,
+          chatbotId,
+        },
+      )
 
-      // upload file if exists
-      let path: string | null = null
-      let imageDimensions: { width: number; height: number } | null = null
-      if ("files" in parsedInput && parsedInput.files.length > 0) {
-        const file = parsedInput.files[0] as File
-        path = `public/chatbots/${chatbotId}/conversations/${conversationId}/${createId()}`
-
-        const buffer = (await file.arrayBuffer()) as unknown as Buffer
-        await uploader.putObject(path, buffer, {
-          ACL: "public-read",
-          ContentLength: file.size,
-          ContentType: file.type,
-        })
-
-        // try to find image dimensions
-        if (file.type.startsWith("image/")) {
-          try {
-            const { width, height } = await imageSize(new Uint8Array(buffer))
-            imageDimensions = { width, height }
-          } catch (error) {
-            logger.warn("Unable to retrieve image dimensions", error)
-          }
-        }
-      }
-
-      const message = await prisma.$transaction(async (tx) => {
-        const newMessage: MessageResource = await tx.message.create({
-          data: {
-            content: "content" in parsedInput ? parsedInput.content : null,
-            messageType: MessageType.outgoing,
-            chatbotId: conversation.chatbotId,
-            conversationId,
-            senderType: SenderType.user,
-            senderId: ctx.user.id,
-            inboxId: conversation.inboxId,
-            contentType: ContentType.text,
-          },
-        })
-
-        // create attachment if path exists
-        if (path && "files" in parsedInput && parsedInput.files?.[0]) {
-          const file = parsedInput.files[0]
-          const mimeType = file.type as string
-          const attachment = await tx.attachment.create({
-            data: {
-              messageId: newMessage.id,
-              chatbotId: newMessage.chatbotId,
-              conversationId: newMessage.conversationId,
-              originPath: path,
-              name: file.name,
-              mimeType,
-              size: file.size,
-              fileType: guessFileTypeFromMimeType(mimeType),
-              ...imageDimensions,
-            },
-          })
-
-          newMessage.attachments = [attachment as AttachmentResource]
-        }
-
-        await tx.conversation.update({
-          where: {
-            id: conversationId,
-          },
-          data: {
-            agentLastSeenAt: new Date(),
-            lastActivityAt: new Date(),
-          },
-        })
-
-        return newMessage
-      })
-
-      const promises: Promise<unknown>[] = [
-        broadcastToChatbotParty(message.chatbotId, {
-          eventType: RealtimeEventType.CREATE_MESSAGE,
-          data: {
-            ...message,
-            clientId: parsedInput.clientId,
-          },
-        }),
-      ]
-      if (conversation.sourceId?.startsWith(WEBCHAT_SOURCE_PREFIX)) {
-        promises.push(
-          broadcastToGuestParty(conversation.sourceId, {
-            eventType: RealtimeEventType.CREATE_MESSAGE,
-            data: {
-              ...message,
-              clientId: parsedInput.clientId,
-            },
-          }),
-        )
-      } else {
-        promises.push(
-          chatQueue.add(ChatJobAction.sendExternalMessage, {
-            type: ChatJobAction.sendExternalMessage,
-            data: {
-              conversation: conversation as ConversationEntity,
-              message: {
-                ...message,
-                messageType: MessageType.outgoing,
-                clientId: parsedInput.clientId,
-                sourceId: message.sourceId || "",
-                contentType: message.contentType as unknown as ContentType,
-                content: message.content ?? "",
-                attachments: message.attachments as AttachmentEntity[],
-              },
-            },
-          }),
-        )
-      }
-
-      // Broadcast and send
-      await Promise.all(promises)
-
-      revalidateCacheTags(`chatbots:${chatbotId}:conversations`)
+      return createMessage(conversation, parsedInput, ctx.user)
     },
   )
+
+export const createMessage = async (
+  conversation: ConversationModel,
+  parsedInput: CreateMessageRequest,
+  user: UserModel | null = null,
+) => {
+  // Handle send flow
+  if ("flowId" in parsedInput) {
+    await integrationQueue.add(IntegrationJobAction.sendFlow, {
+      type: IntegrationJobAction.sendFlow,
+      data: {
+        conversationId: conversation.id,
+        flowId: parsedInput.flowId,
+      },
+    })
+    return null
+  }
+
+  // Upload file if exists
+  let uploadedFiles: UploadedFile[] = []
+  if ("files" in parsedInput && parsedInput.files.length > 0) {
+    uploadedFiles = await uploadMultipleFiles(
+      parsedInput.files,
+      `public/chatbots/${conversation.chatbotId}/conversations/${conversation.id}`,
+    )
+  }
+  // else if ("fileUrl" in parsedInput) {
+  //   const uploadedFile = await uploadFileFromUrl(
+  //     parsedInput.fileUrl,
+  //     `public/chatbots/${conversation.chatbotId}/conversations/${conversation.id}`,
+  //   )
+  //   uploadedFiles = [uploadedFile]
+  // }
+
+  const message = await db.transaction(async (tx) => {
+    const newMessage: MessageResource = await tx
+      .insert(messageModel)
+      .values({
+        id: createId(),
+        content: "content" in parsedInput ? parsedInput.content : null,
+        messageType: "outgoing",
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        senderType: "user",
+        senderId: user?.id,
+        inboxId: conversation.inboxId,
+        contentType: "text",
+      })
+      .returning()
+      .then((result) => result[0])
+
+    // create attachment if path exists
+    if (uploadedFiles.length > 0) {
+      const attachments = await tx
+        .insert(attachmentModel)
+        .values(
+          uploadedFiles.map((file) => ({
+            id: createId(),
+            messageId: newMessage.id,
+            chatbotId: newMessage.chatbotId,
+            conversationId: newMessage.conversationId,
+            ...file,
+          })),
+        )
+        .returning()
+        .then((result) =>
+          result.map((attachment) => ({
+            ...attachment,
+            url: getPublicUrl(attachment.originPath),
+          })),
+        )
+
+      newMessage.attachments = attachments as AttachmentResource[]
+    }
+
+    await tx
+      .update(conversationModel)
+      .set({
+        agentLastSeenAt: new Date(),
+        lastActivityAt: new Date(),
+        adminRepliedAt: new Date(),
+      })
+      .where(eq(conversationModel.id, conversation.id))
+
+    return newMessage
+  })
+
+  const promises: Promise<unknown>[] = [
+    broadcastToChatbotParty(message.chatbotId, {
+      eventType: RealtimeEventType.messageCreated,
+      data: {
+        ...message,
+        clientId: parsedInput.clientId,
+      },
+    }),
+  ]
+  if (conversation.sourceId?.startsWith(WEBCHAT_SOURCE_PREFIX)) {
+    promises.push(
+      broadcastToGuestParty(conversation.sourceId, {
+        eventType: RealtimeEventType.messageCreated,
+        data: {
+          ...message,
+          clientId: parsedInput.clientId,
+        },
+      }),
+    )
+  } else {
+    promises.push(
+      chatQueue.add(ChatJobAction.sendExternalMessage, {
+        type: ChatJobAction.sendExternalMessage,
+        data: {
+          conversation: conversation as OutgoingConversation,
+          message: {
+            ...message,
+            clientId: parsedInput.clientId,
+          } as OutgoingMessage,
+        },
+      }),
+    )
+  }
+
+  // Broadcast and send
+  await Promise.all(promises)
+
+  revalidateCacheTags(`chatbots:${conversation.chatbotId}:conversations`)
+
+  return message
+}

@@ -37,11 +37,11 @@ import AddContactCustomFieldDialog from "./components/add-custom-field-dialog"
 import ClearContactCustomFieldDialog from "./components/delete-contact-custom-field"
 import DeleteContactDialog from "./components/remove-contact-dialog"
 import RemoveContactTagDialog from "./components/remove-contact-tag-dialog"
-import type { ContactResource } from "./schemas/resource"
+import type { ListContactsItem } from "./schemas/query"
 
 type ContactListActionProps = {
   chatbotId: string
-  table: Table<ContactResource>
+  table: Table<ListContactsItem>
 }
 
 export function ContactListAction({ table }: ContactListActionProps) {
@@ -159,7 +159,11 @@ export function ContactListAction({ table }: ContactListActionProps) {
               />
 
               <DisableBotDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter(Boolean) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}
@@ -172,7 +176,11 @@ export function ContactListAction({ table }: ContactListActionProps) {
               />
 
               <EnableBotDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter((v) => v) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}
@@ -185,7 +193,11 @@ export function ContactListAction({ table }: ContactListActionProps) {
               />
 
               <ArchiveConversationDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter((v) => v) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}

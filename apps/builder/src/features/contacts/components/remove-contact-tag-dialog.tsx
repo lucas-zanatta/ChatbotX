@@ -22,7 +22,7 @@ import { type ReactElement, useState } from "react"
 import { toast } from "sonner"
 import { useTagOptions } from "@/features/tags/provider/tag-hook"
 import { removeContactTagAction } from "../actions/remove-contact-tag.action"
-import { removeContactTagRequest } from "../schemas/contact-tag"
+import { removeContactTagsRequest } from "../schemas/contact-tag"
 
 type RemoveContactTagDialogProps = {
   trigger: ReactElement
@@ -42,7 +42,7 @@ export default function RemoveContactTagDialog({
   const { form, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
       removeContactTagAction.bind(null, chatbotId),
-      zodResolver(removeContactTagRequest),
+      zodResolver(removeContactTagsRequest),
       {
         actionProps: {
           onSuccess: () => {
@@ -75,7 +75,7 @@ export default function RemoveContactTagDialog({
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
-      <DialogContent className={"max-h-screen max-w-lg overflow-y-scroll"}>
+      <DialogContent className={"max-h-screen max-w-md"}>
         <DialogHeader>
           <DialogTitle>
             {t("messages.deleteFeature", { feature: t("fields.tag.label") })}

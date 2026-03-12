@@ -1,7 +1,10 @@
 "use server"
 
-import { FolderType, prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
+import { triggerModel } from "@aha.chat/database/schema"
+import { FolderType } from "@aha.chat/database/types"
 import { updateTriggerCache } from "@aha.chat/events"
+import { createId } from "@paralleldrive/cuid2"
 import { getTranslations } from "next-intl/server"
 import {
   type ChatbotIdRequestParams,
@@ -29,9 +32,11 @@ export const createTriggerAction = chatbotActionClient
     }) => {
       const t = await getTranslations()
 
-      const existingTriggersCount = await prisma.trigger.count({
+      const existingTriggers = await db.query.triggerModel.findMany({
         where: { chatbotId },
+        columns: { id: true },
       })
+      const existingTriggersCount = existingTriggers.length
 
       if (existingTriggersCount >= MAX_TRIGGERS_PER_CHATBOT) {
         throw new MaxTriggersReachedException(
@@ -52,12 +57,14 @@ export const createTriggerAction = chatbotActionClient
 
       const { ...triggerData } = parsedInput
 
-      const result = await prisma.trigger.create({
-        data: {
+      const [result] = await db
+        .insert(triggerModel)
+        .values({
+          id: createId(),
           ...triggerData,
           chatbotId,
-        },
-      })
+        })
+        .returning()
 
       await updateTriggerCache(chatbotId)
 

@@ -3,6 +3,12 @@
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-table-column-header"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@aha.chat/ui/components/ui/card"
 import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
 import type { Column, ColumnDef } from "@tanstack/react-table"
@@ -10,8 +16,12 @@ import { format, formatDistance } from "date-fns"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { use, useMemo } from "react"
+import { useConfiguredInboxTypeOptions } from "../inboxes/provider/inbox-hook"
+import { getUserName } from "../users/schemas/resource"
 import { ContactListAction } from "./contacts-list-action"
+import { CreateContactDialog } from "./create-contact-dialog"
 import type { listContacts } from "./queries/list-contacts.queries"
+import type { ListContactsItem } from "./schemas/query"
 import type { ContactResource } from "./schemas/resource"
 import { getFullName } from "./utils"
 
@@ -21,10 +31,12 @@ type ContactsTableProps = {
 }
 
 export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
-  const [{ data, pageCount }] = use(promises)
   const t = useTranslations()
+  const [{ data, pageCount }] = use(promises)
 
-  const columns = useMemo<ColumnDef<ContactResource>[]>(
+  const channelOptions = useConfiguredInboxTypeOptions()
+
+  const columns = useMemo<ColumnDef<ListContactsItem>[]>(
     () => [
       {
         id: "select",
@@ -75,6 +87,7 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
           variant: "text",
         },
         enableColumnFilter: true,
+        enableHiding: false,
       },
       {
         accessorKey: "source",
@@ -84,10 +97,14 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
             title={t("fields.source.label")}
           />
         ),
-        cell: ({ cell }) => (
-          <div>{cell.getValue<ContactResource["source"]>()}</div>
-        ),
+        cell: ({ row }) => {
+          const channel = channelOptions.find(
+            (option) => option.value === row.original.source,
+          )
+          return <div>{channel ? channel.label : ""}</div>
+        },
         enableSorting: false,
+        enableHiding: false,
         meta: {
           label: t("fields.source.label"),
         },
@@ -102,15 +119,17 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
         ),
         cell: ({ row }) => (
           <div>
-            {row.original.conversation?.assignedUser?.name ||
-              row.original.conversation?.assignedInboxTeam?.name ||
-              "Unassigned"}
+            {getUserName(
+              row.original.conversation?.assignedUser,
+              t("assignAdmin.unAssigned"),
+            )}
           </div>
         ),
         meta: {
           label: t("fields.assignee.label"),
         },
         enableSorting: false,
+        enableHiding: false,
       },
       {
         id: "lastSeenAt",
@@ -138,6 +157,7 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
           label: t("fields.lastSeen.label"),
         },
         enableSorting: true,
+        enableHiding: false,
       },
       {
         accessorKey: "createdAt",
@@ -152,9 +172,10 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
           label: t("fields.createdAt.label"),
         },
         enableSorting: true,
+        enableHiding: false,
       },
     ],
-    [chatbotId, t],
+    [chatbotId, t, channelOptions],
   )
 
   const { table } = useDataTable({
@@ -171,10 +192,20 @@ export function ContactsTable({ chatbotId, promises }: ContactsTableProps) {
   })
 
   return (
-    <DataTable table={table}>
-      <DataTableToolbar className="flex gap-1.5" table={table}>
-        <ContactListAction chatbotId={chatbotId} table={table} />
-      </DataTableToolbar>
-    </DataTable>
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-bold text-xl">
+          {t("contacts.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <DataTable table={table}>
+          <DataTableToolbar table={table}>
+            <CreateContactDialog chatbotId={chatbotId} />
+            <ContactListAction chatbotId={chatbotId} table={table} />
+          </DataTableToolbar>
+        </DataTable>
+      </CardContent>
+    </Card>
   )
 }

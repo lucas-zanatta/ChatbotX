@@ -1,5 +1,6 @@
-import { type Prisma, prisma } from "@aha.chat/database"
-import type { WebhookModel, WebhookWhereInput } from "@aha.chat/database/types"
+import { db, ilike } from "@aha.chat/database/client"
+import { webhookModel } from "@aha.chat/database/schema"
+import type { WebhookModel } from "@aha.chat/database/types"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import type { WebhookCollection } from "../schemas"
 import type { GetWebhooksSchema } from "../schemas/get-webhook-schema"
@@ -9,64 +10,58 @@ export async function getWebhooks(
 ): Promise<WebhookCollection> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.WebhookWhereInput = {
+  // Build where conditions
+  const whereConditions: Record<string, unknown> = {
     chatbotId: input.chatbotId,
   }
 
   if (input.folderId !== undefined) {
-    where.folderId =
+    whereConditions.folderId =
       input.folderId === null || input.folderId === "0" ? null : input.folderId
   }
 
   if (input.name) {
-    where.AND = [
-      {
-        name: {
-          contains: input.name,
-          mode: "insensitive",
-        },
-      },
-    ]
+    whereConditions.name = ilike(webhookModel.name, `%${input.name}%`)
   }
 
-  const orderBy = input.sort.map((sortItem) => {
-    if ((sortItem.id as string) === "contacts") {
-      return {
-        contacts: {
-          _count: sortItem.desc ? "desc" : "asc",
-        },
-      } as Prisma.WebhookOrderByWithRelationInput
+  // Build orderBy
+  const orderBy: Record<string, "asc" | "desc"> = {}
+  for (const sortItem of input.sort) {
+    if ((sortItem.id as string) !== "contacts") {
+      orderBy[sortItem.id as string] = sortItem.desc ? "desc" : "asc"
     }
-    return {
-      [sortItem.id]: sortItem.desc ? "desc" : "asc",
-    } as Prisma.WebhookOrderByWithRelationInput
+  }
+
+  const data = await db.query.webhookModel.findMany({
+    where: whereConditions,
+    orderBy,
+    offset: (input.page - 1) * input.perPage,
+    limit: input.perPage,
+    with: {
+      conditions: true,
+    },
   })
 
-  const [data, total] = await prisma.$transaction([
-    prisma.webhook.findMany({
-      skip: (input.page - 1) * input.perPage,
-      take: input.perPage,
-      where,
-      orderBy,
-      include: {
-        conditions: true,
-      },
-    }),
-    prisma.webhook.count({ where }),
-  ])
+  const allWebhooks = await db.query.webhookModel.findMany({
+    where: whereConditions,
+    columns: { id: true },
+  })
+  const total = allWebhooks.length
 
   const pageCount = Math.ceil(total / input.perPage)
 
   return { data, pageCount }
 }
 
-export async function findWebhook(
-  where: WebhookWhereInput,
-): Promise<WebhookModel | null> {
-  return await prisma.webhook.findFirst({
+export async function findWebhook(where: {
+  id?: string
+  chatbotId?: string
+}): Promise<WebhookModel | null> {
+  const result = await db.query.webhookModel.findFirst({
     where,
-    include: {
+    with: {
       conditions: true,
     },
   })
+  return result ?? null
 }

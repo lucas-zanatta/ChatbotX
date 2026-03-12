@@ -1,8 +1,11 @@
-import type { TagModel } from "@aha.chat/database/types"
+import { createSelectSchema, tagModel } from "@aha.chat/database/schema"
+import type z from "zod"
 
-export type TagResource = TagModel
+export const tagResource = createSelectSchema(tagModel)
+export type TagResource = z.infer<typeof tagResource>
 
-export type TagCollection = {
-  data: TagResource[]
-  pageCount: number
-}
+export const publicTagResource = tagResource.pick({
+  id: true,
+  name: true,
+})
+export type PublicTagResource = z.infer<typeof publicTagResource>

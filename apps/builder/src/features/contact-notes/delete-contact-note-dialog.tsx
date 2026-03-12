@@ -1,6 +1,5 @@
 "use client"
 
-import type { ContactNoteModel } from "@aha.chat/database/types"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import {
   Dialog,
@@ -23,7 +22,7 @@ type DeleteDialogProps = ComponentPropsWithoutRef<typeof Dialog> & {
   contactId: string
   contactNoteId: string
   onCancel?: () => void
-  onSuccess: (data: ContactNoteModel) => void
+  onSuccess: () => void
 }
 
 export function DeleteContactNoteDialog({
@@ -39,13 +38,13 @@ export function DeleteContactNoteDialog({
   const { execute, isPending } = useAction(
     deleteContactNoteAction.bind(null, chatbotId, contactId),
     {
-      onSuccess: ({ data }) => {
+      onSuccess: () => {
         toast.success(
           t("messages.deletedSuccess", {
             feature: t("fields.contactNote.label"),
           }),
         )
-        onSuccess(data)
+        onSuccess()
       },
       onError: ({ error }) => {
         if (error.serverError) {
@@ -65,7 +64,7 @@ export function DeleteContactNoteDialog({
             })}
           </DialogTitle>
           <DialogDescription className="whitespace-pre-wrap text-sm/6">
-            {t("dialog.deleteConfirmation", {
+            {t("messages.deleteConfirmation", {
               feature: t("fields.contactNote.label"),
             })}
           </DialogDescription>

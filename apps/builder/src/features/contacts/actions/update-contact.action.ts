@@ -1,12 +1,17 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
+import {
+  contactCustomFieldModel,
+  contactModel,
+} from "@aha.chat/database/schema"
 import {
   type ContactModel,
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
 import { emitCustomFieldChanged } from "@aha.chat/events"
+import { createId } from "@paralleldrive/cuid2"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -19,7 +24,6 @@ import {
   type UpdateContactRequest,
   updateContactRequest,
 } from "../schemas/action"
-import { ContactException } from "../schemas/resource"
 
 export const updateContactAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdAndIdRequestParams)
@@ -32,15 +36,11 @@ export const updateContactAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
       parsedInput: UpdateContactRequest
     }) => {
-      const contact = await prisma.contact.findFirst({
-        where: {
-          chatbotId,
-          id,
-        },
-      })
-      if (!contact) {
-        throw new ContactException("Contact was not found")
-      }
+      const _contact = await findOrFail<ContactModel>(
+        contactModel,
+        { chatbotId, id },
+        "Contact was not found",
+      )
 
       const allCustomFields = await listCustomFields({
         chatbotId,
@@ -66,14 +66,12 @@ export const updateContactAction = chatbotActionClient
         }
       }
 
-      const updatedCustomFields = await prisma.$transaction(async (tx) => {
+      const updatedCustomFields = await db.transaction(async (tx) => {
         if (Object.keys(contactFields).length > 0) {
-          await tx.contact.update({
-            where: {
-              id,
-            },
-            data: contactFields,
-          })
+          await tx
+            .update(contactModel)
+            .set(contactFields)
+            .where(eq(contactModel.id, id))
         }
 
         const updated: Array<{
@@ -85,31 +83,26 @@ export const updateContactAction = chatbotActionClient
 
         if (Object.keys(customFields).length > 0) {
           for (const [key, value] of Object.entries(customFields)) {
-            const existing = await tx.contactCustomField.findUnique({
+            const existing = await tx.query.contactCustomFieldModel.findFirst({
               where: {
-                contactId_customFieldId: {
-                  contactId: id,
-                  customFieldId: key,
-                },
+                contactId: id,
+                customFieldId: key,
               },
             })
 
-            await tx.contactCustomField.upsert({
-              where: {
-                contactId_customFieldId: {
-                  contactId: id,
-                  customFieldId: key,
-                },
-              },
-              create: {
+            if (existing) {
+              await tx
+                .update(contactCustomFieldModel)
+                .set({ value: value as string })
+                .where(eq(contactCustomFieldModel.id, existing.id))
+            } else {
+              await tx.insert(contactCustomFieldModel).values({
+                id: createId(),
                 contactId: id,
                 customFieldId: key,
                 value: value as string,
-              },
-              update: {
-                value: value as string,
-              },
-            })
+              })
+            }
 
             const customField = allCustomFieldsMap.get(key)
             updated.push({

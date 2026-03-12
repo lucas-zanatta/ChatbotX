@@ -1,6 +1,8 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
+import { webhookModel } from "@aha.chat/database/schema"
+import type { WebhookModel } from "@aha.chat/database/types"
 import { updateWebhookCache } from "@aha.chat/events"
 import { z } from "zod"
 import {
@@ -27,19 +29,16 @@ export const updateWebhookSettingsAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
       parsedInput: UpdateWebhookSettingsSchema
     }) => {
-      const webhook = await prisma.webhook.findFirstOrThrow({
-        where: {
-          id,
-          chatbotId,
-        },
-      })
+      const webhook = await findOrFail<WebhookModel>(
+        webhookModel,
+        { id, chatbotId },
+        "Webhook not found",
+      )
 
-      await prisma.webhook.update({
-        where: {
-          id: webhook.id,
-        },
-        data: parsedInput,
-      })
+      await db
+        .update(webhookModel)
+        .set(parsedInput)
+        .where(eq(webhookModel.id, webhook.id))
 
       await updateWebhookCache(chatbotId)
     },

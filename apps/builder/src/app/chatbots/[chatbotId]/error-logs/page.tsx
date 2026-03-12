@@ -1,28 +1,41 @@
-import { LogType } from "@aha.chat/database"
+import { getTranslations } from "next-intl/server"
 import type { SearchParams } from "nuqs/server"
 import { Suspense } from "react"
-import { ErrorLogsTable } from "@/features/logs/error-logs-table"
-import { getLogs } from "@/features/logs/queries"
-import { getLogsSearchParamsCache } from "@/features/logs/schemas/get-logs-schema"
+import { AppBreadcrumb } from "@/components/app-breadcrumb"
+import { AppTab } from "@/components/app-tab"
+import { ErrorLogsTable } from "@/features/error-logs/error-logs-table"
+import { listErrorLogs } from "@/features/error-logs/queries"
+import { listErrorLogsSearchParamsCache } from "@/features/error-logs/schemas/query"
 
 export default async function ErrorLogsPage(props: {
   params: Promise<{ chatbotId: string }>
   searchParams: Promise<SearchParams>
 }) {
+  const t = await getTranslations()
+
   const params = await props.params
   const searchParams = await props.searchParams
-  const search = getLogsSearchParamsCache.parse(searchParams)
+  const search = listErrorLogsSearchParamsCache.parse(searchParams)
 
   const promises = Promise.all([
-    getLogs({
+    listErrorLogs({
       ...search,
       chatbotId: params.chatbotId,
-      logType: LogType.error,
     }),
   ])
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
+      <AppBreadcrumb
+        items={[
+          {
+            label: t("fields.flows.label"),
+            href: `/chatbots/${params.chatbotId}/flows`,
+          },
+          { label: t("errorLogs.title"), href: "" },
+        ]}
+      />
+      <AppTab chatbotId={params.chatbotId} />
       <Suspense>
         <ErrorLogsTable chatbotId={params.chatbotId} promises={promises} />
       </Suspense>

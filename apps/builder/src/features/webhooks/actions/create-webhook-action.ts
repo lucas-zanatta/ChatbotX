@@ -1,7 +1,10 @@
 "use server"
 
-import { FolderType, prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
+import { webhookModel } from "@aha.chat/database/schema"
+import { FolderType } from "@aha.chat/database/types"
 import { updateWebhookCache } from "@aha.chat/events"
+import { createId } from "@paralleldrive/cuid2"
 import { getTranslations } from "next-intl/server"
 import {
   type ChatbotIdRequestParams,
@@ -29,9 +32,11 @@ export const createWebhookAction = chatbotActionClient
     }) => {
       const t = await getTranslations()
 
-      const existingWebhooksCount = await prisma.webhook.count({
+      const existingWebhooks = await db.query.webhookModel.findMany({
         where: { chatbotId },
+        columns: { id: true },
       })
+      const existingWebhooksCount = existingWebhooks.length
 
       if (existingWebhooksCount >= MAX_WEBHOOKS_PER_CHATBOT) {
         throw new MaxWebhooksReachedException(
@@ -52,13 +57,15 @@ export const createWebhookAction = chatbotActionClient
 
       const { ...webhookData } = parsedInput
 
-      const result = await prisma.webhook.create({
-        data: {
+      const [result] = await db
+        .insert(webhookModel)
+        .values({
+          id: createId(),
           ...webhookData,
           chatbotId,
           url: "",
-        },
-      })
+        })
+        .returning()
 
       await updateWebhookCache(chatbotId)
 

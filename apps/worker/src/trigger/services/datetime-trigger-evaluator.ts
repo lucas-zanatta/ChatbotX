@@ -14,10 +14,10 @@ import {
 import { ActionExecutor } from "./action-executor"
 
 interface DateTimeTriggerResult {
-  triggerId: string
   contactId: string
-  matched: boolean
   error?: string
+  matched: boolean
+  triggerId: string
 }
 
 interface TriggerMap {

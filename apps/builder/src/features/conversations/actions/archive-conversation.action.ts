@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
 import { emitConversationArchived } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
@@ -24,30 +25,29 @@ export const archiveConversationAction = chatbotActionClient
       parsedInput: BulkUpdateIdsRequest
       ctx: { user: { id: string } }
     }) => {
-      const conversations = await prisma.conversation.findMany({
+      // Get conversations first for event emission
+      const conversations = await db.query.conversationModel.findMany({
         where: {
           chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
+          id: { in: parsedInput.ids },
         },
-        select: {
+        columns: {
           id: true,
           contactId: true,
         },
       })
 
-      await prisma.conversation.updateMany({
-        where: {
-          chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
-        },
-        data: {
+      await db
+        .update(conversationModel)
+        .set({
           archivedAt: new Date(),
-        },
-      })
+        })
+        .where(
+          and(
+            eq(conversationModel.chatbotId, chatbotId),
+            inArray(conversationModel.id, parsedInput.ids),
+          ),
+        )
 
       for (const conv of conversations) {
         try {

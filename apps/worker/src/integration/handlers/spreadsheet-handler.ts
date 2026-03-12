@@ -1,9 +1,16 @@
-import { prisma } from "@aha.chat/database"
+import { db, findOrFail } from "@aha.chat/database/client"
+import {
+  contactCustomFieldModel,
+  flowVersionModel,
+  integrationGoogleSheetsModel,
+  spreadsheetModel,
+} from "@aha.chat/database/schema"
 import type {
   ConversationModel,
+  FlowVersionModel,
+  IntegrationGoogleSheetsModel,
   SpreadsheetModel,
 } from "@aha.chat/database/types"
-import { emitCustomFieldChanged } from "@aha.chat/events"
 import type {
   EdgeSchema,
   FilterMode,
@@ -20,9 +27,10 @@ import {
 } from "@aha.chat/integration-google-sheets"
 import { SdkException } from "@aha.chat/sdk"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
+import { createId } from "@paralleldrive/cuid2"
 import { logger } from "../../lib/logger"
+import type { ExecuteStepProps } from "./flow"
 import { isMatchedRow } from "./operator-handler"
-import type { FlowStepProps } from "./step-handler"
 
 const findRowType = {
   SINGLE: "single",
@@ -38,24 +46,28 @@ const getWorksheet = async ({
   id: string
   chatbotId: string
 }): Promise<SpreadsheetModel> =>
-  await prisma.spreadsheet.findFirstOrThrow({
-    where: {
+  await findOrFail<SpreadsheetModel>(
+    spreadsheetModel,
+    {
       id,
       chatbotId,
     },
-  })
+    "Spreadsheet not found",
+  )
 
 const getGoogleSheetsIntegration = async (chatbotId: string) =>
-  await prisma.integrationGoogleSheets.findFirstOrThrow({
-    where: {
+  await findOrFail<IntegrationGoogleSheetsModel>(
+    integrationGoogleSheetsModel,
+    {
       chatbotId,
     },
-  })
+    "Google Sheets integration not found",
+  )
 
 const getSheetData = async ({
   conversation,
   step,
-}: FlowStepProps<SpreadsheetGetRowSchema>) => {
+}: ExecuteStepProps<SpreadsheetGetRowSchema>) => {
   const auth = await getGoogleSheetAuth(conversation.chatbotId)
   const worksheet = await getWorksheet({
     id: step.spreadsheetId,
@@ -118,7 +130,7 @@ const findRows = ({
 type OperatorType = (typeof Operator)[keyof typeof Operator]
 
 export const getSpreadsheetRow = async (
-  props: FlowStepProps<SpreadsheetGetRowSchema>,
+  props: ExecuteStepProps<SpreadsheetGetRowSchema>,
 ) => {
   try {
     const { headers, rows: values } = await getSheetData(props)
@@ -141,7 +153,7 @@ export const getSpreadsheetRow = async (
     await sendFlow(props, true)
   } catch (error) {
     await sendFlow(props, false)
-    logger.error("Error in getSpreadsheetRow:", error)
+    logger.error(error, "Error in getSpreadsheetRow")
   }
 }
 
@@ -154,7 +166,7 @@ const getGoogleSheetAuth = async (chatbotId: string) => {
 }
 
 export const sendSpreadsheetData = async (
-  props: FlowStepProps<SpreadsheetGetRowSchema>,
+  props: ExecuteStepProps<SpreadsheetGetRowSchema>,
 ) => {
   try {
     const auth = await getGoogleSheetAuth(props.conversation.chatbotId)
@@ -167,12 +179,13 @@ export const sendSpreadsheetData = async (
     for (const mapItem of props.step.map) {
       let value = ""
       if (mapItem.customFieldId) {
-        const contactCustomField = await prisma.contactCustomField.findFirst({
-          where: {
-            contactId: props.conversation.contactId,
-            customFieldId: mapItem.customFieldId,
-          },
-        })
+        const contactCustomField =
+          await db.query.contactCustomFieldModel.findFirst({
+            where: {
+              contactId: props.conversation.contactId,
+              customFieldId: mapItem.customFieldId,
+            },
+          })
         value = contactCustomField?.value || ""
       }
       data.push(value)
@@ -191,12 +204,12 @@ export const sendSpreadsheetData = async (
     await sendFlow(props, true)
   } catch (error) {
     await sendFlow(props, false)
-    logger.error("Error in sendSpreadsheetData:", error)
+    logger.error(error, "Error in sendSpreadsheetData")
   }
 }
 
 export const updateSpreadsheetRow = async (
-  props: FlowStepProps<SpreadsheetGetRowSchema>,
+  props: ExecuteStepProps<SpreadsheetGetRowSchema>,
 ) => {
   try {
     const { headers, rows: values } = await getSheetData(props)
@@ -220,12 +233,13 @@ export const updateSpreadsheetRow = async (
     for (const mapItem of props.step.map) {
       let value = ""
       if (mapItem.customFieldId) {
-        const contactCustomField = await prisma.contactCustomField.findFirst({
-          where: {
-            contactId: props.conversation.contactId,
-            customFieldId: mapItem.customFieldId,
-          },
-        })
+        const contactCustomField =
+          await db.query.contactCustomFieldModel.findFirst({
+            where: {
+              contactId: props.conversation.contactId,
+              customFieldId: mapItem.customFieldId,
+            },
+          })
         value = contactCustomField?.value || ""
       }
       data.push(value)
@@ -247,12 +261,12 @@ export const updateSpreadsheetRow = async (
     await sendFlow(props, true)
   } catch (error) {
     await sendFlow(props, false)
-    logger.error("Error in updateSpreadsheetRow:", error)
+    logger.error(error, "Error in updateSpreadsheetRow")
   }
 }
 
 export const clearSpreadsheetRow = async (
-  props: FlowStepProps<SpreadsheetGetRowSchema>,
+  props: ExecuteStepProps<SpreadsheetGetRowSchema>,
 ) => {
   try {
     const { headers, rows: values } = await getSheetData(props)
@@ -287,12 +301,12 @@ export const clearSpreadsheetRow = async (
     await sendFlow(props, true)
   } catch (error) {
     await sendFlow(props, false)
-    logger.error("Error in clearSpreadsheetRow:", error)
+    logger.error(error, "Error in clearSpreadsheetRow")
   }
 }
 
 export const getSpreadsheetRandomRow = async (
-  props: FlowStepProps<SpreadsheetGetRowSchema>,
+  props: ExecuteStepProps<SpreadsheetGetRowSchema>,
 ) => {
   try {
     const { headers, rows: values } = await getSheetData(props)
@@ -315,7 +329,7 @@ export const getSpreadsheetRandomRow = async (
     await sendFlow(props, true)
   } catch (error) {
     await sendFlow(props, false)
-    logger.error("Error in getSpreadsheetRandomRow:", error)
+    logger.error(error, "Error in getSpreadsheetRandomRow")
   }
 }
 
@@ -330,58 +344,27 @@ const updateContactCustomFields = async ({
   headers: string[]
   foundRow: string[]
 }) => {
-  const customFieldIds = step.map
-    .map((m) => m.customFieldId)
-    .filter(Boolean) as string[]
-  const customFields = await prisma.field.findMany({
-    where: { id: { in: customFieldIds } },
-    select: { id: true, name: true },
-  })
-  const customFieldMap = new Map(customFields.map((f) => [f.id, f.name]))
-
   for (const mapItem of step.map) {
     const headerIndex = headers.indexOf(mapItem.header)
     if (headerIndex !== -1 && mapItem.customFieldId) {
       const value = foundRow[headerIndex]
-
-      const existing = await prisma.contactCustomField.findUnique({
-        where: {
-          contactId_customFieldId: {
-            contactId: conversation.contactId,
-            customFieldId: mapItem.customFieldId,
-          },
-        },
-      })
-
-      await prisma.contactCustomField.upsert({
-        create: {
+      await db
+        .insert(contactCustomFieldModel)
+        .values({
+          id: createId(),
           contactId: conversation.contactId,
           customFieldId: mapItem.customFieldId,
           value,
-        },
-        where: {
-          contactId_customFieldId: {
-            contactId: conversation.contactId,
-            customFieldId: mapItem.customFieldId,
+        })
+        .onConflictDoUpdate({
+          target: [
+            contactCustomFieldModel.contactId,
+            contactCustomFieldModel.customFieldId,
+          ],
+          set: {
+            value,
           },
-        },
-        update: {
-          value,
-        },
-      })
-
-      try {
-        await emitCustomFieldChanged(
-          conversation.chatbotId,
-          conversation.contactId,
-          mapItem.customFieldId,
-          customFieldMap.get(mapItem.customFieldId) || mapItem.customFieldId,
-          existing?.value || null,
-          value,
-        )
-      } catch (error) {
-        console.error("Failed to emit customFieldChanged event:", error)
-      }
+        })
     }
   }
 }
@@ -397,9 +380,9 @@ const getRandomRow = (rows: string[][]): string[] | null => {
 const sendFlow = async (
   {
     conversation,
-    flowVersionId,
+    flowVersion,
     step,
-  }: FlowStepProps<
+  }: ExecuteStepProps<
     | SpreadsheetGetRowSchema
     | SpreadsheetSendDataSchema
     | SpreadsheetGetRandomRowSchema
@@ -408,15 +391,14 @@ const sendFlow = async (
   >,
   isSuccess: boolean,
 ) => {
-  const currentFlowVersion = await prisma.flowVersion.findFirst({
-    where: {
-      id: flowVersionId,
+  const currentFlowVersion = await findOrFail<FlowVersionModel>(
+    flowVersionModel,
+    {
+      id: flowVersion.id,
       chatbotId: conversation.chatbotId,
     },
-  })
-  if (!currentFlowVersion) {
-    throw new SdkException("FlowVersion not found")
-  }
+    "FlowVersion not found",
+  )
 
   const edges = currentFlowVersion.edges || []
   const nodeId: string | undefined = isSuccess
@@ -432,7 +414,6 @@ const sendFlow = async (
       data: {
         conversationId: conversation.id,
         flowId: currentFlowVersion.flowId,
-        flowVersionId: currentFlowVersion.id,
         nodeId: foundEdge.target,
       },
     })

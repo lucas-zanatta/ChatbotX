@@ -1,14 +1,16 @@
 "use client"
 
-import {
-  type FieldModel,
-  FieldType,
-  FolderType,
-} from "@aha.chat/database/types"
+import type { FieldModel } from "@aha.chat/database/types"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-table-column-header"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
 import { Button } from "@aha.chat/ui/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@aha.chat/ui/components/ui/card"
 import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
 import {
   DropdownMenu,
@@ -30,18 +32,24 @@ import { useTranslations } from "next-intl"
 import { use, useMemo, useState } from "react"
 import { ChangeFolderDialog } from "../folders/change-folder"
 import CustomFieldTypeLabel from "./components/custom-field-label"
+import { CreateCustomFieldDialog } from "./create-custom-field"
 import { CustomFieldsTableToolbarActions } from "./custom-field-table-toolbar-actions"
 import { DeleteFieldsDialog } from "./delete-fields-dialog"
-import type { listCustomFields } from "./queries"
-import type { CustomFieldResource } from "./schemas"
+import type { listCustomFieldsRSC } from "./queries"
+import type { CustomFieldResource } from "./schemas/resource"
 import { UpdateCustomFieldDialog } from "./update-custom-field-dialog"
 
 type FieldsTableProps = {
-  promises: Promise<[Awaited<ReturnType<typeof listCustomFields>>]>
+  promises: Promise<[Awaited<ReturnType<typeof listCustomFieldsRSC>>]>
   chatbotId: string
+  folderId: string | null
 }
 
-export function CustomFieldsTable({ promises, chatbotId }: FieldsTableProps) {
+export function CustomFieldsTable({
+  promises,
+  chatbotId,
+  folderId,
+}: FieldsTableProps) {
   const t = useTranslations()
   const [{ data, pageCount }] = use(promises)
   const [rowAction, setRowAction] =
@@ -107,6 +115,7 @@ export function CustomFieldsTable({ promises, chatbotId }: FieldsTableProps) {
         },
         enableColumnFilter: true,
         enableSorting: true,
+        enableHiding: false,
       },
       {
         id: "Type",
@@ -127,6 +136,7 @@ export function CustomFieldsTable({ promises, chatbotId }: FieldsTableProps) {
         },
         size: 100,
         enableSorting: false,
+        enableHiding: false,
       },
       {
         id: "Inbox",
@@ -139,6 +149,7 @@ export function CustomFieldsTable({ promises, chatbotId }: FieldsTableProps) {
         ),
         cell: ({ row }) => <Switch checked={row.original.showInInbox} />,
         enableSorting: false,
+        enableHiding: false,
         meta: {
           label: t("fields.inbox.label"),
         },
@@ -199,42 +210,55 @@ export function CustomFieldsTable({ promises, chatbotId }: FieldsTableProps) {
   })
 
   return (
-    <>
-      <DataTable table={table}>
-        <DataTableToolbar table={table}>
-          <CustomFieldsTableToolbarActions
-            chatbotId={chatbotId}
-            table={table}
-            // setRowAction={setRowAction}
-          />
-        </DataTableToolbar>
-      </DataTable>
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-bold text-xl">
+          {t("customFields.title")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <DataTable table={table}>
+          <DataTableToolbar table={table}>
+            <CustomFieldsTableToolbarActions
+              chatbotId={chatbotId}
+              table={table}
+              // setRowAction={setRowAction}
+            />
+            <CreateCustomFieldDialog
+              chatbotId={chatbotId}
+              folderId={folderId}
+            />
+          </DataTableToolbar>
+        </DataTable>
 
-      <DeleteFieldsDialog
-        chatbotId={chatbotId}
-        fieldType={FieldType.customField}
-        onOpenChange={() => setRowAction(null)}
-        onSuccess={() => rowAction?.row.toggleSelected(false)}
-        open={rowAction?.variant === "delete"}
-        records={rowAction?.row.original ? [rowAction?.row.original] : []}
-        showTrigger={false}
-      />
+        <DeleteFieldsDialog
+          chatbotId={chatbotId}
+          fieldType="customField"
+          onOpenChange={() => setRowAction(null)}
+          onSuccess={() => rowAction?.row.toggleSelected(false)}
+          open={rowAction?.variant === "delete"}
+          records={rowAction?.row.original ? [rowAction?.row.original] : []}
+          showTrigger={false}
+        />
 
-      <UpdateCustomFieldDialog
-        chatbotId={chatbotId}
-        customField={rowAction?.row.original || null}
-        onOpenChange={() => setRowAction(null)}
-        open={rowAction?.variant === "update"}
-      />
+        <UpdateCustomFieldDialog
+          chatbotId={chatbotId}
+          customField={rowAction?.row.original || null}
+          onOpenChange={() => setRowAction(null)}
+          open={rowAction?.variant === "update"}
+        />
 
-      <ChangeFolderDialog
-        chatbotId={chatbotId}
-        currentFolderId={rowAction?.row.original?.folderId || null}
-        folderType={FolderType.customField}
-        modelId={rowAction?.row.original?.id || null}
-        onOpenChange={() => setRowAction(null)}
-        open={rowAction?.variant === "move"}
-      />
-    </>
+        <ChangeFolderDialog
+          chatbotId={chatbotId}
+          currentFolderId={rowAction?.row.original?.folderId || null}
+          folderType="customField"
+          modelIds={
+            rowAction?.row.original ? [rowAction?.row.original.id] : null
+          }
+          onOpenChange={() => setRowAction(null)}
+          open={rowAction?.variant === "move"}
+        />
+      </CardContent>
+    </Card>
   )
 }

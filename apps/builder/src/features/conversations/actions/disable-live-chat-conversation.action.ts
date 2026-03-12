@@ -1,5 +1,5 @@
-import { prisma } from "@aha.chat/database"
-import { emitConversationTransferredToBot } from "@aha.chat/events"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -16,52 +16,21 @@ export const disableLiveChatConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
-      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
-      ctx: { user: { id: string } }
     }) => {
-      const conversations = await prisma.conversation.findMany({
-        where: {
-          id: {
-            in: parsedInput.ids,
-          },
-          chatbotId,
-        },
-        select: {
-          id: true,
-          contactId: true,
-        },
-      })
-
-      await prisma.conversation.updateMany({
-        where: {
-          id: {
-            in: parsedInput.ids,
-          },
-          chatbotId,
-        },
-        data: {
+      await db
+        .update(conversationModel)
+        .set({
           liveChatEnabled: false,
-        },
-      })
-
-      for (const conv of conversations) {
-        try {
-          await emitConversationTransferredToBot(
-            chatbotId,
-            conv.contactId,
-            conv.id,
-            ctx.user.id,
-          )
-        } catch (error) {
-          console.error(
-            "Failed to emit conversationTransferredToBot event:",
-            error,
-          )
-        }
-      }
+        })
+        .where(
+          and(
+            eq(conversationModel.chatbotId, chatbotId),
+            inArray(conversationModel.id, parsedInput.ids),
+          ),
+        )
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#conversations`,

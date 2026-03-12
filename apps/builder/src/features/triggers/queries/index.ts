@@ -1,5 +1,6 @@
-import { type Prisma, prisma } from "@aha.chat/database"
-import type { TriggerModel, TriggerWhereInput } from "@aha.chat/database/types"
+import { db, ilike } from "@aha.chat/database/client"
+import { triggerModel } from "@aha.chat/database/schema"
+import type { TriggerModel } from "@aha.chat/database/types"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import type { TriggerCollection } from "../schemas"
 import type { GetTriggersSchema } from "../schemas/get-trigger-schema"
@@ -9,64 +10,58 @@ export async function getTriggers(
 ): Promise<TriggerCollection> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.TriggerWhereInput = {
+  // Build where conditions
+  const whereConditions: Record<string, unknown> = {
     chatbotId: input.chatbotId,
   }
 
   if (input.folderId !== undefined) {
-    where.folderId =
+    whereConditions.folderId =
       input.folderId === null || input.folderId === "0" ? null : input.folderId
   }
 
   if (input.name) {
-    where.AND = [
-      {
-        name: {
-          contains: input.name,
-          mode: "insensitive",
-        },
-      },
-    ]
+    whereConditions.name = ilike(triggerModel.name, `%${input.name}%`)
   }
 
-  const orderBy = input.sort.map((sortItem) => {
-    if ((sortItem.id as string) === "contacts") {
-      return {
-        contacts: {
-          _count: sortItem.desc ? "desc" : "asc",
-        },
-      } as Prisma.TriggerOrderByWithRelationInput
+  // Build orderBy
+  const orderBy: Record<string, "asc" | "desc"> = {}
+  for (const sortItem of input.sort) {
+    if ((sortItem.id as string) !== "contacts") {
+      orderBy[sortItem.id as string] = sortItem.desc ? "desc" : "asc"
     }
-    return {
-      [sortItem.id]: sortItem.desc ? "desc" : "asc",
-    } as Prisma.TriggerOrderByWithRelationInput
+  }
+
+  const data = await db.query.triggerModel.findMany({
+    where: whereConditions,
+    orderBy,
+    offset: (input.page - 1) * input.perPage,
+    limit: input.perPage,
+    with: {
+      conditions: true,
+    },
   })
 
-  const [data, total] = await prisma.$transaction([
-    prisma.trigger.findMany({
-      skip: (input.page - 1) * input.perPage,
-      take: input.perPage,
-      where,
-      orderBy,
-      include: {
-        conditions: true,
-      },
-    }),
-    prisma.trigger.count({ where }),
-  ])
+  const allTriggers = await db.query.triggerModel.findMany({
+    where: whereConditions,
+    columns: { id: true },
+  })
+  const total = allTriggers.length
 
   const pageCount = Math.ceil(total / input.perPage)
 
   return { data, pageCount }
 }
 
-export async function findTrigger(
-  where: TriggerWhereInput,
-): Promise<TriggerModel | null> {
-  return await prisma.trigger.findFirst({
+export async function findTrigger(where: {
+  id?: string
+  chatbotId?: string
+}): Promise<TriggerModel | null> {
+  const result = await db.query.triggerModel.findFirst({
     where,
-    include: {
+    with: {
       conditions: true,
     },
   })
+  return result ?? null
 }
