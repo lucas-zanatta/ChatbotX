@@ -80,7 +80,7 @@ export const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
     Operator.hasNoValue,
   ],
   [ConditionType.select]: [Operator.is, Operator.isNot, Operator.hasNoValue],
-  [ConditionType.text]: [
+  [ConditionType.shortText]: [
     Operator.is,
     Operator.isNot,
     Operator.hasAnyValue,
@@ -131,7 +131,7 @@ export const convertCustomFieldTypeToConditionType = (
     case CustomFieldType.boolean:
       return ConditionType.boolean
     default:
-      return ConditionType.text
+      return ConditionType.shortText
   }
 }
 
