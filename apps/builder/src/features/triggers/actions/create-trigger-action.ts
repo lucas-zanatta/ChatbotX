@@ -10,6 +10,7 @@ import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
+import { ensureFolderIsExists } from "@/features/folders/actions/utils"
 import { chatbotActionClient } from "@/lib/safe-action"
 import { MAX_TRIGGERS_PER_CHATBOT } from "../constants"
 import {
