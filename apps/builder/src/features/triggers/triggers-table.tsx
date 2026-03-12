@@ -1,7 +1,6 @@
 "use client"
 
 import type { TriggerModel } from "@aha.chat/database/types"
-import { FolderType } from "@aha.chat/database/types"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
@@ -77,8 +76,10 @@ export function TriggersTable({ promises, chatbotId }: TriggersTableProps) {
       <ChangeFolderDialog
         chatbotId={chatbotId}
         currentFolderId={rowAction?.row.original?.folderId || null}
-        folderType={FolderType.trigger}
-        modelId={rowAction?.row.original?.id || null}
+        folderType="trigger"
+        modelIds={
+          rowAction?.row.original?.id ? [rowAction.row.original.id] : null
+        }
         onOpenChange={() => setRowAction(null)}
         open={rowAction?.variant === "move"}
       />
