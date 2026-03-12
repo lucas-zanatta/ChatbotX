@@ -1,4 +1,4 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import { BaseCache } from "../base-cache"
 import type { TriggerEventType } from "./types"
 
@@ -6,8 +6,20 @@ class TriggerCache extends BaseCache {
   protected cachePrefix = "trigger:cache:"
   protected redisTTL = 3600
   protected ramTTL = 5000
-  protected getTable() {
-    return prisma.trigger
+
+  protected async queryActiveItems(chatbotId: string) {
+    const items = await db.query.triggerModel.findMany({
+      where: { chatbotId, active: true },
+      with: {
+        conditions: true,
+      },
+    })
+    return items.map((item) => ({
+      conditions: item.conditions.map((c) => ({
+        type: c.eventType,
+        sourceId: c.eventSourceId,
+      })),
+    }))
   }
 }
 

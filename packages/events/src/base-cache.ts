@@ -10,14 +10,11 @@ export abstract class BaseCache {
   protected abstract cachePrefix: string
   protected abstract redisTTL: number
   protected abstract ramTTL: number
-  protected abstract getTable(): {
-    findMany: (args: {
-      where: { chatbotId: string; active: true }
-      select: { conditions: { select: { type: true; sourceId: true } } }
-    }) => Promise<
-      Array<{ conditions: Array<{ type: number; sourceId: string | null }> }>
-    >
-  }
+  protected abstract queryActiveItems(
+    chatbotId: string,
+  ): Promise<
+    Array<{ conditions: Array<{ type: number; sourceId: string | null }> }>
+  >
 
   private _ramCache?: LRUCache<string, CacheEntry>
 
@@ -62,22 +59,7 @@ export abstract class BaseCache {
   protected async buildCacheData(
     chatbotId: string,
   ): Promise<Record<number, string[]>> {
-    const table = this.getTable()
-
-    const items = await table.findMany({
-      where: {
-        chatbotId,
-        active: true,
-      },
-      select: {
-        conditions: {
-          select: {
-            type: true,
-            sourceId: true,
-          },
-        },
-      },
-    })
+    const items = await this.queryActiveItems(chatbotId)
 
     const chatbotMap: Record<number, string[]> = {}
 

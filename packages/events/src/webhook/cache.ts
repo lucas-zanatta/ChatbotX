@@ -1,12 +1,24 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import { BaseCache } from "../base-cache"
 
 class WebhookCache extends BaseCache {
   protected cachePrefix = "webhook:active:"
   protected redisTTL = 3600
   protected ramTTL = 60_000
-  protected getTable() {
-    return prisma.webhook
+
+  protected async queryActiveItems(chatbotId: string) {
+    const items = await db.query.webhookModel.findMany({
+      where: { chatbotId, active: true },
+      with: {
+        conditions: true,
+      },
+    })
+    return items.map((item) => ({
+      conditions: item.conditions.map((c) => ({
+        type: c.eventType,
+        sourceId: c.eventSourceId,
+      })),
+    }))
   }
 }
 
