@@ -2,7 +2,7 @@
 
 import { db } from "@aha.chat/database/client"
 import { triggerModel } from "@aha.chat/database/schema"
-import { FolderType } from "@aha.chat/database/types"
+import type { FolderType } from "@aha.chat/database/types"
 import { updateTriggerCache } from "@aha.chat/events"
 import { createId } from "@paralleldrive/cuid2"
 import { getTranslations } from "next-intl/server"
@@ -50,7 +50,7 @@ export const createTriggerAction = chatbotActionClient
         await ensureFolderIsExists(
           parsedInput.folderId,
           chatbotId,
-          FolderType.trigger,
+          "trigger" as FolderType,
         )
       }
 

@@ -2,7 +2,7 @@
 
 import { db } from "@aha.chat/database/client"
 import { webhookModel } from "@aha.chat/database/schema"
-import { FolderType } from "@aha.chat/database/types"
+import type { FolderType } from "@aha.chat/database/types"
 import { updateWebhookCache } from "@aha.chat/events"
 import { createId } from "@paralleldrive/cuid2"
 import { getTranslations } from "next-intl/server"
@@ -50,7 +50,7 @@ export const createWebhookAction = chatbotActionClient
         await ensureFolderIsExists(
           parsedInput.folderId,
           chatbotId,
-          FolderType.webhook,
+          "webhook" as FolderType,
         )
       }
 
