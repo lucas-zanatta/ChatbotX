@@ -1586,10 +1586,8 @@
   "inboxTeams": {
     "title": "Nhóm hộp thư"
   },
-  "errorLog": {
-    "heading": {
-      "title": "Nhật ký lỗi"
-    }
+  "errorLogs": {
+    "title": "Nhật ký lỗi"
   },
   "chatbotToken": {
     "title": "Token truy cập API ChatbotX",
