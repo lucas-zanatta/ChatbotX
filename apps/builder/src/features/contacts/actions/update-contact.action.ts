@@ -21,20 +21,20 @@ import { listCustomFieldsSearchParams } from "@/features/custom-fields/schemas/q
 import { chatbotActionClient } from "@/lib/safe-action"
 import { maxPerPageString } from "@/lib/shared-request"
 import {
-  type UpdateContactRequest,
-  updateContactRequest,
+  type UpdateContactFieldRequest,
+  updateContactFieldRequest,
 } from "../schemas/action"
 
 export const updateContactAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdAndIdRequestParams)
-  .inputSchema(updateContactRequest)
+  .inputSchema(updateContactFieldRequest)
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId, id],
       parsedInput,
     }: {
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
-      parsedInput: UpdateContactRequest
+      parsedInput: UpdateContactFieldRequest
     }) => {
       const _contact = await findOrFail<ContactModel>(
         contactModel,
