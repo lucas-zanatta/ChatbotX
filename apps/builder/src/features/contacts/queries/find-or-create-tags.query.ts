@@ -1,6 +1,6 @@
 "use server"
 
-import { type DrizzleTransaction, db } from "@aha.chat/database/client"
+import { db, type Transaction } from "@aha.chat/database/client"
 import { tagModel } from "@aha.chat/database/schema"
 import type { TagModel } from "@aha.chat/database/types"
 import { createId } from "@paralleldrive/cuid2"
@@ -9,7 +9,7 @@ import { and, eq, inArray } from "drizzle-orm"
 export type Tag = TagModel
 
 export async function findOrCreateTags(
-  tx: DrizzleTransaction | null,
+  tx: Transaction | null,
   chatbotId: string,
   tagNames: string[],
 ): Promise<{
