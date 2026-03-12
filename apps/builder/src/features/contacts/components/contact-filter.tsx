@@ -4,6 +4,7 @@ import {
   ConditionField,
   type ConditionFieldType,
   ConditionType,
+  CustomFieldType,
   Operator,
 } from "@aha.chat/database/enums"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
@@ -72,7 +73,7 @@ type FieldConfig = {
   options?: SelectOption[]
 }
 
-const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
+export const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
   [ConditionType.multiSelect]: [
     Operator.is,
     Operator.isNot,
@@ -117,6 +118,73 @@ const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
     Operator.notInterval,
   ],
 }
+
+export const convertCustomFieldTypeToConditionType = (
+  type?: CustomFieldType,
+): ConditionType => {
+  switch (type) {
+    case CustomFieldType.number:
+      return ConditionType.number
+    case CustomFieldType.date:
+    case CustomFieldType.datetime:
+      return ConditionType.datetime
+    case CustomFieldType.boolean:
+      return ConditionType.boolean
+    default:
+      return ConditionType.text
+  }
+}
+
+export const getConditionOptions = (
+  t: (key: string) => string,
+): ConditionOption[] => [
+  { value: Operator.is, label: t("condition.is"), disabled: false },
+  { value: Operator.isNot, label: t("condition.isNot"), disabled: false },
+  {
+    value: Operator.hasAnyValue,
+    label: t("condition.hasAnyValue"),
+    disabled: false,
+  },
+  {
+    value: Operator.hasNoValue,
+    label: t("condition.hasNoValue"),
+    disabled: false,
+  },
+  { value: Operator.contains, label: t("condition.contains"), disabled: false },
+  {
+    value: Operator.doesNotContain,
+    label: t("condition.doesNotContain"),
+    disabled: false,
+  },
+  {
+    value: Operator.startsWith,
+    label: t("condition.startsWith"),
+    disabled: false,
+  },
+  { value: Operator.endsWith, label: t("condition.endsWith"), disabled: false },
+  {
+    value: Operator.greaterThan,
+    label: t("condition.greaterThan"),
+    disabled: false,
+  },
+  { value: Operator.lessThan, label: t("condition.lessThan"), disabled: false },
+  {
+    value: Operator.greaterThanOrEqualTo,
+    label: t("condition.greaterThanOrEqualTo"),
+    disabled: false,
+  },
+  {
+    value: Operator.lessThanOrEqualTo,
+    label: t("condition.lessThanOrEqualTo"),
+    disabled: false,
+  },
+  { value: Operator.interval, label: t("condition.interval"), disabled: false },
+  {
+    value: Operator.notInterval,
+    label: t("condition.notInterval"),
+    disabled: false,
+  },
+]
 
 const contactFilterRowSchema = z.object({
   field: z.string(),
@@ -331,79 +399,6 @@ const getFieldConfigs = ({
     name: ConditionField.executedFlow,
     conditionType: ConditionType.select,
     options: flowVersionOptions,
-  },
-]
-
-const getConditionOptions = (t: (key: string) => string): ConditionOption[] => [
-  {
-    value: Operator.is,
-    label: t("fields.operator.is"),
-    disabled: true,
-  },
-  {
-    value: Operator.isNot,
-    label: t("fields.operator.isNot"),
-    disabled: true,
-  },
-  {
-    value: Operator.hasNoValue,
-    label: t("fields.operator.hasNoValue"),
-    disabled: true,
-  },
-  {
-    value: Operator.hasAnyValue,
-    label: t("fields.operator.hasAnyValue"),
-    disabled: true,
-  },
-  {
-    value: Operator.greaterThan,
-    label: t("fields.operator.greaterThan"),
-    disabled: true,
-  },
-  {
-    value: Operator.lessThan,
-    label: t("fields.operator.lessThan"),
-    disabled: true,
-  },
-  {
-    value: Operator.greaterThanOrEqualTo,
-    label: t("fields.operator.greaterThanOrEqualTo"),
-    disabled: true,
-  },
-  {
-    value: Operator.lessThanOrEqualTo,
-    label: t("fields.operator.lessThanOrEqualTo"),
-    disabled: true,
-  },
-  {
-    value: Operator.contains,
-    label: t("fields.operator.contains"),
-    disabled: true,
-  },
-  {
-    value: Operator.doesNotContain,
-    label: t("fields.operator.doesNotContain"),
-    disabled: true,
-  },
-  {
-    value: Operator.startsWith,
-    label: t("fields.operator.startsWith"),
-    disabled: true,
-  },
-  {
-    value: Operator.endsWith,
-    label: t("fields.operator.endsWith"),
-    disabled: true,
-  },
-  {
-    value: Operator.interval,
-    label: t("fields.operator.interval"),
-    disabled: true,
-  },
-  {
-    value: Operator.notInterval,
-    label: t("fields.operator.notInterval"),
-    disabled: true,
   },
 ]
 
