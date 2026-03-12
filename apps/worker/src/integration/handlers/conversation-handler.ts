@@ -25,11 +25,11 @@ import {
   type UnfollowConversationStepSchema,
 } from "@aha.chat/flow-config"
 import { subHours } from "date-fns"
-import type { FlowStepProps } from "./step-handler"
+import type { ExecuteStepProps } from "./flow"
 
 export async function archiveConversation({
   conversation,
-}: FlowStepProps<ArchiveConversationStepSchema>) {
+}: ExecuteStepProps<ArchiveConversationStepSchema>) {
   await db
     .update(conversationModel)
     .set({ archivedAt: new Date() })
@@ -49,7 +49,7 @@ export async function archiveConversation({
 
 export async function unarchiveConversation({
   conversation,
-}: FlowStepProps<UnarchiveConversationStepSchema>) {
+}: ExecuteStepProps<UnarchiveConversationStepSchema>) {
   await db
     .update(conversationModel)
     .set({ archivedAt: null })
@@ -59,7 +59,7 @@ export async function unarchiveConversation({
 export async function assignConversation({
   conversation,
   step,
-}: FlowStepProps<AssignConversationStepSchema>) {
+}: ExecuteStepProps<AssignConversationStepSchema>) {
   let assigned = false
 
   if (step.assignedId.startsWith("u_")) {
@@ -120,7 +120,7 @@ export async function assignConversation({
 export async function autoAssignConversation({
   conversation,
   step,
-}: FlowStepProps<AutoAssignConversationStepSchema>) {
+}: ExecuteStepProps<AutoAssignConversationStepSchema>) {
   if (step.assignedIds.length === 0) {
     return
   }
@@ -280,7 +280,7 @@ export async function autoAssignConversation({
 
 export async function unassignConversation({
   conversation,
-}: FlowStepProps<UnassignConversationStepSchema>) {
+}: ExecuteStepProps<UnassignConversationStepSchema>) {
   await db
     .update(conversationModel)
     .set({
@@ -303,7 +303,7 @@ export async function unassignConversation({
 
 export async function followConversation({
   conversation,
-}: FlowStepProps<FollowConversationStepSchema>) {
+}: ExecuteStepProps<FollowConversationStepSchema>) {
   await db
     .update(conversationModel)
     .set({ followed: true })
@@ -323,7 +323,7 @@ export async function followConversation({
 
 export async function unfollowConversation({
   conversation,
-}: FlowStepProps<UnfollowConversationStepSchema>) {
+}: ExecuteStepProps<UnfollowConversationStepSchema>) {
   await db
     .update(conversationModel)
     .set({ followed: false })
@@ -332,7 +332,7 @@ export async function unfollowConversation({
 
 export async function disableBot({
   conversation,
-}: FlowStepProps<DisableBotStepSchema>) {
+}: ExecuteStepProps<DisableBotStepSchema>) {
   await db
     .update(conversationModel)
     .set({ liveChatEnabled: true })
@@ -352,7 +352,7 @@ export async function disableBot({
 
 export async function enableBot({
   conversation,
-}: FlowStepProps<EnableBotStepSchema>) {
+}: ExecuteStepProps<EnableBotStepSchema>) {
   await db
     .update(conversationModel)
     .set({ liveChatEnabled: false })

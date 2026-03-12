@@ -25,12 +25,12 @@ import type {
   SetCustomFieldStepSchema,
 } from "@aha.chat/flow-config"
 import { createId } from "@paralleldrive/cuid2"
-import type { FlowStepProps } from "./step-handler"
+import type { ExecuteStepProps } from "./flow"
 
 export async function setContactCustomField({
   conversation,
   step,
-}: FlowStepProps<SetCustomFieldStepSchema>) {
+}: ExecuteStepProps<SetCustomFieldStepSchema>) {
   const [existing] = await db
     .select({ value: contactCustomFieldModel.value })
     .from(contactCustomFieldModel)
@@ -81,7 +81,7 @@ export async function setContactCustomField({
 export async function clearContactCustomField({
   conversation,
   step,
-}: FlowStepProps<ClearCustomFieldStepSchema>) {
+}: ExecuteStepProps<ClearCustomFieldStepSchema>) {
   await db
     .delete(contactCustomFieldModel)
     .where(
@@ -95,7 +95,7 @@ export async function clearContactCustomField({
 export async function addContactNotes({
   conversation,
   step,
-}: FlowStepProps<AddNotesStepSchema>) {
+}: ExecuteStepProps<AddNotesStepSchema>) {
   await db.insert(contactNoteModel).values({
     id: createId(),
     contactId: conversation.contactId,
@@ -105,7 +105,7 @@ export async function addContactNotes({
 
 export async function blockContact({
   conversation,
-}: FlowStepProps<BlockContactStepSchema>) {
+}: ExecuteStepProps<BlockContactStepSchema>) {
   await db
     .update(contactModel)
     .set({ blockedAt: new Date() })
@@ -114,7 +114,7 @@ export async function blockContact({
 
 export async function markEmailVerified({
   conversation,
-}: FlowStepProps<MarkEmailVerifiedStepSchema>) {
+}: ExecuteStepProps<MarkEmailVerifiedStepSchema>) {
   await db
     .update(contactModel)
     .set({ emailVerified: true })
@@ -123,7 +123,7 @@ export async function markEmailVerified({
 
 export async function optInEmail({
   conversation,
-}: FlowStepProps<OptInEmailStepSchema>) {
+}: ExecuteStepProps<OptInEmailStepSchema>) {
   await db
     .update(contactModel)
     .set({ emailOptIn: true })
@@ -132,7 +132,7 @@ export async function optInEmail({
 
 export async function optOutEmail({
   conversation,
-}: FlowStepProps<OptOutEmailStepSchema>) {
+}: ExecuteStepProps<OptOutEmailStepSchema>) {
   await db
     .update(contactModel)
     .set({ emailOptIn: false })
@@ -142,7 +142,7 @@ export async function optOutEmail({
 export async function addContactTag({
   conversation,
   step,
-}: FlowStepProps<AddContactTagStepSchema>) {
+}: ExecuteStepProps<AddContactTagStepSchema>) {
   const tags = await db.transaction(async (tx) => {
     const tags = await tx
       .select()
@@ -185,7 +185,7 @@ export async function addContactTag({
 export async function removeContactTag({
   conversation,
   step,
-}: FlowStepProps<AddContactTagStepSchema>) {
+}: ExecuteStepProps<AddContactTagStepSchema>) {
   const tags = await db
     .select({ id: tagModel.id })
     .from(tagModel)
@@ -225,7 +225,7 @@ export async function removeContactTag({
 
 export async function deleteContact({
   conversation,
-}: FlowStepProps<DeleteContactStepSchema>) {
+}: ExecuteStepProps<DeleteContactStepSchema>) {
   await db.transaction(async (tx) => {
     await tx
       .delete(conversationModel)
