@@ -10,7 +10,6 @@ import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
 } from "@/features/common/schemas"
-import { ensureFolderIdIsExists } from "@/features/folders/actions/utils"
 import { chatbotActionClient } from "@/lib/safe-action"
 import { MAX_WEBHOOKS_PER_CHATBOT } from "../constants"
 import {
@@ -48,7 +47,7 @@ export const createWebhookAction = chatbotActionClient
       }
 
       if (parsedInput.folderId) {
-        await ensureFolderIdIsExists(
+        await ensureFolderIsExists(
           parsedInput.folderId,
           chatbotId,
           FolderType.webhook,
