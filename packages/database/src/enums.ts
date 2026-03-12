@@ -155,3 +155,39 @@ export const DateTimeTriggerType = {
 } as const
 export type DateTimeTriggerType =
   (typeof DateTimeTriggerType)[keyof typeof DateTimeTriggerType]
+
+export const AssignerFilterType = {
+  all: "all",
+  unassigned: "unassigned",
+} as const
+export type AssignerFilterType =
+  (typeof AssignerFilterType)[keyof typeof AssignerFilterType]
+
+export const ConversationStatus = {
+  noAdminReply: "noAdminReply",
+  unread: "unread",
+  followUp: "followUp",
+  archived: "archived",
+  blocked: "blocked",
+} as const
+export type ConversationStatus =
+  (typeof ConversationStatus)[keyof typeof ConversationStatus]
+
+export const ConversationType = {
+  bot: "bot",
+  human: "human",
+  all: "all",
+} as const
+export type ConversationType =
+  (typeof ConversationType)[keyof typeof ConversationType]
+
+export const CustomFieldType = {
+  text: "text",
+  number: "number",
+  date: "date",
+  datetime: "datetime",
+  boolean: "boolean",
+  longText: "longText",
+} as const
+export type CustomFieldType =
+  (typeof CustomFieldType)[keyof typeof CustomFieldType]
