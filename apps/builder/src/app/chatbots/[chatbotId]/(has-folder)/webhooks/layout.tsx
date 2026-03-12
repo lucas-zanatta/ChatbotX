@@ -1,4 +1,4 @@
-import { FolderType } from "@aha.chat/database/types"
+import type { FolderType } from "@aha.chat/database/types"
 import { Separator } from "@aha.chat/ui/components/ui/separator"
 import type { ReactNode } from "react"
 import { FolderStoreProvider } from "@/features/folders/provider/folder-store-context"
@@ -18,7 +18,7 @@ export default async function WebhooksLayout({
     <FolderStoreProvider
       autoInitialize={true}
       chatbotId={chatbotId}
-      folderType={FolderType.webhook}
+      folderType={"webhook" as FolderType}
     >
       {folders}
       <Separator />
