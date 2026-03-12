@@ -17,7 +17,7 @@ import {
 } from "@aha.chat/flow-config"
 import baseLogger from "@aha.chat/logger"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray } from "@aha.chat/database/client"
 import {
   addContactTag,
   clearContactCustomField,

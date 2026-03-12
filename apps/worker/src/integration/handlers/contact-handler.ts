@@ -1,4 +1,13 @@
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import {
+  contactCustomFieldModel,
+  contactModel,
+  contactNoteModel,
+  contactsToTagsModel,
+  conversationModel,
+  fieldModel,
+  tagModel,
+} from "@aha.chat/database/schema"
 import {
   emitCustomFieldChanged,
   emitTagApplied,
@@ -15,42 +24,45 @@ import type {
   OptOutEmailStepSchema,
   SetCustomFieldStepSchema,
 } from "@aha.chat/flow-config"
+import { createId } from "@paralleldrive/cuid2"
 import type { FlowStepProps } from "./step-handler"
 
 export async function setContactCustomField({
   conversation,
   step,
 }: FlowStepProps<SetCustomFieldStepSchema>) {
-  const existing = await prisma.contactCustomField.findUnique({
-    where: {
-      contactId_customFieldId: {
-        contactId: conversation.contactId,
-        customFieldId: step.inputCfId,
-      },
-    },
-  })
+  const [existing] = await db
+    .select({ value: contactCustomFieldModel.value })
+    .from(contactCustomFieldModel)
+    .where(
+      and(
+        eq(contactCustomFieldModel.contactId, conversation.contactId),
+        eq(contactCustomFieldModel.customFieldId, step.inputCfId),
+      ),
+    )
+    .limit(1)
 
-  await prisma.contactCustomField.upsert({
-    where: {
-      contactId_customFieldId: {
-        contactId: conversation.contactId,
-        customFieldId: step.inputCfId,
-      },
-    },
-    create: {
+  await db
+    .insert(contactCustomFieldModel)
+    .values({
+      id: createId(),
       contactId: conversation.contactId,
       customFieldId: step.inputCfId,
       value: step.value,
-    },
-    update: {
-      value: step.value,
-    },
-  })
+    })
+    .onConflictDoUpdate({
+      target: [
+        contactCustomFieldModel.contactId,
+        contactCustomFieldModel.customFieldId,
+      ],
+      set: { value: step.value },
+    })
 
-  const customField = await prisma.field.findUnique({
-    where: { id: step.inputCfId },
-    select: { name: true },
-  })
+  const [customField] = await db
+    .select({ name: fieldModel.name })
+    .from(fieldModel)
+    .where(eq(fieldModel.id, step.inputCfId))
+    .limit(1)
 
   try {
     await emitCustomFieldChanged(
@@ -70,86 +82,89 @@ export async function clearContactCustomField({
   conversation,
   step,
 }: FlowStepProps<ClearCustomFieldStepSchema>) {
-  await prisma.contactCustomField.deleteMany({
-    where: {
-      contactId: conversation.contactId,
-      customFieldId: step.inputCfId,
-    },
-  })
+  await db
+    .delete(contactCustomFieldModel)
+    .where(
+      and(
+        eq(contactCustomFieldModel.contactId, conversation.contactId),
+        eq(contactCustomFieldModel.customFieldId, step.inputCfId),
+      ),
+    )
 }
 
 export async function addContactNotes({
   conversation,
   step,
 }: FlowStepProps<AddNotesStepSchema>) {
-  await prisma.contactNote.create({
-    data: {
-      contactId: conversation.contactId,
-      content: step.content,
-    },
+  await db.insert(contactNoteModel).values({
+    id: createId(),
+    contactId: conversation.contactId,
+    content: step.content,
   })
 }
 
 export async function blockContact({
   conversation,
 }: FlowStepProps<BlockContactStepSchema>) {
-  await prisma.contact.update({
-    where: { id: conversation.contactId },
-    data: { blockedAt: new Date() },
-  })
+  await db
+    .update(contactModel)
+    .set({ blockedAt: new Date() })
+    .where(eq(contactModel.id, conversation.contactId))
 }
 
 export async function markEmailVerified({
   conversation,
 }: FlowStepProps<MarkEmailVerifiedStepSchema>) {
-  await prisma.contact.update({
-    where: { id: conversation.contactId },
-    data: { emailVerified: true },
-  })
+  await db
+    .update(contactModel)
+    .set({ emailVerified: true })
+    .where(eq(contactModel.id, conversation.contactId))
 }
 
 export async function optInEmail({
   conversation,
 }: FlowStepProps<OptInEmailStepSchema>) {
-  await prisma.contact.update({
-    where: { id: conversation.contactId },
-    data: { emailOptIn: true },
-  })
+  await db
+    .update(contactModel)
+    .set({ emailOptIn: true })
+    .where(eq(contactModel.id, conversation.contactId))
 }
 
 export async function optOutEmail({
   conversation,
 }: FlowStepProps<OptOutEmailStepSchema>) {
-  await prisma.contact.update({
-    where: { id: conversation.contactId },
-    data: { emailOptIn: false },
-  })
+  await db
+    .update(contactModel)
+    .set({ emailOptIn: false })
+    .where(eq(contactModel.id, conversation.contactId))
 }
 
 export async function addContactTag({
   conversation,
   step,
 }: FlowStepProps<AddContactTagStepSchema>) {
-  const tags = await prisma.$transaction(async (tx) => {
-    const tags = await tx.tag.findMany({
-      where: {
-        chatbotId: conversation.chatbotId,
-        name: {
-          in: step.tags,
-        },
-      },
-    })
+  const tags = await db.transaction(async (tx) => {
+    const tags = await tx
+      .select()
+      .from(tagModel)
+      .where(
+        and(
+          eq(tagModel.chatbotId, conversation.chatbotId),
+          inArray(tagModel.name, step.tags),
+        ),
+      )
 
-    await tx.contact.update({
-      data: {
-        tags: {
-          connect: tags.map((t) => ({ id: t.id })),
-        },
-      },
-      where: {
-        id: conversation.contactId,
-      },
-    })
+    if (tags.length > 0) {
+      await tx
+        .insert(contactsToTagsModel)
+        .values(
+          tags.map((tag) => ({
+            contactId: conversation.contactId,
+            tagId: tag.id,
+          })),
+        )
+        .onConflictDoNothing()
+    }
 
     return tags
   })
@@ -171,33 +186,29 @@ export async function removeContactTag({
   conversation,
   step,
 }: FlowStepProps<AddContactTagStepSchema>) {
-  const tags = await prisma.tag.findMany({
-    where: {
-      chatbotId: conversation.chatbotId,
-      name: {
-        in: step.tags,
-      },
-    },
-    select: {
-      id: true,
-    },
-  })
+  const tags = await db
+    .select({ id: tagModel.id })
+    .from(tagModel)
+    .where(
+      and(
+        eq(tagModel.chatbotId, conversation.chatbotId),
+        inArray(tagModel.name, step.tags),
+      ),
+    )
+
   if (tags.length === 0) {
     return
   }
 
-  await prisma.contact.update({
-    data: {
-      tags: {
-        disconnect: tags.map((t) => ({
-          id: t.id,
-        })),
-      },
-    },
-    where: {
-      id: conversation.contactId,
-    },
-  })
+  await db.delete(contactsToTagsModel).where(
+    and(
+      eq(contactsToTagsModel.contactId, conversation.contactId),
+      inArray(
+        contactsToTagsModel.tagId,
+        tags.map((t) => t.id),
+      ),
+    ),
+  )
 
   for (const tag of tags) {
     try {
@@ -215,16 +226,12 @@ export async function removeContactTag({
 export async function deleteContact({
   conversation,
 }: FlowStepProps<DeleteContactStepSchema>) {
-  await prisma.$transaction(async (tx) => {
-    await tx.conversation.delete({
-      where: {
-        id: conversation.id,
-      },
-    })
-    await tx.contact.delete({
-      where: {
-        id: conversation.contactId,
-      },
-    })
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(conversationModel)
+      .where(eq(conversationModel.id, conversation.id))
+    await tx
+      .delete(contactModel)
+      .where(eq(contactModel.id, conversation.contactId))
   })
 }

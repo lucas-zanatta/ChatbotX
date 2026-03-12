@@ -1,4 +1,9 @@
-import { type Prisma, prisma } from "@aha.chat/database"
+import { and, db, eq } from "@aha.chat/database/client"
+import {
+  chatbotMemberModel,
+  conversationModel,
+  inboxTeamModel,
+} from "@aha.chat/database/schema"
 import {
   emitConversationArchived,
   emitConversationAssigned,
@@ -25,10 +30,10 @@ import type { FlowStepProps } from "./step-handler"
 export async function archiveConversation({
   conversation,
 }: FlowStepProps<ArchiveConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { archivedAt: new Date() },
-  })
+  await db
+    .update(conversationModel)
+    .set({ archivedAt: new Date() })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationArchived(
@@ -45,10 +50,10 @@ export async function archiveConversation({
 export async function unarchiveConversation({
   conversation,
 }: FlowStepProps<UnarchiveConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { archivedAt: null },
-  })
+  await db
+    .update(conversationModel)
+    .set({ archivedAt: null })
+    .where(eq(conversationModel.id, conversation.id))
 }
 
 export async function assignConversation({
@@ -59,32 +64,40 @@ export async function assignConversation({
 
   if (step.assignedId.startsWith("u_")) {
     const userId = step.assignedId.substring(2)
-    const chatbotMember = await prisma.chatbotMember.findFirst({
-      where: {
-        userId,
-        chatbotId: conversation.chatbotId,
-      },
-    })
+    const [chatbotMember] = await db
+      .select()
+      .from(chatbotMemberModel)
+      .where(
+        and(
+          eq(chatbotMemberModel.userId, userId),
+          eq(chatbotMemberModel.chatbotId, conversation.chatbotId),
+        ),
+      )
+      .limit(1)
     if (chatbotMember) {
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { assignedUserId: userId },
-      })
+      await db
+        .update(conversationModel)
+        .set({ assignedUserId: userId })
+        .where(eq(conversationModel.id, conversation.id))
       assigned = true
     }
   } else if (step.assignedId.startsWith("t_")) {
     const inboxTeamId = step.assignedId.substring(2)
-    const inboxTeam = await prisma.inboxTeam.findFirst({
-      where: {
-        id: inboxTeamId,
-        chatbotId: conversation.chatbotId,
-      },
-    })
+    const [inboxTeam] = await db
+      .select()
+      .from(inboxTeamModel)
+      .where(
+        and(
+          eq(inboxTeamModel.id, inboxTeamId),
+          eq(inboxTeamModel.chatbotId, conversation.chatbotId),
+        ),
+      )
+      .limit(1)
     if (inboxTeam) {
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { assignedInboxTeamId: inboxTeamId },
-      })
+      await db
+        .update(conversationModel)
+        .set({ assignedInboxTeamId: inboxTeamId })
+        .where(eq(conversationModel.id, conversation.id))
       assigned = true
     }
   }
@@ -122,24 +135,18 @@ export async function autoAssignConversation({
     }
   }
 
-  const filterConversationConditions: Prisma.ConversationWhereInput = {}
+  let timeFilter: ReturnType<typeof gte> | undefined
   switch (step.rule) {
     case AutoAssignConversationRule.LAST_HOUR: {
-      filterConversationConditions.createdAt = {
-        gte: subHours(new Date(), 1),
-      }
+      timeFilter = gte(conversationModel.createdAt, subHours(new Date(), 1))
       break
     }
     case AutoAssignConversationRule.LAST_8HOURS: {
-      filterConversationConditions.createdAt = {
-        gte: subHours(new Date(), 8),
-      }
+      timeFilter = gte(conversationModel.createdAt, subHours(new Date(), 8))
       break
     }
     case AutoAssignConversationRule.LAST_24HOURS: {
-      filterConversationConditions.createdAt = {
-        gte: subHours(new Date(), 24),
-      }
+      timeFilter = gte(conversationModel.createdAt, subHours(new Date(), 24))
       break
     }
     default:
@@ -158,17 +165,15 @@ export async function autoAssignConversation({
 
   let requiredUsers: { userId: string }[] = []
   if (userIds.length > 0) {
-    requiredUsers = await prisma.chatbotMember.findMany({
-      where: {
-        chatbotId: conversation.chatbotId,
-        id: {
-          in: userIds,
-        },
-      },
-      select: {
-        userId: true,
-      },
-    })
+    requiredUsers = await db
+      .select({ userId: chatbotMemberModel.userId })
+      .from(chatbotMemberModel)
+      .where(
+        and(
+          eq(chatbotMemberModel.chatbotId, conversation.chatbotId),
+          inArray(chatbotMemberModel.id, userIds),
+        ),
+      )
     for (const u of requiredUsers) {
       allocation[`u_${u.userId}`] = {
         assignedUserId: u.userId,
@@ -180,17 +185,15 @@ export async function autoAssignConversation({
 
   let requiredInboxTeams: { id: string }[] = []
   if (inboxTeamIds.length > 0) {
-    requiredInboxTeams = await prisma.inboxTeam.findMany({
-      where: {
-        chatbotId: conversation.chatbotId,
-        id: {
-          in: inboxTeamIds,
-        },
-      },
-      select: {
-        id: true,
-      },
-    })
+    requiredInboxTeams = await db
+      .select({ id: inboxTeamModel.id })
+      .from(inboxTeamModel)
+      .where(
+        and(
+          eq(inboxTeamModel.chatbotId, conversation.chatbotId),
+          inArray(inboxTeamModel.id, inboxTeamIds),
+        ),
+      )
     for (const t of requiredInboxTeams) {
       allocation[`t_${t.id}`] = {
         assignedUserId: null,
@@ -205,34 +208,39 @@ export async function autoAssignConversation({
   }
 
   // Count conversations of assignee during time
-  const conversationCount = await prisma.conversation.groupBy({
-    by: ["assignedUserId", "assignedInboxTeamId"],
-    where: {
-      OR: [
-        {
-          assignedUserId: {
-            in: requiredUsers.map((r) => r.userId),
-          },
-        },
-        {
-          assignedInboxTeamId: {
-            in: requiredInboxTeams.map((r) => r.id),
-          },
-        },
-      ],
-      ...filterConversationConditions,
-    },
-    _count: {
-      id: true,
-    },
-  })
+  const conversationCount = await db
+    .select({
+      assignedUserId: conversationModel.assignedUserId,
+      assignedInboxTeamId: conversationModel.assignedInboxTeamId,
+      count: sql<number>`count(${conversationModel.id})::int`,
+    })
+    .from(conversationModel)
+    .where(
+      and(
+        or(
+          inArray(
+            conversationModel.assignedUserId,
+            requiredUsers.map((r) => r.userId),
+          ),
+          inArray(
+            conversationModel.assignedInboxTeamId,
+            requiredInboxTeams.map((r) => r.id),
+          ),
+        ),
+        timeFilter,
+      ),
+    )
+    .groupBy(
+      conversationModel.assignedUserId,
+      conversationModel.assignedInboxTeamId,
+    )
   for (const cc of conversationCount) {
     if (cc.assignedUserId && allocation[`u_${cc.assignedUserId}`]) {
-      allocation[`u_${cc.assignedUserId}`].count = cc._count.id
+      allocation[`u_${cc.assignedUserId}`].count = cc.count
     }
 
     if (cc.assignedInboxTeamId && allocation[`t_${cc.assignedInboxTeamId}`]) {
-      allocation[`t_${cc.assignedInboxTeamId}`].count = cc._count.id
+      allocation[`t_${cc.assignedInboxTeamId}`].count = cc.count
     }
   }
 
@@ -247,15 +255,13 @@ export async function autoAssignConversation({
   }
 
   // update assignee
-  await prisma.conversation.update({
-    where: {
-      id: conversation.id,
-    },
-    data: {
+  await db
+    .update(conversationModel)
+    .set({
       assignedUserId: allocation[smallestKey].assignedUserId,
       assignedInboxTeamId: allocation[smallestKey].assignedInboxTeamId,
-    },
-  })
+    })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationAssigned(
@@ -275,13 +281,13 @@ export async function autoAssignConversation({
 export async function unassignConversation({
   conversation,
 }: FlowStepProps<UnassignConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: {
+  await db
+    .update(conversationModel)
+    .set({
       assignedUserId: null,
       assignedInboxTeamId: null,
-    },
-  })
+    })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationUnassigned(
@@ -298,10 +304,10 @@ export async function unassignConversation({
 export async function followConversation({
   conversation,
 }: FlowStepProps<FollowConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { followed: true },
-  })
+  await db
+    .update(conversationModel)
+    .set({ followed: true })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationFollowUp(
@@ -318,19 +324,19 @@ export async function followConversation({
 export async function unfollowConversation({
   conversation,
 }: FlowStepProps<UnfollowConversationStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { followed: false },
-  })
+  await db
+    .update(conversationModel)
+    .set({ followed: false })
+    .where(eq(conversationModel.id, conversation.id))
 }
 
 export async function disableBot({
   conversation,
 }: FlowStepProps<DisableBotStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { liveChatEnabled: true },
-  })
+  await db
+    .update(conversationModel)
+    .set({ liveChatEnabled: true })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationTransferredToHuman(
@@ -347,10 +353,10 @@ export async function disableBot({
 export async function enableBot({
   conversation,
 }: FlowStepProps<EnableBotStepSchema>) {
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { liveChatEnabled: false },
-  })
+  await db
+    .update(conversationModel)
+    .set({ liveChatEnabled: false })
+    .where(eq(conversationModel.id, conversation.id))
 
   try {
     await emitConversationTransferredToBot(

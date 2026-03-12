@@ -53,7 +53,7 @@ export const addContactCustomFields = async ({
     },
   })
   if (contacts.length === 0) {
-    return
+    return null
   }
 
   const customField = await findOrFail<FieldModel>(
@@ -119,6 +119,12 @@ export const addContactCustomFields = async ({
   })
 
   revalidateCacheTags(`chatbots:${chatbotId}#contacts`)
+
+  return {
+    contacts,
+    customFieldId: customField.id,
+    customFieldName: customField.name,
+  }
 }
 
 export const setContactCustomFieldValue = async ({

@@ -39,7 +39,10 @@ export const CustomFieldValueChanged = ({
   )
 
   const conditionType = useMemo(
-    () => convertCustomFieldTypeToConditionType(customFieldType),
+    () =>
+      convertCustomFieldTypeToConditionType(
+        customFieldType as CustomFieldType | undefined,
+      ),
     [customFieldType],
   )
 
