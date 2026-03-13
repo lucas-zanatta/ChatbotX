@@ -16,6 +16,7 @@ import type {
 } from "@aha.chat/database/types"
 import { getPublicUrl } from "@aha.chat/database/utils"
 import { emitContactCreated } from "@aha.chat/events"
+import { setWebhookExecutionContext } from "@aha.chat/events/context"
 import { uploader } from "@aha.chat/filesystem"
 import {
   broadcastToChatbotParty,
@@ -45,6 +46,8 @@ export const receiveMessage = async (
   quickReplyAction: string | null
   ref?: string | null
 }> => {
+  setWebhookExecutionContext({ source: "webhook" })
+
   const { integrationType, integrationIdentifier } = props
 
   if (!Object.hasOwn(allIntegrations, integrationType)) {
