@@ -38,6 +38,9 @@ importers:
       '@aha.chat/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aha.chat/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@aha.chat/filesystem':
         specifier: workspace:*
         version: link:../../packages/filesystem
@@ -352,6 +355,9 @@ importers:
       '@aha.chat/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@aha.chat/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@aha.chat/filesystem':
         specifier: workspace:*
         version: link:../../packages/filesystem
@@ -733,6 +739,25 @@ importers:
       drizzle-kit:
         specifier: 1.0.0-beta.15-859cf75
         version: 1.0.0-beta.15-859cf75
+
+  packages/events:
+    dependencies:
+      '@aha.chat/database':
+        specifier: workspace:*
+        version: link:../database
+      '@aha.chat/worker-config':
+        specifier: workspace:*
+        version: link:../worker-config
+      lru-cache:
+        specifier: ^11.0.2
+        version: 11.2.6
+    devDependencies:
+      '@aha.chat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
   packages/filesystem:
     dependencies:

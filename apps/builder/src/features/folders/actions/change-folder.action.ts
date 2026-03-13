@@ -1,12 +1,14 @@
 "use server"
 
 import { and, db, eq, inArray } from "@aha.chat/database/client"
-import { rootFolderId } from "@aha.chat/database/enums"
+import { FolderType, rootFolderId } from "@aha.chat/database/enums"
 import {
   automatedResponseModel,
   fieldModel,
   flowModel,
   tagModel,
+  triggerModel,
+  webhookModel,
 } from "@aha.chat/database/schema"
 import { returnValidationErrors } from "next-safe-action"
 import { chatbotIdRequestParams } from "@/features/common/schemas"
@@ -79,14 +81,18 @@ export const changeFolderAction = chatbotActionClient
 
 function findResourceModel(folderType: string) {
   switch (folderType) {
-    case "tag":
+    case FolderType.tag:
       return tagModel
-    case "flow":
+    case FolderType.flow:
       return flowModel
-    case "customField":
+    case FolderType.customField:
       return fieldModel
-    case "automatedResponse":
+    case FolderType.automatedResponse:
       return automatedResponseModel
+    case FolderType.trigger:
+      return triggerModel
+    case FolderType.webhook:
+      return webhookModel
     default:
       throw new FolderException("Invalid folder type")
   }

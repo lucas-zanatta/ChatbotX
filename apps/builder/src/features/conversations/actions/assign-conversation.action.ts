@@ -2,6 +2,7 @@
 
 import { db, inArray } from "@aha.chat/database/client"
 import { conversationModel } from "@aha.chat/database/schema"
+import { emitConversationAssigned } from "@aha.chat/events"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -22,9 +23,11 @@ export const assignConversationAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: AssignConversationSchema
+      ctx: { user: { id: string } }
     }) => {
       const updatedData: {
         assignedUserId: string | null
@@ -75,7 +78,7 @@ export const assignConversationAction = chatbotActionClient
             in: parsedInput.contactIds,
           },
         },
-        columns: { id: true },
+        columns: { id: true, contactId: true },
       })
       const conversationIds = conversations.map((c) => c.id)
       if (conversationIds.length === 0) {
@@ -90,6 +93,25 @@ export const assignConversationAction = chatbotActionClient
         })
         .where(inArray(conversationModel.id, conversationIds))
         .returning()
+
+      // Emit conversation assigned events
+      const assignedTo =
+        updatedData.assignedUserId || updatedData.assignedInboxTeamId || ""
+      const assignedBy = ctx.user.id
+
+      for (const conversation of conversations) {
+        try {
+          await emitConversationAssigned(
+            chatbotId,
+            conversation.contactId,
+            conversation.id,
+            assignedTo,
+            assignedBy,
+          )
+        } catch (error) {
+          console.error("Failed to emit conversationAssigned event:", error)
+        }
+      }
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#conversations`,

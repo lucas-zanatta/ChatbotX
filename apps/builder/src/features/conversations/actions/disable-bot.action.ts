@@ -2,6 +2,7 @@
 
 import { and, db, eq, inArray } from "@aha.chat/database/client"
 import { conversationModel } from "@aha.chat/database/schema"
+import { emitConversationTransferredToHuman } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -18,10 +19,26 @@ export const disableBotAction = chatbotActionClient
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
+      ctx,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
+      ctx: { user: { id: string } }
     }) => {
+      // Get conversations before updating to emit events
+      const conversations = await db.query.conversationModel.findMany({
+        where: {
+          chatbotId,
+          id: {
+            in: parsedInput.ids,
+          },
+        },
+        columns: {
+          id: true,
+          contactId: true,
+        },
+      })
+
       await db
         .update(conversationModel)
         .set({
@@ -33,6 +50,23 @@ export const disableBotAction = chatbotActionClient
             inArray(conversationModel.id, parsedInput.ids),
           ),
         )
+
+      // Emit conversation transferred to human events
+      for (const conv of conversations) {
+        try {
+          await emitConversationTransferredToHuman(
+            chatbotId,
+            conv.contactId,
+            conv.id,
+            ctx.user.id,
+          )
+        } catch (error) {
+          console.error(
+            "Failed to emit conversationTransferredToHuman event:",
+            error,
+          )
+        }
+      }
 
       revalidateCacheTags(`chatbots:${chatbotId}#conversations`)
     },

@@ -4,6 +4,7 @@ import {
   ConditionField,
   type ConditionFieldType,
   ConditionType,
+  CustomFieldType,
   Operator,
 } from "@aha.chat/database/enums"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
@@ -44,6 +45,7 @@ import {
   useWatch,
 } from "react-hook-form"
 import z from "zod"
+
 import {
   allContinentOptions,
   allCountryOptions,
@@ -72,7 +74,7 @@ type FieldConfig = {
   options?: SelectOption[]
 }
 
-const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
+export const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
   [ConditionType.multiSelect]: [
     Operator.is,
     Operator.isNot,
@@ -89,10 +91,15 @@ const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
     Operator.startsWith,
     Operator.endsWith,
   ],
-  [ConditionType.boolean]: [Operator.is, Operator.hasNoValue],
+  [ConditionType.boolean]: [
+    Operator.is,
+    Operator.hasNoValue,
+    Operator.hasAnyValue,
+  ],
   [ConditionType.datetime]: [
     Operator.is,
     Operator.isNot,
+    Operator.hasAnyValue,
     Operator.hasNoValue,
     Operator.greaterThan,
     Operator.lessThan,
@@ -116,6 +123,23 @@ const MAPPING_CONDITIONS: Record<ConditionType, Operator[]> = {
     Operator.interval,
     Operator.notInterval,
   ],
+}
+
+export const convertCustomFieldTypeToConditionType = (
+  type?: CustomFieldType,
+): ConditionType => {
+  switch (type) {
+    case CustomFieldType.number:
+      return ConditionType.number
+    case CustomFieldType.date:
+    case CustomFieldType.datetime:
+      return ConditionType.datetime
+    case CustomFieldType.boolean:
+      return ConditionType.boolean
+
+    default:
+      return ConditionType.text
+  }
 }
 
 const contactFilterRowSchema = z.object({
@@ -334,7 +358,9 @@ const getFieldConfigs = ({
   },
 ]
 
-const getConditionOptions = (t: (key: string) => string): ConditionOption[] => [
+export const getConditionOptions = (
+  t: (key: string) => string,
+): ConditionOption[] => [
   {
     value: Operator.is,
     label: t("fields.operator.is"),

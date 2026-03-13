@@ -1,4 +1,4 @@
-import type { FolderType } from "@aha.chat/database/types"
+import { FolderType } from "@aha.chat/database/enums"
 
 export function getFolderTypeFromFeature(
   featureName?: string,
@@ -16,7 +16,11 @@ export function getFolderTypeFromFeature(
     case "custom-fields":
       return "customField"
     case "tags":
-      return "tag"
+      return FolderType.tag
+    case "triggers":
+      return FolderType.trigger
+    case "webhooks":
+      return FolderType.webhook
     default:
       return null
   }

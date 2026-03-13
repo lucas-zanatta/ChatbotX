@@ -62,6 +62,9 @@ export type InboxTeamMemberModel =
   typeof schema.inboxTeamMemberModel.$inferSelect
 export type ErrorLogModel = typeof schema.errorLogModel.$inferSelect
 export type AuditLogModel = typeof schema.auditLogModel.$inferSelect
+export type TriggerModel = typeof schema.triggerModel.$inferSelect
+export type WebhookModel = typeof schema.webhookModel.$inferSelect
+export type ConditionModel = typeof schema.conditionModel.$inferSelect
 
 export type FolderType = (typeof schema.folderType.enumValues)[number]
 export type LogType = (typeof logType.enumValues)[number]
