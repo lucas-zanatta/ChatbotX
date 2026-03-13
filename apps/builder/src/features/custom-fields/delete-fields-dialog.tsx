@@ -19,7 +19,7 @@ import { useAction } from "next-safe-action/hooks"
 import type { ComponentPropsWithoutRef } from "react"
 import { toast } from "sonner"
 import { deleteFieldsAction } from "./actions/delete-custom-field.action"
-import type { CustomFieldResource } from "./schemas"
+import type { CustomFieldResource } from "./schemas/resource"
 
 type DeleteFieldsDialogProps = ComponentPropsWithoutRef<typeof Dialog> & {
   chatbotId: string
@@ -78,7 +78,7 @@ export function DeleteFieldsDialog({
             })}
           </DialogTitle>
           <DialogDescription className="whitespace-pre-wrap text-sm/6">
-            {t("dialog.deleteConfirmation", {
+            {t("messages.deleteConfirmation", {
               feature: t("fields.customField.label"),
             })}
           </DialogDescription>

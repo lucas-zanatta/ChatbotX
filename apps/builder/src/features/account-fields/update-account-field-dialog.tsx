@@ -18,8 +18,8 @@ import { useTranslations } from "next-intl"
 import { useEffect } from "react"
 import { toast } from "sonner"
 import { updateAccountFieldAction } from "./actions/update-account-field.action"
-import type { AccountFieldResource } from "./schemas/types"
-import { updateAccountFieldRequest } from "./schemas/update-account-field.schema"
+import { updateAccountFieldRequest } from "./schemas/action"
+import type { AccountFieldResource } from "./schemas/resource"
 
 type UpdateAccountFieldDialogProps = {
   chatbotId: string
@@ -83,7 +83,11 @@ export function UpdateAccountFieldDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className={"max-h-screen max-w-lg overflow-y-scroll"}>
         <DialogHeader>
-          <DialogTitle>{t("accountField.updateForm.title")}</DialogTitle>
+          <DialogTitle>
+            {t("messages.editFeature", {
+              feature: t("fields.accountField.label"),
+            })}
+          </DialogTitle>
           <DialogDescription />
         </DialogHeader>
         <div className="flex items-center space-x-2">

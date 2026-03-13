@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
 import { emitConversationTransferredToBot } from "@aha.chat/events"
 import {
   type BulkUpdateIdsRequest,
@@ -24,31 +25,33 @@ export const enableBotAction = chatbotActionClient
       parsedInput: BulkUpdateIdsRequest
       ctx: { user: { id: string } }
     }) => {
-      const conversations = await prisma.conversation.findMany({
+      // Get conversations before updating to emit events
+      const conversations = await db.query.conversationModel.findMany({
         where: {
           chatbotId,
           id: {
             in: parsedInput.ids,
           },
         },
-        select: {
+        columns: {
           id: true,
           contactId: true,
         },
       })
 
-      await prisma.conversation.updateMany({
-        where: {
-          chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
-        },
-        data: {
+      await db
+        .update(conversationModel)
+        .set({
           liveChatEnabled: false,
-        },
-      })
+        })
+        .where(
+          and(
+            eq(conversationModel.chatbotId, chatbotId),
+            inArray(conversationModel.id, parsedInput.ids),
+          ),
+        )
 
+      // Emit conversation transferred to bot events
       for (const conv of conversations) {
         try {
           await emitConversationTransferredToBot(

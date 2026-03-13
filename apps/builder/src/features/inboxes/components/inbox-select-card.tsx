@@ -1,6 +1,6 @@
 "use client"
 
-import { InboxType, type OrganizationSettings } from "@aha.chat/database/types"
+import type { InboxType, OrganizationSettings } from "@aha.chat/database/types"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import {
   Card,
@@ -20,19 +20,19 @@ function InboxSelectCard({ settings }: { settings: OrganizationSettings }) {
   const searchParams = useSearchParams()
 
   // Memoize inbox options to prevent recreation on every render
-  const inboxOptions = useMemo(
+  const inboxOptions: { value: InboxType }[] = useMemo(
     () => [
       {
-        value: InboxType.whatsapp,
+        value: "whatsapp",
       },
       {
-        value: InboxType.messenger,
+        value: "messenger",
       },
       {
-        value: InboxType.zalo,
+        value: "zalo",
       },
       {
-        value: InboxType.webchat,
+        value: "webchat",
       },
     ],
     [],
@@ -51,7 +51,7 @@ function InboxSelectCard({ settings }: { settings: OrganizationSettings }) {
   return (
     <Card className="mx-auto mt-40 max-w-md">
       <CardHeader>
-        <CardTitle className="font-bold text-2xl">
+        <CardTitle className="font-bold text-xl">
           {t("actions.createFeature", { feature: t("fields.chatbot.label") })}
         </CardTitle>
         <CardDescription />
@@ -67,8 +67,7 @@ function InboxSelectCard({ settings }: { settings: OrganizationSettings }) {
               />
               <Button
                 disabled={
-                  inbox.value !== InboxType.webchat &&
-                  !(inbox.value in settings)
+                  inbox.value !== "webchat" && !(inbox.value in settings)
                 }
                 onClick={() => handleInboxSelect(inbox.value)}
                 size="sm"

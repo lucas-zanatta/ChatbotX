@@ -1,4 +1,11 @@
-import { type FolderModel, FolderType } from "@aha.chat/database/types"
+import { FolderType } from "@aha.chat/database/enums"
+import type { FolderModel } from "@aha.chat/database/types"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@aha.chat/ui/components/ui/card"
 import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { getTranslations } from "next-intl/server"
@@ -23,17 +30,17 @@ export default async function SharedFolderSlot(props: {
   let folderType: FolderType | null = null
   switch (featureName) {
     case "automated-responses":
-      folderType = FolderType.automatedResponse
+      folderType = "automatedResponse"
       break
     case "flows":
-      folderType = FolderType.flow
+      folderType = "flow"
       break
     case "account-fields":
     case "custom-fields":
-      folderType = FolderType.customField
+      folderType = "customField"
       break
     case "tags":
-      folderType = FolderType.tag
+      folderType = "tag"
       break
     case "triggers":
       folderType = FolderType.trigger
@@ -66,20 +73,21 @@ export default async function SharedFolderSlot(props: {
   ])
 
   return (
-    <>
-      <div className="flex">
-        <h3 className="flex-1 font-bold text-xl">
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-bold text-xl">
           {t("folders.heading.title")}
-        </h3>
-      </div>
-
-      <Suspense>
-        <ListFolders
-          chatbotId={props.chatbotId}
-          folderType={folderType}
-          promises={promises}
-        />
-      </Suspense>
-    </>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Suspense>
+          <ListFolders
+            chatbotId={props.chatbotId}
+            folderType={folderType}
+            promises={promises}
+          />
+        </Suspense>
+      </CardContent>
+    </Card>
   )
 }

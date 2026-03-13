@@ -3,8 +3,8 @@ import { getTranslations } from "next-intl/server"
 import type { SearchParams } from "nuqs/server"
 import { Suspense } from "react"
 import { AccountFieldsTable } from "@/features/account-fields/account-field-table"
-import { listAccountFields } from "@/features/account-fields/queries/list-account-fields.query"
-import { listAccountFieldsSearchParams } from "@/features/account-fields/schemas/list-account-fields.schema"
+import { listAccountFields } from "@/features/account-fields/queries"
+import { listAccountFieldsSearchParams } from "@/features/account-fields/schemas/query"
 
 export default async function AccountFieldsPage(props: {
   params: Promise<{ chatbotId: string }>
@@ -28,7 +28,9 @@ export default async function AccountFieldsPage(props: {
   return (
     <div>
       <div className="flex items-center">
-        <h3 className="flex-1 font-bold text-xl">{t("accountField.title")}</h3>
+        <h3 className="flex-1 font-bold text-xl">
+          {t("fields.accountField.label")}
+        </h3>
       </div>
 
       <Suspense>
