@@ -177,10 +177,10 @@ export async function addContactTag({
   conversation,
   step,
 }: ExecuteStepProps<AddContactTagStepSchema>) {
-  let insertedTags: { id: string }[] = []
+  const insertedTags: { id: string }[] = []
 
   await db.transaction(async (tx) => {
-    const tags = await tx
+    await tx
       .insert(tagModel)
       .values(
         step.tags.map((t) => ({
@@ -192,17 +192,29 @@ export async function addContactTag({
       .onConflictDoNothing()
       .returning()
 
-    insertedTags = tags
-
-    await tx
-      .insert(contactsToTagsModel)
-      .values(
-        tags.map((t) => ({
-          contactId: conversation.contactId,
-          tagId: t.id,
-        })),
+    const existingTags = await tx
+      .select()
+      .from(tagModel)
+      .where(
+        and(
+          eq(tagModel.chatbotId, conversation.chatbotId),
+          inArray(tagModel.name, step.tags),
+        ),
       )
-      .onConflictDoNothing()
+
+    if (existingTags.length > 0) {
+      await tx
+        .insert(contactsToTagsModel)
+        .values(
+          existingTags.map((t) => ({
+            contactId: conversation.contactId,
+            tagId: t.id,
+          })),
+        )
+        .onConflictDoNothing()
+
+      insertedTags.push(...existingTags.map((t) => ({ id: t.id })))
+    }
   })
 
   // Emit tag applied events
