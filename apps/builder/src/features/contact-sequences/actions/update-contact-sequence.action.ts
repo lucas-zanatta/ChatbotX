@@ -1,6 +1,16 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import {
+  and,
+  db,
+  eq,
+  inArray,
+  type Transaction,
+} from "@aha.chat/database/client"
+import {
+  contactModel,
+  contactsOnSequenceModel,
+} from "@aha.chat/database/schema"
 import {
   cancelPendingDispatches,
   enrollContactInSequence,
@@ -17,20 +27,23 @@ import {
 } from "../schemas/contact-sequence"
 import { calculateNextRunAtBulk } from "../utils/calculate-next-run-at"
 
-type PrismaTransaction = Parameters<
-  Parameters<typeof prisma.$transaction>[0]
->[0]
+type DrizzleTransaction = Transaction
 
 async function getCurrentSequenceIds(
   contactId: string,
   chatbotId: string,
-  tx: PrismaTransaction,
+  tx: DrizzleTransaction,
 ) {
-  const sequences = await tx.contactsOnSequence.findMany({
-    where: { contactId, chatbotId },
-    select: { sequenceId: true },
-  })
-  return sequences.map((s: { sequenceId: string }) => s.sequenceId)
+  const sequences = await tx
+    .select({ sequenceId: contactsOnSequenceModel.sequenceId })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.contactId, contactId),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+      ),
+    )
+  return sequences.map((s) => s.sequenceId)
 }
 
 function calculateSequenceDiff(
@@ -50,22 +63,22 @@ async function removeContactSequences(
   contactId: string,
   sequenceIds: string[],
   chatbotId: string,
-  tx: PrismaTransaction,
+  tx: DrizzleTransaction,
 ) {
   if (sequenceIds.length === 0) {
     return
   }
 
-  const enrollments = await tx.contactsOnSequence.findMany({
-    where: {
-      contactId,
-      sequenceId: { in: sequenceIds },
-      chatbotId,
-    },
-    select: {
-      id: true,
-    },
-  })
+  const enrollments = await tx
+    .select({ id: contactsOnSequenceModel.id })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.contactId, contactId),
+        inArray(contactsOnSequenceModel.sequenceId, sequenceIds),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+      ),
+    )
 
   await Promise.all(
     enrollments.map((enrollment: { id: string }) =>
@@ -78,19 +91,24 @@ async function removeContactSequences(
     ),
   )
 
-  await tx.contactsOnSequence.deleteMany({
-    where: {
-      id: { in: enrollments.map((e: { id: string }) => e.id) },
-      chatbotId,
-    },
-  })
+  const enrollmentIds = enrollments.map((e: { id: string }) => e.id)
+  if (enrollmentIds.length > 0) {
+    await tx
+      .delete(contactsOnSequenceModel)
+      .where(
+        and(
+          inArray(contactsOnSequenceModel.id, enrollmentIds),
+          eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        ),
+      )
+  }
 }
 
 async function addContactSequences(
   contactId: string,
   sequenceIds: string[],
   chatbotId: string,
-  tx: PrismaTransaction,
+  tx: DrizzleTransaction,
 ) {
   if (sequenceIds.length === 0) {
     return
@@ -128,11 +146,23 @@ export const updateContactSequenceAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: UpdateContactSequenceRequest
     }) => {
-      const contact = await prisma.contact.findFirstOrThrow({
-        where: { id: parsedInput.contactId, chatbotId },
-      })
+      const contacts = await db
+        .select()
+        .from(contactModel)
+        .where(
+          and(
+            eq(contactModel.id, parsedInput.contactId),
+            eq(contactModel.chatbotId, chatbotId),
+          ),
+        )
+        .limit(1)
 
-      const returnedSequences = await prisma.$transaction(async (tx) => {
+      const contact = contacts[0]
+      if (!contact) {
+        throw new Error("Contact not found")
+      }
+
+      const returnedSequences = await db.transaction(async (tx) => {
         const currentIds = await getCurrentSequenceIds(
           contact.id,
           chatbotId,
@@ -146,10 +176,14 @@ export const updateContactSequenceAction = chatbotActionClient
         await removeContactSequences(contact.id, toRemove, chatbotId, tx)
         await addContactSequences(contact.id, toAdd, chatbotId, tx)
 
-        return tx.contactsOnSequence.findMany({
-          where: { contactId: contact.id, chatbotId },
-          include: { sequence: true },
+        const result = await tx.query.contactsOnSequenceModel.findMany({
+          where: {
+            contactId: contact.id,
+            chatbotId,
+          },
+          with: { sequence: true },
         })
+        return result
       })
 
       revalidateCacheTags([

@@ -8,10 +8,10 @@ export type AIMcpServerCollection = {
   data: AIMCPServerModel[]
 }
 
-export const getAIMcpServersRequest = z.object({
+export const listAIMcpServersRequest = z.object({
   chatbotId: z.string(),
 })
-export type GetAIMcpServersRequest = z.infer<typeof getAIMcpServersRequest>
+export type ListAIMcpServersRequest = z.infer<typeof listAIMcpServersRequest>
 
 const baseAIMcpServerRequest = z.object({
   url: z.url(),
@@ -34,6 +34,7 @@ const baseAIMcpServerRequest = z.object({
     }),
   ]),
 })
+export type BaseAIMcpServerRequest = z.infer<typeof baseAIMcpServerRequest>
 
 export const createAIMcpServerRequest = baseAIMcpServerRequest.extend({
   name: z.string().trim().min(1),

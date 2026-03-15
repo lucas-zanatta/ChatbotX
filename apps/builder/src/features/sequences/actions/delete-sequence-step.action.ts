@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
+import { sequenceModel, sequenceStepModel } from "@aha.chat/database/schema"
 import { z } from "zod"
 import {
   type ChatbotIdRequestParams,
@@ -21,24 +22,35 @@ async function validateSequenceOwnership(
   sequenceId: string,
   chatbotId: string,
 ) {
-  await prisma.sequence.findFirstOrThrow({
-    where: { id: sequenceId, chatbotId },
-  })
+  await findOrFail(
+    sequenceModel,
+    {
+      id: sequenceId,
+      chatbotId,
+    },
+    "Sequence not found",
+  )
 }
 
 async function deleteStep(stepId: string, chatbotId: string) {
-  const step = await prisma.sequenceStep.findFirstOrThrow({
-    where: { id: stepId },
-    include: { sequence: true },
+  const step = await db.query.sequenceStepModel.findFirst({
+    where: {
+      id: stepId,
+    },
+    with: {
+      sequence: true,
+    },
   })
+
+  if (!step) {
+    throw new Error("Step not found")
+  }
 
   if (step.sequence.chatbotId !== chatbotId) {
     throw new Error("Unauthorized: Step does not belong to this chatbot")
   }
 
-  await prisma.sequenceStep.delete({
-    where: { id: stepId },
-  })
+  await db.delete(sequenceStepModel).where(eq(sequenceStepModel.id, stepId))
 }
 
 export const deleteSequenceStepAction = chatbotActionClient

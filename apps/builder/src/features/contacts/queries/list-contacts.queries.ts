@@ -1,95 +1,83 @@
-import type { Prisma } from "@aha.chat/database"
-import { prisma } from "@aha.chat/database"
+import { db, relationsFilterToSQL } from "@aha.chat/database/client"
+import { contactModel } from "@aha.chat/database/schema"
+import {
+  getPaginationWithDefaults,
+  parseOrderByAsObject,
+} from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { ListContactsRequest } from "../schemas/query"
-import type { ContactCollection } from "../schemas/resource"
+import type {
+  ListContactsRequest,
+  ListContactsResponse,
+} from "../schemas/query"
 
 export async function listContacts(
-  input: ListContactsRequest,
-): Promise<ContactCollection> {
+  input: ListContactsRequest & { chatbotId: string },
+): Promise<ListContactsResponse> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
   const where = generateWhere(input)
-  const orderBy = input.sort.map((sortItem) => {
-    if ((sortItem.id as string) === "keyword") {
-      return {
-        firstName: sortItem.desc ? "desc" : "asc",
-      } as Prisma.ContactOrderByWithRelationInput
-    }
-    return {
-      [sortItem.id]: sortItem.desc ? "desc" : "asc",
-    } as Prisma.ContactOrderByWithRelationInput
-  })
 
-  const take = input.perPage || 10
-  const skip = ((input.page ?? 1) - 1) * take
-  const [data, total] = await prisma.$transaction([
-    prisma.contact.findMany({
-      skip,
-      take,
+  const pagination = getPaginationWithDefaults(input)
+  const orderBy = parseOrderByAsObject(contactModel, input)
+
+  const [data, totalRows] = await Promise.all([
+    db.query.contactModel.findMany({
       where,
+      ...pagination,
       orderBy,
-      include: {
+      with: {
         conversation: {
-          include: {
+          with: {
             assignedUser: true,
             assignedInboxTeam: true,
+            inbox: true,
           },
         },
       },
     }),
-    prisma.contact.count({ where }),
+    db.$count(contactModel, relationsFilterToSQL(contactModel, where)),
   ])
 
-  const pageCount = Math.ceil(total / take)
+  const pageCount = Math.ceil(totalRows / pagination.limit)
 
   return { data, pageCount }
 }
 
 export async function countContacts(
-  input: ListContactsRequest,
+  input: ListContactsRequest & { chatbotId: string },
 ): Promise<{ total: number }> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
   const where = generateWhere(input)
 
-  const total = await prisma.contact.count({ where })
-
+  const total = await db.$count(
+    contactModel,
+    relationsFilterToSQL(contactModel, where),
+  )
   return { total }
 }
 
-const generateWhere = (
-  input: ListContactsRequest,
-): Prisma.ContactWhereInput => {
-  const where: Prisma.ContactWhereInput = {
+const generateWhere = (input: ListContactsRequest & { chatbotId: string }) => {
+  const where = {
     chatbotId: input.chatbotId,
-  }
-
-  if (input.keyword) {
-    where.OR = [
-      {
-        firstName: {
-          contains: input.keyword,
-          mode: "insensitive",
-        },
-      },
-      {
-        lastName: {
-          contains: input.keyword,
-          mode: "insensitive",
-        },
-      },
-      {
-        email: {
-          contains: input.keyword,
-        },
-      },
-      {
-        phoneNumber: {
-          contains: input.keyword,
-        },
-      },
-    ]
+    ...(input.keyword
+      ? {
+          OR: [
+            {
+              firstName: { ilike: `%${input.keyword.toLowerCase()}%` },
+            },
+            {
+              lastName: { ilike: `%${input.keyword.toLowerCase()}%` },
+            },
+            {
+              email: { ilike: `%${input.keyword.toLowerCase()}%` },
+            },
+            {
+              phoneNumber: { ilike: `%${input.keyword.toLowerCase()}%` },
+            },
+          ],
+        }
+      : {}),
   }
 
   return where

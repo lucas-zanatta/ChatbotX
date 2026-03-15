@@ -1,14 +1,4 @@
-import { InboxType } from "@aha.chat/database/types"
 import type { SelectOption } from "@aha.chat/ui/components/form/select-field"
-import {
-  SiMessenger,
-  SiMessengerHex,
-  SiWhatsapp,
-  SiWhatsappHex,
-  SiZalo,
-  SiZaloHex,
-} from "@icons-pack/react-simple-icons"
-import { AppWindowIcon, AtomIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useInboxStore } from "./inbox-store-context"
 
@@ -16,32 +6,22 @@ export const allInboxConfigs = {
   omnichannel: {
     label: "Omnichannel",
     value: "omnichannel",
-    icon: AtomIcon,
-    iconColor: "none",
   },
   messenger: {
     label: "Messenger",
-    value: InboxType.messenger,
-    icon: SiMessenger,
-    iconColor: SiMessengerHex,
+    value: "messenger",
   },
   whatsapp: {
     label: "Whatsapp",
-    value: InboxType.whatsapp,
-    icon: SiWhatsapp,
-    iconColor: SiWhatsappHex,
+    value: "whatsapp",
   },
   zalo: {
     label: "Zalo",
-    value: InboxType.zalo,
-    icon: SiZalo,
-    iconColor: SiZaloHex,
+    value: "zalo",
   },
   webchat: {
     label: "Webchat",
-    value: InboxType.webchat,
-    icon: AppWindowIcon,
-    iconColor: "none",
+    value: "webchat",
   },
 } as const
 

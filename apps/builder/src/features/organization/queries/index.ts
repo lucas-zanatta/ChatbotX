@@ -1,41 +1,44 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import {
   type OrganizationModel,
   type OrganizationSettings,
-  type OrganizationWhereInput,
   organizationSettingsSchema,
 } from "@aha.chat/database/types"
 import { getDomainFromHeader } from "@/lib/domain"
-import { BaseException } from "@/lib/errors/exception"
+import { ChatbotXException } from "@/lib/errors/exception"
 import { logger } from "@/lib/log"
 
 export async function findOrganizationByDomain(): Promise<OrganizationModel | null> {
   const domain = await getDomainFromHeader()
 
-  return await prisma.organization.findFirst({
-    where: {
-      domain,
-    },
-  })
+  return (
+    (await db.query.organizationModel.findFirst({
+      where: {
+        domain,
+      },
+    })) ?? null
+  )
 }
 
 export async function findOrganization(
-  where: OrganizationWhereInput,
+  where: Record<string, unknown>,
 ): Promise<OrganizationModel | null> {
-  return await prisma.organization.findFirst({
-    where,
-  })
+  return (
+    (await db.query.organizationModel.findFirst({
+      where,
+    })) ?? null
+  )
 }
 
 export async function findOrganizationSettings(
-  where: OrganizationWhereInput,
+  where: Record<string, unknown>,
 ): Promise<OrganizationSettings> {
   const organization = await findOrganization(where)
   if (!organization) {
-    logger.error("Organization not found", { where })
-    throw new BaseException("Organization not found")
+    logger.debug({ where }, "Organization not found")
+    throw new ChatbotXException("Organization not found")
   }
 
   return verifyOrganizationSettings(organization)
@@ -44,14 +47,16 @@ export async function findOrganizationSettings(
 export async function findOrganizationSettingsByKey<
   K extends keyof OrganizationSettings,
 >(
-  where: OrganizationWhereInput,
+  where: Record<string, unknown>,
   settingsKey: K,
 ): Promise<NonNullable<OrganizationSettings[K]>> {
   const settings = await findOrganizationSettings(where)
 
   const value = settings?.[settingsKey]
   if (!value) {
-    throw new BaseException(`Organization settings ${settingsKey} is not valid`)
+    throw new ChatbotXException(
+      `Organization settings ${settingsKey} is not valid`,
+    )
   }
 
   return value as NonNullable<OrganizationSettings[K]>

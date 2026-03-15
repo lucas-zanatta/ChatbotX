@@ -1,20 +1,27 @@
-import { prisma } from "@aha.chat/database"
+import {
+  and,
+  db,
+  type ExtractTablesWithRelations,
+  eq,
+  inArray,
+} from "@aha.chat/database/client"
+import type * as schema from "@aha.chat/database/schema"
+import {
+  contactsOnSequenceModel,
+  sequenceDispatchModel,
+  sequenceEventModel,
+} from "@aha.chat/database/schema"
 import { getDragonflyClient } from "@aha.chat/scheduler"
+import { createId } from "@paralleldrive/cuid2"
 import { createHash } from "crypto"
+import type { PgTransaction } from "drizzle-orm/pg-core"
+import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js"
 
-type PrismaTransactionClient = Omit<
-  typeof prisma,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+type DrizzleTransaction = PgTransaction<
+  PostgresJsQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
 >
-async function withTransaction<T>(
-  client: typeof prisma | PrismaTransactionClient,
-  fn: (tx: PrismaTransactionClient) => Promise<T>,
-): Promise<T> {
-  if ("$transaction" in client) {
-    return await (client as typeof prisma).$transaction(fn)
-  }
-  return await fn(client as PrismaTransactionClient)
-}
 export function calculateBucket(chatbotId: string, contactId: string): number {
   const key = `${chatbotId}:${contactId}`
   const hash = createHash("sha256").update(key).digest()
@@ -30,12 +37,12 @@ export function generateIdempotencyKey(
 }
 export interface CreateDispatchParams {
   chatbotId: string
-  sequenceId: string
+  client?: DrizzleTransaction
   contactId: string
-  stepId: string
   enrollmentId: string
   runAt: Date
-  client?: PrismaTransactionClient
+  sequenceId: string
+  stepId: string
 }
 export async function createDispatch(
   params: CreateDispatchParams,
@@ -47,7 +54,7 @@ export async function createDispatch(
     stepId,
     enrollmentId,
     runAt,
-    client = prisma,
+    client = db,
   } = params
   const bucket = calculateBucket(chatbotId, contactId)
   const runAtMs = runAt.getTime()
@@ -57,8 +64,10 @@ export async function createDispatch(
     stepId,
     runAt,
   )
-  const dispatch = await client.sequenceDispatch.create({
-    data: {
+  const [dispatch] = await client
+    .insert(sequenceDispatchModel)
+    .values({
+      id: createId(),
       chatbotId,
       sequenceId,
       contactId,
@@ -69,40 +78,41 @@ export async function createDispatch(
       idempotencyKey,
       status: "pending",
       attempt: 0,
-    },
-    select: {
-      id: true,
-      bucket: true,
-      runAtMs: true,
-    },
-  })
+    })
+    .returning({
+      id: sequenceDispatchModel.id,
+      bucket: sequenceDispatchModel.bucket,
+      runAtMs: sequenceDispatchModel.runAtMs,
+    })
+
+  if (!dispatch) {
+    throw new Error("Failed to create dispatch")
+  }
+
   return {
     ...dispatch,
     runAtMs: Number(dispatch.runAtMs),
   }
 }
 export interface CancelPendingDispatchesParams {
-  enrollmentId: string
   chatbotId: string
+  client?: DrizzleTransaction
+  enrollmentId: string
   reason?: string
-  client?: PrismaTransactionClient
 }
 export async function cancelPendingDispatches(
   params: CancelPendingDispatchesParams,
 ): Promise<Array<{ id: string; bucket: number }>> {
-  const {
-    enrollmentId,
-    chatbotId,
-    reason = "canceled",
-    client = prisma,
-  } = params
-  const pendingDispatches = await client.sequenceDispatch.findMany({
-    where: {
-      enrollmentId,
-      chatbotId,
-      status: "pending",
-    },
-    select: {
+  const { enrollmentId, chatbotId, reason = "canceled", client = db } = params
+
+  const pendingDispatches = await client.query.sequenceDispatchModel.findMany({
+    where: (dispatch, { eq, and }) =>
+      and(
+        eq(dispatch.enrollmentId, enrollmentId),
+        eq(dispatch.chatbotId, chatbotId),
+        eq(dispatch.status, "pending"),
+      ),
+    columns: {
       id: true,
       bucket: true,
       sequenceId: true,
@@ -116,29 +126,33 @@ export async function cancelPendingDispatches(
   }
 
   const dispatchIds = pendingDispatches.map((d) => d.id)
-  await client.sequenceDispatch.updateMany({
-    where: {
-      id: { in: dispatchIds },
-      chatbotId,
-      status: "pending",
-    },
-    data: {
+  await client
+    .update(sequenceDispatchModel)
+    .set({
       status: "canceled",
       updatedAt: new Date(),
-    },
-  })
-  await client.sequenceEvent.createMany({
-    data: pendingDispatches.map((d) => ({
+    })
+    .where(
+      and(
+        inArray(sequenceDispatchModel.id, dispatchIds),
+        eq(sequenceDispatchModel.chatbotId, chatbotId),
+        eq(sequenceDispatchModel.status, "pending"),
+      ),
+    )
+
+  await client.insert(sequenceEventModel).values(
+    pendingDispatches.map((d) => ({
+      id: createId(),
       chatbotId,
       sequenceId: d.sequenceId,
       contactId: d.contactId,
       stepId: d.stepId,
       dispatchId: d.id,
-      eventType: "dispatch_canceled",
+      eventType: "dispatch_canceled" as const,
       payload: { reason },
       occurredAt: new Date(),
     })),
-  })
+  )
 
   const dragonfly = getDragonflyClient()
   for (const dispatch of pendingDispatches) {
@@ -151,11 +165,11 @@ export async function cancelPendingDispatches(
   }))
 }
 export interface RescheduleEnrollmentParams {
-  enrollmentId: string
   chatbotId: string
+  client?: DrizzleTransaction
+  enrollmentId: string
   newNextRunAt: Date
   newStepId: string
-  client?: PrismaTransactionClient
 }
 export async function rescheduleEnrollment(
   params: RescheduleEnrollmentParams,
@@ -168,30 +182,33 @@ export async function rescheduleEnrollment(
     chatbotId,
     newNextRunAt,
     newStepId,
-    client = prisma,
+    client = db,
   } = params
-  return await withTransaction(client, async (tx) => {
-    await tx.contactsOnSequence.update({
-      where: {
-        id_chatbotId: {
-          id: enrollmentId,
-          chatbotId,
-        },
-      },
-      data: {
+
+  const executeReschedule = async (tx: DrizzleTransaction) => {
+    await tx
+      .update(contactsOnSequenceModel)
+      .set({
         nextRunAt: newNextRunAt,
         nextStepId: newStepId,
         updatedAt: new Date(),
-      },
-    })
-    const currentDispatch = await tx.sequenceDispatch.findFirst({
-      where: {
-        enrollmentId,
-        chatbotId,
-        status: { in: ["pending", "running"] },
-      },
-      orderBy: { runAtMs: "desc" },
-      select: {
+      })
+      .where(
+        and(
+          eq(contactsOnSequenceModel.id, enrollmentId),
+          eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        ),
+      )
+
+    const currentDispatch = await tx.query.sequenceDispatchModel.findFirst({
+      where: (dispatch, { eq, and, inArray }) =>
+        and(
+          eq(dispatch.enrollmentId, enrollmentId),
+          eq(dispatch.chatbotId, chatbotId),
+          inArray(dispatch.status, ["pending", "running"]),
+        ),
+      orderBy: (dispatch, { desc }) => [desc(dispatch.runAtMs)],
+      columns: {
         id: true,
         bucket: true,
         status: true,
@@ -202,31 +219,32 @@ export async function rescheduleEnrollment(
     })
     let canceled: Array<{ id: string; bucket: number }> | null = null
     if (currentDispatch && currentDispatch.status === "pending") {
-      await tx.sequenceDispatch.update({
-        where: {
-          id_chatbotId: {
-            id: currentDispatch.id,
-            chatbotId,
-          },
-          status: "pending",
-        },
-        data: {
+      await tx
+        .update(sequenceDispatchModel)
+        .set({
           status: "canceled",
           updatedAt: new Date(),
-        },
+        })
+        .where(
+          and(
+            eq(sequenceDispatchModel.id, currentDispatch.id),
+            eq(sequenceDispatchModel.chatbotId, chatbotId),
+            eq(sequenceDispatchModel.status, "pending"),
+          ),
+        )
+
+      await tx.insert(sequenceEventModel).values({
+        id: createId(),
+        chatbotId,
+        sequenceId: currentDispatch.sequenceId,
+        contactId: currentDispatch.contactId,
+        stepId: currentDispatch.stepId,
+        dispatchId: currentDispatch.id,
+        eventType: "dispatch_canceled" as const,
+        payload: { reason: "reschedule" },
+        occurredAt: new Date(),
       })
-      await tx.sequenceEvent.create({
-        data: {
-          chatbotId,
-          sequenceId: currentDispatch.sequenceId,
-          contactId: currentDispatch.contactId,
-          stepId: currentDispatch.stepId,
-          dispatchId: currentDispatch.id,
-          eventType: "dispatch_canceled",
-          payload: { reason: "reschedule" },
-          occurredAt: new Date(),
-        },
-      })
+
       canceled = [
         {
           id: currentDispatch.id,
@@ -234,18 +252,20 @@ export async function rescheduleEnrollment(
         },
       ]
     }
-    const enrollment = await tx.contactsOnSequence.findUniqueOrThrow({
-      where: {
-        id_chatbotId: {
-          id: enrollmentId,
-          chatbotId,
-        },
-      },
-      select: {
+
+    const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
+      where: (cos, { eq, and }) =>
+        and(eq(cos.id, enrollmentId), eq(cos.chatbotId, chatbotId)),
+      columns: {
         sequenceId: true,
         contactId: true,
       },
     })
+
+    if (!enrollment) {
+      throw new Error("Enrollment not found")
+    }
+
     const created = await createDispatch({
       chatbotId,
       sequenceId: enrollment.sequenceId,
@@ -256,82 +276,90 @@ export async function rescheduleEnrollment(
       client: tx,
     })
     return { canceled, created }
-  })
+  }
+
+  if ("transaction" in client) {
+    return await client.transaction(executeReschedule)
+  }
+  return await executeReschedule(client)
 }
 export interface PauseEnrollmentParams {
-  enrollmentId: string
   chatbotId: string
-  client?: PrismaTransactionClient
+  client?: DrizzleTransaction
+  enrollmentId: string
 }
 export async function pauseEnrollment(
   params: PauseEnrollmentParams,
 ): Promise<Array<{ id: string; bucket: number }>> {
-  const { enrollmentId, chatbotId, client = prisma } = params
-  return await withTransaction(client, async (tx) => {
-    await tx.contactsOnSequence.update({
-      where: {
-        id_chatbotId: {
-          id: enrollmentId,
-          chatbotId,
-        },
-      },
-      data: {
+  const { enrollmentId, chatbotId, client = db } = params
+
+  const executePause = async (tx: DrizzleTransaction) => {
+    await tx
+      .update(contactsOnSequenceModel)
+      .set({
         status: "paused",
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(
+        and(
+          eq(contactsOnSequenceModel.id, enrollmentId),
+          eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        ),
+      )
     return await cancelPendingDispatches({
       enrollmentId,
       chatbotId,
       reason: "paused",
       client: tx,
     })
-  })
+  }
+
+  if ("transaction" in client) {
+    return await client.transaction(executePause)
+  }
+  return await executePause(client)
 }
 export interface ResumeEnrollmentParams {
-  enrollmentId: string
   chatbotId: string
+  client?: DrizzleTransaction
+  enrollmentId: string
   nextRunAt: Date
   nextStepId: string
-  client?: PrismaTransactionClient
 }
 export async function resumeEnrollment(
   params: ResumeEnrollmentParams,
 ): Promise<{ id: string; bucket: number; runAtMs: number }> {
-  const {
-    enrollmentId,
-    chatbotId,
-    nextRunAt,
-    nextStepId,
-    client = prisma,
-  } = params
-  return await withTransaction(client, async (tx) => {
-    await tx.contactsOnSequence.update({
-      where: {
-        id_chatbotId: {
-          id: enrollmentId,
-          chatbotId,
-        },
-      },
-      data: {
+  const { enrollmentId, chatbotId, nextRunAt, nextStepId, client = db } = params
+
+  const executeResume = async (tx: DrizzleTransaction) => {
+    await tx
+      .update(contactsOnSequenceModel)
+      .set({
         status: "active",
         nextRunAt,
         nextStepId,
         updatedAt: new Date(),
-      },
-    })
-    const enrollment = await tx.contactsOnSequence.findUniqueOrThrow({
-      where: {
-        id_chatbotId: {
-          id: enrollmentId,
-          chatbotId,
-        },
-      },
-      select: {
+      })
+      .where(
+        and(
+          eq(contactsOnSequenceModel.id, enrollmentId),
+          eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        ),
+      )
+
+    const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
+      where: (cos, { eq, and }) =>
+        and(eq(cos.id, enrollmentId), eq(cos.chatbotId, chatbotId)),
+      columns: {
         sequenceId: true,
         contactId: true,
       },
     })
+
+    if (!enrollment) {
+      throw new Error("Enrollment not found")
+    }
+
     const result = await createDispatch({
       chatbotId,
       sequenceId: enrollment.sequenceId,
@@ -342,5 +370,10 @@ export async function resumeEnrollment(
       client: tx,
     })
     return result
-  })
+  }
+
+  if ("transaction" in client) {
+    return await client.transaction(executeResume)
+  }
+  return await executeResume(client)
 }

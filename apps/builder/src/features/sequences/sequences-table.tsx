@@ -1,6 +1,6 @@
 "use client"
 
-import { FolderType } from "@aha.chat/database/types"
+import { FolderType } from "@aha.chat/database/enums"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-table-column-header"
 import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
@@ -273,7 +273,7 @@ export function SequencesTable({ chatbotId, promises }: SequencesTableProps) {
         chatbotId={chatbotId}
         currentFolderId={rowAction?.row.original?.folderId || null}
         folderType={FolderType.sequence}
-        modelId={rowAction?.row.original?.id || null}
+        modelIds={rowAction?.row.original ? [rowAction.row.original.id] : []}
         onOpenChange={() => setRowAction(null)}
         open={rowAction?.variant === "move"}
       />

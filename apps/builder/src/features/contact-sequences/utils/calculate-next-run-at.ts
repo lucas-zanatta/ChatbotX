@@ -1,11 +1,34 @@
-import { prisma } from "@aha.chat/database"
+import {
+  and,
+  db,
+  eq,
+  isNull,
+  lte,
+  sql,
+  type Transaction,
+} from "@aha.chat/database/client"
+import { contactsOnSequenceModel } from "@aha.chat/database/schema"
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import { createDispatch } from "@aha.chat/sequence-scheduler"
 
-type PrismaClient = Omit<
-  typeof prisma,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
->
+type DrizzleClient = typeof db | Transaction
+
+type SequenceStepForDelay = {
+  id: string
+  order: number
+  sequenceId?: string
+  delayDays: number
+  delayMinutes: number
+  delayUnit: string | null
+  specificDateTime: Date | null
+}
+
+type ContactForRecalculation = {
+  id: string
+  contactId: string
+  currentStep: number
+  enrolledAt: Date
+}
 
 // Chunk size for batch processing to prevent timeout
 const RECALCULATION_CHUNK_SIZE = 500
@@ -22,11 +45,11 @@ async function createAndScheduleDispatch(
     enrollmentId: string
     runAt: Date
   },
-  client: PrismaClient,
+  client: DrizzleClient,
 ) {
   const dispatch = await createDispatch({
     ...params,
-    client,
+    client: client as Transaction,
   })
 
   const dragonfly = getDragonflyClient()
@@ -36,17 +59,17 @@ async function createAndScheduleDispatch(
 export async function calculateNextRunAt(
   sequenceId: string,
   enrolledAt: Date = new Date(),
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ): Promise<{ nextRunAt: Date; nextStepId: string | null }> {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
-  const firstStep = await client.sequenceStep.findFirst({
+  const firstStep = await client.query.sequenceStepModel.findFirst({
     where: {
       sequenceId,
       order: 0,
       isActive: true,
     },
-    select: {
+    columns: {
       id: true,
       delayDays: true,
       delayMinutes: true,
@@ -77,17 +100,17 @@ export async function calculateNextRunAt(
 export async function calculateNextRunAtBulk(
   sequenceIds: string[],
   enrolledAt: Date = new Date(),
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ): Promise<Map<string, { nextRunAt: Date; nextStepId: string | null }>> {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
-  const firstSteps = await client.sequenceStep.findMany({
+  const firstSteps = await client.query.sequenceStepModel.findMany({
     where: {
       sequenceId: { in: sequenceIds },
       order: 0,
       isActive: true,
     },
-    select: {
+    columns: {
       id: true,
       sequenceId: true,
       delayDays: true,
@@ -136,15 +159,17 @@ function calculateDelayInMs(delayDays: number, delayMinutes: number): number {
 
 async function getActiveStepsForSequence(
   sequenceId: string,
-  client: PrismaClient,
-) {
-  return await client.sequenceStep.findMany({
+  client: DrizzleClient,
+): Promise<SequenceStepForDelay[]> {
+  return await client.query.sequenceStepModel.findMany({
     where: {
       sequenceId,
       isActive: true,
     },
-    orderBy: { order: "asc" },
-    select: {
+    orderBy: {
+      order: "asc",
+    },
+    columns: {
       id: true,
       order: true,
       delayDays: true,
@@ -158,7 +183,7 @@ async function getActiveStepsForSequence(
 async function getActiveStepsCumulativeDelay(
   sequenceId: string,
   upToOrder: number,
-  client: PrismaClient,
+  client: DrizzleClient,
 ): Promise<number | Date> {
   const steps = await getActiveStepsForSequence(sequenceId, client)
 
@@ -193,18 +218,20 @@ async function getActiveStepsCumulativeDelay(
 async function getNextActiveStep(
   sequenceId: string,
   fromOrder: number,
-  client: PrismaClient,
+  client: DrizzleClient,
 ): Promise<{ id: string; order: number } | null> {
-  const nextStep = await client.sequenceStep.findFirst({
+  const nextStep = await client.query.sequenceStepModel.findFirst({
     where: {
       sequenceId,
       order: { gte: fromOrder },
       isActive: true,
     },
-    orderBy: { order: "asc" },
-    select: { id: true, order: true },
+    orderBy: {
+      order: "asc",
+    },
+    columns: { id: true, order: true },
   })
-  return nextStep
+  return nextStep ?? null
 }
 
 type UpdateContactsNextRunAtParams = {
@@ -213,7 +240,7 @@ type UpdateContactsNextRunAtParams = {
   currentStepOrder: number
   delayMsOrDate: number | Date
   nextStepId: string | null
-  client: PrismaClient
+  client: DrizzleClient
 }
 
 async function updateContactsNextRunAt(params: UpdateContactsNextRunAtParams) {
@@ -226,42 +253,41 @@ async function updateContactsNextRunAt(params: UpdateContactsNextRunAtParams) {
     client,
   } = params
 
+  const whereCondition = and(
+    eq(contactsOnSequenceModel.sequenceId, sequenceId),
+    eq(contactsOnSequenceModel.chatbotId, chatbotId),
+    eq(contactsOnSequenceModel.currentStep, currentStepOrder),
+    eq(contactsOnSequenceModel.status, "active"),
+    isNull(contactsOnSequenceModel.completedAt),
+  )
+
   if (delayMsOrDate === -1) {
-    await client.$executeRaw`
-      UPDATE "ContactsOnSequence"
-      SET "nextRunAt" = NULL,
-          "nextStepId" = ${nextStepId},
-          "updatedAt" = NOW()
-      WHERE "sequenceId" = ${sequenceId}
-        AND "chatbotId" = ${chatbotId}
-        AND "currentStep" = ${currentStepOrder}
-        AND "status" = 'active'
-        AND "completedAt" IS NULL
-    `
+    await client
+      .update(contactsOnSequenceModel)
+      .set({
+        nextRunAt: null,
+        nextStepId,
+        updatedAt: new Date(),
+      })
+      .where(whereCondition)
   } else if (delayMsOrDate instanceof Date) {
-    await client.$executeRaw`
-      UPDATE "ContactsOnSequence"
-      SET "nextRunAt" = ${delayMsOrDate},
-          "nextStepId" = ${nextStepId},
-          "updatedAt" = NOW()
-      WHERE "sequenceId" = ${sequenceId}
-        AND "chatbotId" = ${chatbotId}
-        AND "currentStep" = ${currentStepOrder}
-        AND "status" = 'active'
-        AND "completedAt" IS NULL
-    `
+    await client
+      .update(contactsOnSequenceModel)
+      .set({
+        nextRunAt: delayMsOrDate,
+        nextStepId,
+        updatedAt: new Date(),
+      })
+      .where(whereCondition)
   } else {
-    await client.$executeRaw`
-      UPDATE "ContactsOnSequence"
-      SET "nextRunAt" = NOW() + INTERVAL '${delayMsOrDate} milliseconds',
-          "nextStepId" = ${nextStepId},
-          "updatedAt" = NOW()
-      WHERE "sequenceId" = ${sequenceId}
-        AND "chatbotId" = ${chatbotId}
-        AND "currentStep" = ${currentStepOrder}
-        AND "status" = 'active'
-        AND "completedAt" IS NULL
-    `
+    await client
+      .update(contactsOnSequenceModel)
+      .set({
+        nextRunAt: sql`NOW() + INTERVAL '${sql.raw(String(delayMsOrDate))} milliseconds'`,
+        nextStepId,
+        updatedAt: new Date(),
+      })
+      .where(whereCondition)
   }
 }
 
@@ -269,7 +295,7 @@ async function recalculateNextRunAtForStep(
   sequenceId: string,
   chatbotId: string,
   stepOrder: number,
-  client: PrismaClient,
+  client: DrizzleClient,
 ) {
   // Find the NEXT active step after currentStep
   // Contact is at stepOrder, so we need to find the next step they will run
@@ -283,19 +309,24 @@ async function recalculateNextRunAtForStep(
   // If no next active step exists, mark contacts as COMPLETED
   // They have finished all available steps in the sequence
   if (nextActiveStep === null) {
-    await client.$executeRaw`
-      UPDATE "ContactsOnSequence"
-      SET "status" = 'completed',
-          "completedAt" = NOW(),
-          "nextRunAt" = NULL,
-          "nextStepId" = NULL,
-          "updatedAt" = NOW()
-      WHERE "sequenceId" = ${sequenceId}
-        AND "chatbotId" = ${chatbotId}
-        AND "currentStep" = ${stepOrder}
-        AND "status" = 'active'
-        AND "completedAt" IS NULL
-    `
+    await client
+      .update(contactsOnSequenceModel)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+        nextRunAt: null,
+        nextStepId: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(contactsOnSequenceModel.sequenceId, sequenceId),
+          eq(contactsOnSequenceModel.chatbotId, chatbotId),
+          eq(contactsOnSequenceModel.currentStep, stepOrder),
+          eq(contactsOnSequenceModel.status, "active"),
+          isNull(contactsOnSequenceModel.completedAt),
+        ),
+      )
     return
   }
 
@@ -329,24 +360,23 @@ async function recalculateNextRunAtForStep(
 export async function recalculateAllContactsInSequence(
   sequenceId: string,
   chatbotId: string,
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ) {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
   // Only recalculate for active, non-completed contacts
   // Completed contacts remain finished and are not affected by step changes
-  const uniqueSteps = await client.contactsOnSequence.findMany({
-    where: {
-      sequenceId,
-      chatbotId,
-      status: "active",
-      completedAt: null,
-    },
-    select: {
-      currentStep: true,
-    },
-    distinct: ["currentStep"],
-  })
+  const uniqueSteps = await client
+    .selectDistinct({ currentStep: contactsOnSequenceModel.currentStep })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.sequenceId, sequenceId),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        eq(contactsOnSequenceModel.status, "active"),
+        isNull(contactsOnSequenceModel.completedAt),
+      ),
+    )
 
   // Recalculate for each unique currentStep position
   // This handles contacts at different stages of the sequence
@@ -385,27 +415,28 @@ async function reactivateCompletedContactsForNewStep(
   sequenceId: string,
   chatbotId: string,
   newStepOrder: number,
-  client: PrismaClient,
+  client: DrizzleClient,
 ) {
   // Find completed contacts that can process the new step
   // currentStep represents NEXT step to process, so:
   // - If currentStep=3 and newStepOrder=3, contact should process it (3 <= 3) ✅
   // - If currentStep=5 and newStepOrder=3, contact already passed it (5 > 3) ❌
-  const completedContacts = await client.contactsOnSequence.findMany({
-    where: {
-      sequenceId,
-      chatbotId,
-      status: "completed",
-      // Reactivate if currentStep (next to process) <= newStepOrder
-      currentStep: { lte: newStepOrder },
+  const completedContacts = await client.query.contactsOnSequenceModel.findMany(
+    {
+      where: {
+        sequenceId,
+        chatbotId,
+        status: "completed",
+        currentStep: { lte: newStepOrder },
+      },
+      columns: {
+        id: true,
+        contactId: true,
+        currentStep: true,
+        enrolledAt: true,
+      },
     },
-    select: {
-      id: true,
-      contactId: true,
-      currentStep: true,
-      enrolledAt: true,
-    },
-  })
+  )
 
   if (completedContacts.length === 0) {
     return
@@ -425,87 +456,81 @@ async function reactivateCompletedContactsForNewStep(
 
     // Process chunk in parallel
     await Promise.all(
-      chunk.map(
-        async (contact: {
-          id: string
-          contactId: string
-          currentStep: number
-          enrolledAt: Date
-        }) => {
-          // Find the next active step at or after currentStep
-          // currentStep represents the NEXT step order to process
-          // Use >= because if currentStep=3, we want to find step with order=3
-          const nextActiveStep = activeSteps.find(
-            (step) => step.order >= contact.currentStep,
-          )
+      chunk.map(async (contact: ContactForRecalculation) => {
+        // Find the next active step at or after currentStep
+        // currentStep represents the NEXT step order to process
+        // Use >= because if currentStep=3, we want to find step with order=3
+        const nextActiveStep = activeSteps.find(
+          (step) => step.order >= contact.currentStep,
+        )
 
-          if (!nextActiveStep) {
-            // No next step available, keep them completed
-            return
-          }
+        if (!nextActiveStep) {
+          // No next step available, keep them completed
+          return
+        }
 
-          // Calculate cumulative delay to the next step
-          // Filter steps up to target order (0-based)
-          const stepsUpToTarget = activeSteps.filter(
-            (s) => s.order <= nextActiveStep.order,
-          )
+        // Calculate cumulative delay to the next step
+        // Filter steps up to target order (0-based)
+        const stepsUpToTarget = activeSteps.filter(
+          (s) => s.order <= nextActiveStep.order,
+        )
 
-          // Check for specificDateTime
-          const targetStep = stepsUpToTarget.at(-1)
-          let nextRunAt: Date | null = null
+        // Check for specificDateTime
+        const targetStep = stepsUpToTarget.at(-1)
+        let nextRunAt: Date | null = null
 
-          if (
-            targetStep?.delayUnit === "specificTime" &&
-            targetStep.specificDateTime
-          ) {
-            nextRunAt = targetStep.specificDateTime
-          } else {
-            // Calculate cumulative delay
-            let totalDelayMs = 0
-            for (const step of stepsUpToTarget) {
-              totalDelayMs += calculateDelayInMs(
-                step.delayDays,
-                step.delayMinutes,
-              )
-            }
-
-            if (totalDelayMs > 0) {
-              nextRunAt = new Date(contact.enrolledAt.getTime() + totalDelayMs)
-            }
-          }
-
-          // Reactivate the contact
-          await client.contactsOnSequence.update({
-            where: {
-              id_chatbotId: {
-                id: contact.id,
-                chatbotId,
-              },
-            },
-            data: {
-              status: "active",
-              completedAt: null,
-              nextStepId: nextActiveStep.id,
-              nextRunAt,
-            },
-          })
-
-          // Create and schedule dispatch for the reactivated contact
-          if (nextRunAt) {
-            await createAndScheduleDispatch(
-              {
-                chatbotId,
-                sequenceId,
-                contactId: contact.contactId,
-                stepId: nextActiveStep.id,
-                enrollmentId: contact.id,
-                runAt: nextRunAt,
-              },
-              client,
+        if (
+          targetStep?.delayUnit === "specificTime" &&
+          targetStep.specificDateTime
+        ) {
+          nextRunAt = targetStep.specificDateTime
+        } else {
+          // Calculate cumulative delay
+          let totalDelayMs = 0
+          for (const step of stepsUpToTarget) {
+            totalDelayMs += calculateDelayInMs(
+              step.delayDays,
+              step.delayMinutes,
             )
           }
-        },
-      ),
+
+          if (totalDelayMs > 0) {
+            nextRunAt = new Date(contact.enrolledAt.getTime() + totalDelayMs)
+          }
+        }
+
+        // Reactivate the contact
+        await client
+          .update(contactsOnSequenceModel)
+          .set({
+            status: "active",
+            completedAt: null,
+            nextStepId: nextActiveStep.id,
+            nextRunAt,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(contactsOnSequenceModel.id, contact.id),
+              eq(contactsOnSequenceModel.chatbotId, chatbotId),
+            ),
+          )
+
+        // Create and schedule dispatch for the reactivated contact
+        if (nextRunAt) {
+          await createAndScheduleDispatch(
+            {
+              chatbotId,
+              sequenceId,
+              contactId: contact.contactId,
+              stepId: nextActiveStep.id,
+              enrollmentId: contact.id,
+              runAt: nextRunAt,
+            },
+            client,
+          )
+        }
+      }),
     )
   }
 }
@@ -542,9 +567,9 @@ export async function handleStepCreationImpact(
   sequenceId: string,
   chatbotId: string,
   newStepOrder: number,
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ) {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
   // PART 1: Handle ACTIVE contacts
   // Query: Get all active contacts AFFECTED by the new step
@@ -552,25 +577,23 @@ export async function handleStepCreationImpact(
   // 1. status = 'active' AND completedAt IS NULL (only active contacts)
   // 2. currentStep <= newStepOrder (haven't passed new step or currently at new step)
   //    Note: Order is 0-based, so step 0 is the first step
-  const affectedSteps = await client.contactsOnSequence.findMany({
-    where: {
-      sequenceId,
-      chatbotId,
-      status: "active",
-      completedAt: null,
-      // 0-based: contact at step 4 should be affected by new step at order 5
-      currentStep: { lte: newStepOrder },
-    },
-    select: {
-      currentStep: true,
-    },
-    distinct: ["currentStep"],
-  })
+  const affectedSteps = await client
+    .selectDistinct({ currentStep: contactsOnSequenceModel.currentStep })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.sequenceId, sequenceId),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        eq(contactsOnSequenceModel.status, "active"),
+        isNull(contactsOnSequenceModel.completedAt),
+        lte(contactsOnSequenceModel.currentStep, newStepOrder),
+      ),
+    )
 
   // Recalculate nextRunAt for each affected currentStep position (0-based)
   // Use Promise.all for parallel processing to improve performance
   await Promise.all(
-    affectedSteps.map(({ currentStep }: { currentStep: number }) =>
+    affectedSteps.map(({ currentStep }) =>
       recalculateNextRunAtForStep(sequenceId, chatbotId, currentStep, client),
     ),
   )
@@ -633,45 +656,43 @@ export async function handleStepUpdateImpact(
   chatbotId: string,
   updatedStepId: string,
   updatedStepOrder: number,
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ) {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
   // PART 1: Handle ACTIVE contacts
   // GROUP 1: Contacts WAITING FOR this step (nextStepId = updatedStepId)
   // Example: Contact at step 2, nextStepId = step3.id
   //          → Update step 3 → need immediate recalculation
-  const contactsWaitingForStep = await client.contactsOnSequence.findMany({
-    where: {
-      sequenceId,
-      chatbotId,
-      status: "active",
-      completedAt: null,
-      nextStepId: updatedStepId,
-    },
-    select: {
-      currentStep: true,
-    },
-    distinct: ["currentStep"],
-  })
+  const contactsWaitingForStep = await client
+    .selectDistinct({ currentStep: contactsOnSequenceModel.currentStep })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.sequenceId, sequenceId),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        eq(contactsOnSequenceModel.status, "active"),
+        isNull(contactsOnSequenceModel.completedAt),
+        eq(contactsOnSequenceModel.nextStepId, updatedStepId),
+      ),
+    )
 
   // GROUP 2: Contacts at EARLIER STEPS (currentStep < updatedStepOrder)
   // Example: Contact at step 2, update step 5
   //          → Contact will reach step 5 later → need recalculation
   // Reason: Cumulative delay from step 2 → step 5 may change
-  const contactsBeforeStep = await client.contactsOnSequence.findMany({
-    where: {
-      sequenceId,
-      chatbotId,
-      status: "active",
-      completedAt: null,
-      currentStep: { lt: updatedStepOrder },
-    },
-    select: {
-      currentStep: true,
-    },
-    distinct: ["currentStep"],
-  })
+  const contactsBeforeStep = await client
+    .selectDistinct({ currentStep: contactsOnSequenceModel.currentStep })
+    .from(contactsOnSequenceModel)
+    .where(
+      and(
+        eq(contactsOnSequenceModel.sequenceId, sequenceId),
+        eq(contactsOnSequenceModel.chatbotId, chatbotId),
+        eq(contactsOnSequenceModel.status, "active"),
+        isNull(contactsOnSequenceModel.completedAt),
+        sql`${contactsOnSequenceModel.currentStep} < ${updatedStepOrder}`,
+      ),
+    )
 
   // Merge 2 groups and deduplicate
   // Example: Contact at step 2 may be in both GROUP 1 (nextStepId=step3.id)
@@ -682,9 +703,7 @@ export async function handleStepUpdateImpact(
     ...contactsBeforeStep,
   ].reduce(
     (acc, { currentStep }) => {
-      if (
-        !acc.some((s: { currentStep: number }) => s.currentStep === currentStep)
-      ) {
+      if (!acc.some((s) => s.currentStep === currentStep)) {
         acc.push({ currentStep })
       }
       return acc
@@ -695,7 +714,7 @@ export async function handleStepUpdateImpact(
   // Recalculate nextRunAt for each affected currentStep position
   // Use Promise.all for parallel processing to improve performance
   await Promise.all(
-    allAffectedSteps.map(({ currentStep }: { currentStep: number }) =>
+    allAffectedSteps.map(({ currentStep }) =>
       recalculateNextRunAtForStep(sequenceId, chatbotId, currentStep, client),
     ),
   )

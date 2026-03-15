@@ -1,51 +1,64 @@
-import { FieldType, type Prisma, prisma } from "@aha.chat/database"
+import { db, relationsFilterToSQL } from "@aha.chat/database/client"
+import { rootFolderId } from "@aha.chat/database/enums"
+import { customFieldModel } from "@aha.chat/database/schema"
+import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { CustomFieldCollection } from "../schemas"
-import type { ListCustomFieldsSearchParams } from "../schemas/list-custom-fields.schema"
+import type {
+  FindCustomFieldRequest,
+  ListCustomFieldsRequest,
+  ListCustomFieldsResponse,
+} from "../schemas/query"
+import type { CustomFieldResource } from "../schemas/resource"
 
-export async function listCustomFields(
-  input: ListCustomFieldsSearchParams,
-): Promise<CustomFieldCollection> {
+export const listCustomFieldsRSC = async (
+  input: ListCustomFieldsRequest & { chatbotId: string },
+) => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.FieldWhereInput = {
+  return listCustomFields(input)
+}
+
+export async function listCustomFields(
+  input: ListCustomFieldsRequest & { chatbotId: string },
+): Promise<ListCustomFieldsResponse> {
+  const where = {
     chatbotId: input.chatbotId,
-    fieldType: FieldType.customField,
+    folderId: input.folderId
+      ? // biome-ignore lint/style/noNestedTernary: allow nested ternary
+        input.folderId === rootFolderId
+        ? { isNull: true as const }
+        : input.folderId
+      : undefined,
+    name: input.name
+      ? {
+          ilike: `%${input.name.toLowerCase()}%`,
+        }
+      : undefined,
   }
 
-  if (input.folderId) {
-    where.folderId = input.folderId === "0" ? null : input.folderId
-  }
+  const pagination = parsePagination(input)
+  const orderBy = parseOrderByAsObject(customFieldModel, input)
 
-  if (input.name) {
-    where.name = {
-      contains: input.name,
-      mode: "insensitive",
-    }
-  }
-
-  const orderBy = input.sort.map((sortItem) => ({
-    [sortItem.id]: sortItem.desc ? "desc" : "asc",
-  }))
-
-  return await prisma.$transaction(async (tx) => {
-    let pageCount = 1
-    const pagination: { skip?: number; take?: number } = {}
-
-    if (input.perPage) {
-      const count = await tx.field.count({ where })
-      pageCount = Math.ceil(count / input.perPage)
-
-      pagination.skip = (input.page ? input.page - 1 : 0) * input.perPage
-      pagination.take = input.perPage
-    }
-
-    const data = await prisma.field.findMany({
-      ...pagination,
+  const [data, total] = await Promise.all([
+    db.query.customFieldModel.findMany({
       where,
       orderBy,
-    })
+      ...pagination,
+    }),
+    db.$count(customFieldModel, relationsFilterToSQL(customFieldModel, where)),
+  ])
 
-    return { data, pageCount }
+  const pageCount = pagination?.limit ? Math.ceil(total / pagination.limit) : 1
+
+  return { data, pageCount, ...pagination }
+}
+
+export const findCustomField = async (
+  input: FindCustomFieldRequest,
+): Promise<CustomFieldResource | undefined> => {
+  return await db.query.customFieldModel.findFirst({
+    where: {
+      ...input,
+    },
   })
 }

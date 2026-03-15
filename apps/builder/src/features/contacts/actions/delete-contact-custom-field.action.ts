@@ -1,7 +1,13 @@
 "use server"
 
-import { FieldType, prisma } from "@aha.chat/database"
+import { and, db, eq, findOrFail, inArray } from "@aha.chat/database/client"
 import {
+  contactCustomFieldModel,
+  contactModel,
+  customFieldModel,
+} from "@aha.chat/database/schema"
+import {
+  type FieldModel,
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
@@ -13,76 +19,94 @@ import {
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
-  type DeleteContactCustomFieldRequest,
-  deleteContactCustomFieldRequest,
+  type DeleteContactCustomFieldsRequest,
+  deleteContactCustomFieldsRequest,
 } from "../schemas/contact-custom-field"
 
 export const deleteContactCustomFieldAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdRequestParams)
-  .inputSchema(deleteContactCustomFieldRequest)
+  .inputSchema(deleteContactCustomFieldsRequest)
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId],
       parsedInput,
     }: {
       bindArgsParsedInputs: ChatbotIdRequestParams
-      parsedInput: DeleteContactCustomFieldRequest
+      parsedInput: DeleteContactCustomFieldsRequest
     }) => {
-      const contacts = await prisma.contact.findMany({
-        where: {
-          chatbotId,
-          id: {
-            in: parsedInput.ids,
-          },
-        },
-        select: {
-          id: true,
-        },
+      await deleteContactCustomFields({
+        chatbotId,
+        contactIds: parsedInput.ids,
+        fieldId: parsedInput.customFieldId,
       })
-      if (contacts.length === 0) {
-        return
-      }
-      if (isCuid(parsedInput.customFieldId)) {
-        const customField = await prisma.field.findFirstOrThrow({
-          where: {
-            chatbotId,
-            id: parsedInput.customFieldId,
-            fieldType: FieldType.customField,
-          },
-        })
-
-        await prisma.$transaction(async (tx) => {
-          await tx.contactCustomField.deleteMany({
-            where: {
-              contactId: {
-                in: contacts.map((c) => c.id),
-              },
-              customFieldId: customField.id,
-            },
-          })
-        })
-      } else if (
-        fillableContactKeys.includes(
-          parsedInput.customFieldId as FillableContactKeys,
-        )
-      ) {
-        await prisma.contact.updateMany({
-          where: {
-            chatbotId,
-            id: {
-              in: contacts.map((c) => c.id),
-            },
-          },
-          data: {
-            [parsedInput.customFieldId]: "",
-          },
-        })
-      }
-
-      revalidateCacheTags([
-        `chatbots:${chatbotId}#contacts`,
-        `chatbots:${chatbotId}#conversations`,
-        `chatbots:${chatbotId}#fields`,
-      ])
     },
   )
+
+export const deleteContactCustomFields = async ({
+  chatbotId,
+  contactIds,
+  fieldId,
+}: {
+  chatbotId: string
+  contactIds: string[]
+  fieldId: string
+}) => {
+  const contacts = await db.query.contactModel.findMany({
+    where: {
+      chatbotId,
+      id: {
+        in: contactIds,
+      },
+    },
+    columns: {
+      id: true,
+    },
+  })
+  if (contacts.length === 0) {
+    return
+  }
+
+  if (isCuid(fieldId)) {
+    const customField = await findOrFail<FieldModel>(
+      customFieldModel,
+      {
+        chatbotId,
+        id: fieldId,
+      },
+      "Custom field not found",
+    )
+
+    await db.transaction(async (tx) => {
+      await tx.delete(contactCustomFieldModel).where(
+        and(
+          inArray(
+            contactCustomFieldModel.contactId,
+            contacts.map((c) => c.id),
+          ),
+          eq(contactCustomFieldModel.customFieldId, customField.id),
+        ),
+      )
+    })
+  } else if (fillableContactKeys.includes(fieldId as FillableContactKeys)) {
+    await db
+      .update(contactModel)
+      .set({
+        [fieldId]: "",
+      })
+      .where(
+        and(
+          inArray(
+            contactModel.id,
+            contacts.map((c) => c.id),
+          ),
+          eq(contactModel.chatbotId, chatbotId),
+        ),
+      )
+  }
+
+  revalidateCacheTags([
+    `chatbots:${chatbotId}#contacts`,
+    `chatbots:${chatbotId}#conversations`,
+    `chatbots:${chatbotId}#fields`,
+  ])
+}

@@ -4,10 +4,11 @@ import {
   type IntegrationDefinition,
 } from "@aha.chat/sdk"
 import { getUserProfile } from "./apis/user"
+import { agentMarkAsRead, sendTyping } from "./conversation"
 import { MessengerAPIException } from "./exception"
 import { webhookHandler } from "./handlers/webhook"
-import { parseIncomingMessage } from "./incomming-message"
-import { sendFlowStep, sendOutgoingMessage } from "./outgoing-message"
+import { receiveMessage } from "./incomming-message"
+import { sendFlowStep, sendMessage } from "./outgoing-message"
 import type {
   MessengerActions,
   MessengerAuthValue,
@@ -20,17 +21,21 @@ const config: IntegrationDefinition<
   MessengerActions
 > = {
   name: "messenger",
+  channels: {
+    channel: {
+      message: {
+        receiveMessage,
+        sendMessage,
+      },
+      conversation: {
+        sendTyping,
+        agentMarkAsRead,
+      },
+    },
+  },
   actions: {
-    receiveMessage: async ({ ctx, data }) =>
-      await parseIncomingMessage({ ctx, data }),
-    sendMessage: async ({ ctx, message, conversation }) => {
-      await sendOutgoingMessage(ctx, conversation, message)
-    },
-    sendFlowStep: async ({ ctx, flowVersionId, step, conversation }) => {
-      await sendFlowStep(ctx, conversation, flowVersionId, step)
-    },
-    getUserProfile: async ({ ctx, psid }) =>
-      await getUserProfile({ ctx, psid }),
+    sendFlowStep,
+    getUserProfile,
   },
   handleRequest: async (props) => {
     const segments = new URL(props.req.url).pathname.split("/")
@@ -47,7 +52,7 @@ const config: IntegrationDefinition<
     }
   },
   disconnect: (_props: MessengerAuthValue): Promise<void> => {
-    throw new Error("Function not implemented.")
+    throw new Error("Method is not implemented.")
   },
 }
 

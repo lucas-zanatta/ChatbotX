@@ -16,7 +16,6 @@ import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useChatStore } from "../chat/store/chat-store-provider"
 import { ContactNotesManage } from "../contact-notes/contact-notes-manage"
 import { ContactSequencesManage } from "../contact-sequences/contact-sequences-manage"
-import { CustomFieldStoreProvider } from "../custom-fields/provider/custom-field-store-context"
 import { TagStoreProvider } from "../tags/provider/tag-store-context"
 import UpdateContactTagField from "./components/update-contact-tag-field"
 import { ContactDetail } from "./contact-detail"
@@ -47,8 +46,8 @@ export const ContactInboxPanel = () => {
 
       if (conversation?.contact) {
         setContact(conversation.contact)
-        setContactNotes(conversation.contact.contactNotes || [])
-        setTags(conversation.contact.tags || [])
+        setContactNotes([] as ContactNoteModel[])
+        setTags([] as TagModel[])
         setContactOnSequences(conversation.contact.contactsOnSequences || [])
       } else {
         setContact(null)
@@ -61,9 +60,9 @@ export const ContactInboxPanel = () => {
       contact
         ? [
             {
-              keyName: t("tags.heading.title"),
+              keyName: t("fields.tags.label"),
               content: (
-                <TagStoreProvider autoInitialize={true} chatbotId={chatbotId}>
+                <TagStoreProvider chatbotId={chatbotId}>
                   <UpdateContactTagField
                     contact={contact}
                     onSuccess={setTags}
@@ -80,9 +79,7 @@ export const ContactInboxPanel = () => {
   return (
     contact && (
       <div className="flex w-full flex-col gap-2">
-        <CustomFieldStoreProvider chatbotId={chatbotId}>
-          <ContactDetail />
-        </CustomFieldStoreProvider>
+        <ContactDetail />
 
         <ContactNotesManage contactNotes={contactNotes} />
 

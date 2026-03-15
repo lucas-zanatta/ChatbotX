@@ -16,24 +16,26 @@ import {
 } from "@aha.chat/ui/components/ui/popover"
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react"
 import { CodeXml, Smile } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useCustomFieldSelectOptions } from "@/features/custom-fields/provider/custom-field-hook"
 
 type TiptapEditorProps = {
-  defaultValue?: string
+  initValue?: string
   placeholder?: string
   onChange?: (content: string) => void
 }
 
 export const TiptapEditor = ({
-  defaultValue,
+  initValue,
   onChange,
   placeholder = "Type a message...",
 }: TiptapEditorProps) => {
   const [isOpenEmoji, setIsOpenEmoji] = useState(false)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
   const [isOpenCustomField, setIsOpenCustomField] = useState(false)
-  const customFieldSelectOptions = useCustomFieldSelectOptions({})
+  const customFieldSelectOptions = useCustomFieldSelectOptions({
+    includeReserved: true,
+  })
 
   const tiptapEditor = useEditor({
     extensions: [
@@ -53,9 +55,8 @@ export const TiptapEditor = ({
       }),
     ],
     parseOptions: {
-      preserveWhitespace: true,
+      preserveWhitespace: "full",
     },
-    content: defaultValue,
     // Don't render immediately on the server to avoid SSR issues
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
@@ -80,6 +81,12 @@ export const TiptapEditor = ({
       tiptapEditor.commands.focus()
     }
   }
+
+  useEffect(() => {
+    if (tiptapEditor && initValue) {
+      tiptapEditor.commands.setContent(initValue)
+    }
+  }, [tiptapEditor, initValue])
 
   return (
     <div className="relative">

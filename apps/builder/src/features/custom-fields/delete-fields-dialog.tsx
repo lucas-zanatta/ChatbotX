@@ -1,6 +1,5 @@
 "use client"
 
-import type { FieldType } from "@aha.chat/database/types"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import {
   Dialog,
@@ -19,7 +18,7 @@ import { useAction } from "next-safe-action/hooks"
 import type { ComponentPropsWithoutRef } from "react"
 import { toast } from "sonner"
 import { deleteFieldsAction } from "./actions/delete-custom-field.action"
-import type { CustomFieldResource } from "./schemas"
+import type { CustomFieldResource } from "./schemas/resource"
 
 type DeleteFieldsDialogProps = ComponentPropsWithoutRef<typeof Dialog> & {
   chatbotId: string
@@ -27,14 +26,12 @@ type DeleteFieldsDialogProps = ComponentPropsWithoutRef<typeof Dialog> & {
   showTrigger?: boolean
   onSuccess?: () => void
   onOpenChange?: (val: boolean) => void
-  fieldType: FieldType
 }
 
 export function DeleteFieldsDialog({
   chatbotId,
   records,
   showTrigger = true,
-  fieldType,
   onSuccess,
   onOpenChange,
   ...props
@@ -78,7 +75,7 @@ export function DeleteFieldsDialog({
             })}
           </DialogTitle>
           <DialogDescription className="whitespace-pre-wrap text-sm/6">
-            {t("dialog.deleteConfirmation", {
+            {t("messages.deleteConfirmation", {
               feature: t("fields.customField.label"),
             })}
           </DialogDescription>

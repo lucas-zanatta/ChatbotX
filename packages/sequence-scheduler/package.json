@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "@aha.chat/database": "workspace:*",
-    "@aha.chat/scheduler": "workspace:*"
+    "@aha.chat/scheduler": "workspace:*",
+    "@paralleldrive/cuid2": "^3.3.0"
   },
   "devDependencies": {
     "@aha.chat/typescript-config": "workspace:*",

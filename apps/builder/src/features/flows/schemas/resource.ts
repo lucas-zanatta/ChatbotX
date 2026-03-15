@@ -1,10 +1,8 @@
-import type { FlowModel, FlowVersionModel } from "@aha.chat/database/types"
+import { createSelectSchema, flowModel } from "@aha.chat/database/schema"
+import z from "zod"
 
-export type FlowVersionResource = FlowVersionModel
-
-export type FlowResource = FlowModel & {
-  _count?: {
-    contacts?: number
-  }
-  flowVersions?: FlowVersionResource[]
-}
+export const flowResource = createSelectSchema(flowModel, {
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+})
+export type FlowResource = z.infer<typeof flowResource>

@@ -1,3 +1,4 @@
+import { createSelectSchema, inboxType } from "@aha.chat/database/schema"
 import { WEBCHAT_SOURCE_PREFIX } from "@aha.chat/database/types"
 import { z } from "zod"
 
@@ -17,10 +18,16 @@ export const createMessageRequest = z
         )
         .min(1),
     }),
+    // z.object({
+    //   fileUrl: z.url(),
+    // }),
+    z.object({
+      flowId: z.cuid2(),
+    }),
   ])
   .and(
     z.object({
-      clientId: z.cuid2(),
+      clientId: z.cuid2().optional(),
     }),
   )
 export type CreateMessageRequest = z.infer<typeof createMessageRequest>
@@ -29,7 +36,13 @@ export const createWebchatMessageRequest = z
   .union([
     z.object({
       content: z.string().trim().min(1).max(1000),
-      flowId: z.cuid2().optional(),
+      postback: z.string().trim().optional(),
+    }),
+    z.object({
+      flowId: z.cuid2(),
+    }),
+    z.object({
+      initRef: z.string(),
     }),
     z.object({
       files: z
@@ -43,15 +56,37 @@ export const createWebchatMessageRequest = z
   ])
   .and(
     z.object({
-      clientId: z.cuid2(),
+      clientId: z.cuid2().optional(),
       chatbotId: z.cuid2(),
+      webchatId: z.cuid2(),
       guestConversationId: z
         .string()
         .refine((id) => id.startsWith(WEBCHAT_SOURCE_PREFIX), {
           message: "Invalid guest conversation ID",
         }),
+      ref: z.string().optional(),
     }),
   )
 export type CreateWebchatMessageRequest = z.infer<
   typeof createWebchatMessageRequest
 >
+
+export const sendFileMessageRequest = z.object({
+  contactId: z.string(),
+  channel: createSelectSchema(inboxType),
+  file: z.file().refine((file) => file.size <= MAX_FILE_SIZE, {
+    message: "Max image size is 5MB.",
+  }),
+})
+
+export const sendFlowMessageRequest = z.object({
+  contactId: z.string(),
+  channel: createSelectSchema(inboxType),
+  flowId: z.cuid2(),
+})
+
+export const chatbotTokenCreateMessageRequest = createMessageRequest.and(
+  z.object({
+    channel: createSelectSchema(inboxType),
+  }),
+)

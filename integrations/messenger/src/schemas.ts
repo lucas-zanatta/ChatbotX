@@ -1,13 +1,9 @@
 import type {
-  ContactEntity,
   Context,
-  ConversationEntity,
-  Handler,
-  MessageEntity,
+  IncomingContact,
   Oauth2AuthValue,
   Oauth2Config,
   SendFlowStepProps,
-  SendMessageProps,
 } from "@aha.chat/sdk"
 import { z } from "zod"
 
@@ -30,24 +26,11 @@ export type MessengerAuthValue = Oauth2AuthValue & {
 }
 
 export type MessengerActions = {
-  receiveMessage: Handler<
-    {
-      ctx: Context<MessengerAuthValue>
-      data: MessengerWebhookEvent
-    },
-    {
-      message: MessageEntity
-      conversation: ConversationEntity
-      postbackAction?: { flowVersionId: string; buttonId: string } | null
-      quickReplyAction?: { flowVersionId: string; buttonId: string } | null
-    }
-  >
-  sendMessage: (props: SendMessageProps<MessengerAuthValue>) => Promise<void>
   sendFlowStep: (props: SendFlowStepProps<MessengerAuthValue>) => Promise<void>
   getUserProfile: (props: {
     ctx: Context<MessengerAuthValue>
     psid: string
-  }) => Promise<ContactEntity>
+  }) => Promise<IncomingContact>
 }
 
 // Common attachment types
@@ -87,34 +70,30 @@ export const messengerDeliverySchema = z.object({
   mids: z.array(z.string()),
   watermark: z.number(),
 })
-export type MessengerDelivery = z.infer<typeof messengerDeliverySchema>
 
 export const messengerReadSchema = z.object({
   watermark: z.number(),
 })
-export type MessengerRead = z.infer<typeof messengerReadSchema>
 
 export const messengerPostbackSchema = z.object({
   mid: z.string(),
   title: z.string(),
   payload: z.string(),
 })
-export type MessengerPostback = z.infer<typeof messengerPostbackSchema>
 
-export const messengerSenderSchema = idSchema
-export type MessengerSender = z.infer<typeof messengerSenderSchema>
-
-export const messengerRecipientSchema = idSchema
-export type MessengerRecipient = z.infer<typeof messengerRecipientSchema>
+const messengerReferralSchema = z.object({
+  ref: z.string(),
+})
 
 export const messengerMessagingEventSchema = z.object({
-  sender: messengerSenderSchema,
-  recipient: messengerRecipientSchema,
+  sender: idSchema,
+  recipient: idSchema,
   timestamp: z.number(),
   message: messengerMessageSchema.optional(),
   delivery: messengerDeliverySchema.optional(),
   read: messengerReadSchema.optional(),
   postback: messengerPostbackSchema.optional(),
+  referral: messengerReferralSchema.optional(),
 })
 export type MessengerMessagingEvent = z.infer<
   typeof messengerMessagingEventSchema
@@ -221,7 +200,8 @@ export const facebookSendMessageRequestSchema = z.object({
   sender_action: z.enum(["typing_on", "typing_off", "mark_seen"]).optional(),
   messaging_type: z
     .enum(["RESPONSE", "UPDATE", "MESSAGE_TAG"])
-    .default("RESPONSE"),
+    .default("RESPONSE")
+    .optional(),
   tag: z
     .enum([
       "COMMUNITY_ALERT",

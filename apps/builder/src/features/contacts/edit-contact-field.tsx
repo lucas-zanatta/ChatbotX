@@ -1,5 +1,4 @@
 import {
-  CustomFieldType,
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
@@ -20,10 +19,10 @@ import { useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
 import { useEffect } from "react"
 import { toast } from "sonner"
-import { AccountFieldValueInput } from "../account-fields/account-field-value-input"
+import { BotFieldValueInput } from "../bot-fields/account-field-value-input"
 import { deleteContactCustomFieldAction } from "./actions/delete-contact-custom-field.action"
-import { updateContactAction } from "./actions/update-contact.action"
-import { updateContactRequest } from "./schemas/action"
+import { updateContactFieldAction } from "./actions/update-contact-field.action"
+import { updateContactFieldRequest } from "./schemas/action"
 import type { ContactEditableField } from "./schemas/resource"
 
 type EditContactField = {
@@ -51,8 +50,8 @@ export function EditContactField(props: EditContactField) {
 
   const { form, handleSubmitWithAction, resetFormAndAction } =
     useHookFormAction(
-      updateContactAction.bind(null, chatbotId, contactId),
-      zodResolver(updateContactRequest),
+      updateContactFieldAction.bind(null, chatbotId, contactId),
+      zodResolver(updateContactFieldRequest),
       {
         actionProps: {
           onSuccess: () => {
@@ -120,11 +119,9 @@ export function EditContactField(props: EditContactField) {
             className="flex flex-col gap-4"
             onSubmit={handleSubmitWithAction}
           >
-            <AccountFieldValueInput
-              customFieldType={
-                targetField?.customFieldType ?? CustomFieldType.shortText
-              }
+            <BotFieldValueInput
               name={targetField?.key ?? ""}
+              type={targetField?.type ?? "shortText"}
             />
 
             <DialogFooter className="mt-4 justify-start">

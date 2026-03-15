@@ -20,7 +20,8 @@ export const StepType = {
   waitUserReply: "W01",
   setDebounce: "W02",
   wait: "W03",
-  getUserInput: "W04",
+  getUserData: "W04",
+  typing: "W05",
 
   // Contact Operations (C_)
   addContactTag: "C01",
@@ -91,6 +92,16 @@ export const StepType = {
   // Sequence Operations (Q_)
   subscribeSequence: "Q01",
   unsubscribeSequence: "Q02",
+
+  // Eamil
+  emailText: "M01",
+  emailH3: "M02",
+  emailImage: "M03",
+  emailButton: "M04",
+  emailSpacing: "M05",
+  emailCode: "M06",
+  emailLine: "M07",
+  emailHeader: "M08",
 } as const
 
 export type StepType = (typeof StepType)[keyof typeof StepType]

@@ -1,6 +1,7 @@
 "use server"
 
-import { FieldType, prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { customFieldModel } from "@aha.chat/database/schema"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -21,16 +22,25 @@ export const deleteFieldsAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
     }) => {
-      await prisma.field.deleteMany({
-        where: {
-          id: {
-            in: parsedInput.ids,
-          },
-          chatbotId,
-          fieldType: FieldType.customField,
-        },
-      })
-
-      revalidateCacheTags(`chatbots:${chatbotId}#customFields`)
+      await deleteCustomFields({ chatbotId, ids: parsedInput.ids })
     },
   )
+
+export const deleteCustomFields = async ({
+  chatbotId,
+  ids,
+}: {
+  chatbotId: string
+  ids: string[]
+}) => {
+  await db
+    .delete(customFieldModel)
+    .where(
+      and(
+        eq(customFieldModel.chatbotId, chatbotId),
+        inArray(customFieldModel.id, ids),
+      ),
+    )
+
+  revalidateCacheTags(`chatbots:${chatbotId}#customFields`)
+}

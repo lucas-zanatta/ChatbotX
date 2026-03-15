@@ -1,10 +1,15 @@
-import { StepType } from "@aha.chat/flow-config"
 import {
-  type Context,
-  type ConversationEntity,
-  FileType,
-  type MessageEntity,
-  type SendFlowStepData,
+  type SendFileStepSchema,
+  type SendGifStepSchema,
+  type SendImageStepSchema,
+  type SendTextStepSchema,
+  StepType,
+} from "@aha.chat/flow-config"
+import type {
+  OutgoingContact,
+  OutgoingMessage,
+  SendFlowStepProps,
+  SendMessageProps,
 } from "@aha.chat/sdk"
 import { sendMessage, uploadAttachment } from "../api/message"
 import { logger } from "../libs/logger"
@@ -18,30 +23,29 @@ import { convertFlowStepImage } from "./send-image"
 import { convertFlowStepText } from "./send-text"
 
 export const sendOutgoingMessage = async (
-  ctx: Context<ZaloAuthValue>,
-  conversation: ConversationEntity,
-  message: MessageEntity,
+  props: SendMessageProps<ZaloAuthValue>,
 ): Promise<void> => {
+  const {
+    ctx,
+    data: { conversation, contact, message },
+  } = props
   try {
     for await (const zaloMessage of convertMessageToZaloMessage(
       ctx.auth,
       message,
     )) {
-      const payload = buildMessagePayload(conversation, zaloMessage)
+      const payload = buildMessagePayload(contact, zaloMessage)
       await sendMessage(ctx.auth, payload)
       logger.info(`Message sent for Zalo UID: ${conversation.sourceId}`)
     }
   } catch (error) {
-    logger.error(
-      "An error occurred while sending the message",
-      JSON.stringify(error),
-    )
+    logger.error(error, "An error occurred while sending the message")
   }
 }
 
 export async function* convertMessageToZaloMessage(
   auth: ZaloAuthValue,
-  message: MessageEntity,
+  message: OutgoingMessage,
 ): AsyncGenerator<MessageTemplate> {
   if (message.content) {
     yield {
@@ -49,7 +53,7 @@ export async function* convertMessageToZaloMessage(
     }
   } else if (message.attachments) {
     for (const attachment of message.attachments) {
-      if (attachment.fileType === FileType.image) {
+      if (attachment.fileType === "image") {
         const {
           data: { attachment_id },
         } = await uploadAttachment(auth, "image", attachment.url as string)
@@ -67,7 +71,7 @@ export async function* convertMessageToZaloMessage(
             },
           },
         }
-      } else if (attachment.fileType === FileType.file) {
+      } else if (attachment.fileType === "file") {
         const {
           data: { token },
         } = await uploadAttachment(auth, "file", attachment.url as string)
@@ -89,10 +93,10 @@ export async function* convertMessageToZaloMessage(
 }
 
 const buildMessagePayload = (
-  conversation: ConversationEntity,
+  contact: OutgoingContact,
   message: MessageTemplate,
 ): ZaloSendMessageRequest => {
-  const recipientId = conversation.contact?.sourceId
+  const recipientId = contact.sourceId
 
   if (!recipientId?.trim()) {
     throw new Error("Recipient ID is required and cannot be empty")
@@ -105,48 +109,47 @@ const buildMessagePayload = (
 }
 
 export async function* convertFlowStepToZaloMessage(
-  auth: ZaloAuthValue,
-  flowVersionId: string,
-  step: SendFlowStepData,
+  props: SendFlowStepProps<ZaloAuthValue>,
 ): AsyncGenerator<MessageTemplate> {
+  const {
+    data: { step },
+  } = props
   switch (step.stepType) {
     case StepType.sendText:
-      yield* convertFlowStepText(flowVersionId, step)
+      yield* convertFlowStepText(
+        props as SendFlowStepProps<ZaloAuthValue, SendTextStepSchema>,
+      )
       break
     case StepType.sendImage:
     case StepType.sendGif:
-      yield* await convertFlowStepImage(auth, flowVersionId, step)
+      yield* await convertFlowStepImage(
+        props as SendFlowStepProps<
+          ZaloAuthValue,
+          SendImageStepSchema | SendGifStepSchema
+        >,
+      )
       break
     case StepType.sendFile:
-      yield* await convertFlowStepFile(auth, step)
+      yield* await convertFlowStepFile(
+        props as SendFlowStepProps<ZaloAuthValue, SendFileStepSchema>,
+      )
       break
     default:
       break
   }
 }
 
-export const sendFlowStep = async (
-  ctx: Context<ZaloAuthValue>,
-  conversation: ConversationEntity,
-  flowVersionId: string,
-  step: SendFlowStepData,
-) => {
+export const sendFlowStep = async (props: SendFlowStepProps<ZaloAuthValue>) => {
+  const {
+    ctx,
+    data: { conversation, contact },
+  } = props
   try {
-    for await (const zaloMessage of convertFlowStepToZaloMessage(
-      ctx.auth,
-      flowVersionId,
-      step,
-    )) {
-      await sendMessage(
-        ctx.auth,
-        buildMessagePayload(conversation, zaloMessage),
-      )
+    for await (const zaloMessage of convertFlowStepToZaloMessage(props)) {
+      await sendMessage(ctx.auth, buildMessagePayload(contact, zaloMessage))
       logger.info(`Message sent for ID: ${conversation.sourceId}`)
     }
   } catch (error) {
-    logger.error(
-      "An error occurred while sending the message",
-      JSON.stringify(error),
-    )
+    logger.error(error, "An error occurred while sending the message")
   }
 }

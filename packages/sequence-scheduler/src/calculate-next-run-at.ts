@@ -1,9 +1,4 @@
-import { prisma } from "@aha.chat/database"
-
-type PrismaClient = Omit<
-  typeof prisma,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
->
+import { db } from "@aha.chat/database/client"
 
 export interface SequenceStepDelay {
   delayDays: number
@@ -29,17 +24,18 @@ export function calculateNextRunAtFromStep(
 export async function calculateNextRunAt(
   sequenceId: string,
   enrolledAt: Date = new Date(),
-  tx?: PrismaClient,
+  tx?: DrizzleTransaction,
 ): Promise<{ nextRunAt: Date; nextStepId: string | null }> {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
-  const firstStep = await client.sequenceStep.findFirst({
-    where: {
-      sequenceId,
-      order: 0,
-      isActive: true,
-    },
-    select: {
+  const firstStep = await client.query.sequenceStepModel.findFirst({
+    where: (step, { eq, and }) =>
+      and(
+        eq(step.sequenceId, sequenceId),
+        eq(step.order, 0),
+        eq(step.isActive, true),
+      ),
+    columns: {
       id: true,
       delayDays: true,
       delayMinutes: true,

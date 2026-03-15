@@ -1,12 +1,12 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import type { ConversationModel } from "@aha.chat/database/types"
 import { type FlowNode, StepType } from "@aha.chat/flow-config"
 import { sendFlowStep } from "../../chat/handlers/send-flow-step"
 
 export interface SendFlowDirectParams {
-  flowId: string
   chatbotId: string
   contactId: string
+  flowId: string
 }
 
 export async function sendFlowDirect(
@@ -14,33 +14,30 @@ export async function sendFlowDirect(
 ): Promise<Date> {
   const { flowId, chatbotId, contactId } = params
 
-  const conversation = await prisma.conversation.findFirst({
-    where: {
-      contactId,
-      chatbotId,
-    },
+  const conversation = await db.query.conversationModel.findFirst({
+    where: (c, { eq, and }) =>
+      and(eq(c.contactId, contactId), eq(c.chatbotId, chatbotId)),
   })
 
   if (!conversation) {
     throw new Error(`Conversation not found for contact ${contactId}`)
   }
 
-  const flow = await prisma.flow.findFirst({
-    where: {
-      id: flowId,
-      chatbotId: conversation.chatbotId,
-      active: true,
-    },
+  const flow = await db.query.flowModel.findFirst({
+    where: (f, { eq, and }) =>
+      and(
+        eq(f.id, flowId),
+        eq(f.chatbotId, conversation.chatbotId),
+        eq(f.active, true),
+      ),
   })
 
   if (!flow?.currentVersionId) {
     throw new Error(`Flow ${flowId} not found or not active`)
   }
 
-  const flowVersion = await prisma.flowVersion.findFirst({
-    where: {
-      id: flow.currentVersionId,
-    },
+  const flowVersion = await db.query.flowVersionModel.findFirst({
+    where: (fv, { eq }) => eq(fv.id, flow.currentVersionId),
   })
 
   if (!flowVersion) {

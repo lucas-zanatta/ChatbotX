@@ -3,6 +3,14 @@
 import type { AIFunctionModel } from "@aha.chat/database/types"
 import { DataTable } from "@aha.chat/ui/components/data-table/data-table"
 import { DataTableColumnHeader } from "@aha.chat/ui/components/data-table/data-table-column-header"
+import { DataTableToolbar } from "@aha.chat/ui/components/data-table/data-table-toolbar"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@aha.chat/ui/components/ui/card"
 import { Checkbox } from "@aha.chat/ui/components/ui/checkbox"
 import { useDataTable } from "@aha.chat/ui/hooks/use-data-table"
 import { formatDate } from "@aha.chat/ui/lib/format"
@@ -11,10 +19,10 @@ import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { use, useMemo } from "react"
 import { AIFunctionsCreate } from "./ai-functions-create"
-import type { getAIFunctions } from "./queries"
+import type { listAIFunctions } from "./queries"
 
 type AIFunctionsTableProps = {
-  promises: Promise<[Awaited<ReturnType<typeof getAIFunctions>>]>
+  promises: Promise<[Awaited<ReturnType<typeof listAIFunctions>>]>
 }
 
 export default function AIFunctionsTable({ promises }: AIFunctionsTableProps) {
@@ -102,24 +110,24 @@ export default function AIFunctionsTable({ promises }: AIFunctionsTableProps) {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-lg">{t("aiFunctions.title")}</h3>
-          <p className="text-muted-foreground text-sm">
-            {t("aiFunctions.description")}
-          </p>
-        </div>
-        <AIFunctionsCreate
-          onSuccess={() => {
-            router.refresh()
-          }}
-        />
-      </div>
-
-      <DataTable table={table}>
-        {/* <DataTableToolbar table={table} /> */}
-      </DataTable>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-bold text-xl">
+          {t("aiFunctions.title")}
+        </CardTitle>
+        <CardDescription>{t("aiFunctions.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DataTable table={table}>
+          <DataTableToolbar table={table}>
+            <AIFunctionsCreate
+              onSuccess={() => {
+                router.refresh()
+              }}
+            />
+          </DataTableToolbar>
+        </DataTable>
+      </CardContent>
+    </Card>
   )
 }

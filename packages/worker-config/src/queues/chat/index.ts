@@ -2,12 +2,14 @@ import type {
   SendAudioStepSchema,
   SendCardStepSchema,
   SendCarouselStepSchema,
+  SendFileStepSchema,
+  SendGifStepSchema,
   SendImageStepSchema,
   SendQuickReplyStepSchema,
   SendTextStepSchema,
   SendVideoStepSchema,
 } from "@aha.chat/flow-config"
-import type { ConversationEntity, MessageEntity } from "@aha.chat/sdk"
+import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
 import {
   defaultJobOptions,
@@ -19,13 +21,16 @@ import { queueName } from "../../lib/types"
 export const ChatJobAction = {
   sendExternalMessage: "sendExternalMessage",
   sendFlowMessage: "sendFlowMessage",
+  sendChatMessage: "sendChatMessage",
+  sendTyping: "sendTyping",
+  notifyExportResult: "notifyExportResult",
 } as const
 
-export type ChatJobSendMessage = {
+export type ChatJobSendExternalMessage = {
   type: typeof ChatJobAction.sendExternalMessage
   data: {
-    conversation: ConversationEntity
-    message: MessageEntity
+    conversation: OutgoingConversation
+    message: OutgoingMessage
   }
 }
 
@@ -33,10 +38,13 @@ export type ChatJobSendFlowStep = {
   type: typeof ChatJobAction.sendFlowMessage
   data: {
     conversationId: string
-    flowVersionId: string
+    flowId: string
+    flowVersionId?: string
     step:
       | SendTextStepSchema
       | SendImageStepSchema
+      | SendGifStepSchema
+      | SendFileStepSchema
       | SendVideoStepSchema
       | SendAudioStepSchema
       | SendCardStepSchema
@@ -45,7 +53,39 @@ export type ChatJobSendFlowStep = {
   }
 }
 
-export type ChatJobData = ChatJobSendMessage | ChatJobSendFlowStep
+export type ChatJobSendChatMessage = {
+  type: typeof ChatJobAction.sendChatMessage
+  data: {
+    conversation: OutgoingConversation
+    text?: string
+    url?: string
+  }
+}
+
+export type ChatJobSendTyping = {
+  type: typeof ChatJobAction.sendTyping
+  data: {
+    conversation: OutgoingConversation
+    typing: boolean
+  }
+}
+
+export type ChatJobNotifyExportResult = {
+  type: typeof ChatJobAction.notifyExportResult
+  data: {
+    chatbotId: string
+    userId: string
+    status: "pending" | "completed" | "failed"
+    outputPath: string
+  }
+}
+
+export type ChatJobData =
+  | ChatJobSendExternalMessage
+  | ChatJobSendFlowStep
+  | ChatJobSendChatMessage
+  | ChatJobSendTyping
+  | ChatJobNotifyExportResult
 
 export const chatQueue =
   process.env.NEXT_PHASE !== "phase-production-build"

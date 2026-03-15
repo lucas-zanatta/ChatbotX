@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, inArray } from "@aha.chat/database/client"
+import { contactsOnSequenceModel } from "@aha.chat/database/schema"
 import { cancelPendingDispatches } from "@aha.chat/sequence-scheduler"
 import {
   type ChatbotIdRequestParams,
@@ -29,13 +30,13 @@ export const removeContactSequenceAction = chatbotActionClient
       for (let i = 0; i < parsedInput.ids.length; i += CHUNK_SIZE) {
         const contactIdChunk = parsedInput.ids.slice(i, i + CHUNK_SIZE)
 
-        const enrollments = await prisma.contactsOnSequence.findMany({
+        const enrollments = await db.query.contactsOnSequenceModel.findMany({
           where: {
             contactId: { in: contactIdChunk },
             sequenceId: { in: parsedInput.sequences },
             chatbotId,
           },
-          select: {
+          columns: {
             id: true,
           },
         })
@@ -50,12 +51,17 @@ export const removeContactSequenceAction = chatbotActionClient
           ),
         )
 
-        await prisma.contactsOnSequence.deleteMany({
-          where: {
-            id: { in: enrollments.map((e: { id: string }) => e.id) },
-            chatbotId,
-          },
-        })
+        const enrollmentIds = enrollments.map((e: { id: string }) => e.id)
+        if (enrollmentIds.length > 0) {
+          await db
+            .delete(contactsOnSequenceModel)
+            .where(
+              and(
+                inArray(contactsOnSequenceModel.id, enrollmentIds),
+                eq(contactsOnSequenceModel.chatbotId, chatbotId),
+              ),
+            )
+        }
       }
 
       revalidateCacheTags([

@@ -1,6 +1,8 @@
 "use server"
 
-import { Prisma, prisma } from "@aha.chat/database"
+import { db, isDatabaseError } from "@aha.chat/database/client"
+import { sequenceModel } from "@aha.chat/database/schema"
+import { createId } from "@paralleldrive/cuid2"
 import { getTranslations } from "next-intl/server"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -28,28 +30,20 @@ export const createSequenceAction = chatbotActionClient
       const t = await getTranslations()
 
       try {
-        const sequence = await prisma.sequence.create({
-          data: {
-            chatbotId,
-            name: parsedInput.name,
-            ...(parsedInput.folderId && {
-              sequencesOnFolders: {
-                create: {
-                  folderId: parsedInput.folderId,
-                },
-              },
-            }),
-          },
+        const sequenceId = createId()
+
+        await db.insert(sequenceModel).values({
+          id: sequenceId,
+          chatbotId,
+          name: parsedInput.name,
+          folderId: parsedInput.folderId || null,
         })
 
         revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
 
-        return { sequenceId: sequence.id }
+        return { sequenceId }
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
+        if (isDatabaseError(error) && error.cause.code === "23505") {
           return returnValidationErrors(createSequenceRequest, {
             _errors: [t("sequences.validation.exception")],
             name: {

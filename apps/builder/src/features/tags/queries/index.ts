@@ -1,59 +1,70 @@
-import type { Prisma } from "@aha.chat/database"
-import { prisma } from "@aha.chat/database"
+import { db, eq, relationsFilterToSQL } from "@aha.chat/database/client"
 import { rootFolderId } from "@aha.chat/database/enums"
+import { contactsToTagsModel, tagModel } from "@aha.chat/database/schema"
+import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { GetTagsSchema } from "../schemas/get-tags-schema"
-import type { TagCollection } from "../schemas/resource"
+import type {
+  FindTagRequest,
+  ListTagsRequest,
+  ListTagsResponse,
+} from "../schemas/query"
 
-export async function getTags(input: GetTagsSchema): Promise<TagCollection> {
+export const listTagsRSC = async (
+  input: ListTagsRequest & { chatbotId: string },
+) => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.TagWhereInput = {
+  return await listTags(input)
+}
+
+export async function listTags(
+  input: ListTagsRequest & { chatbotId: string },
+): Promise<ListTagsResponse> {
+  const where = {
     chatbotId: input.chatbotId,
+    name: input.name ? { ilike: `%${input.name.toLowerCase()}%` } : undefined,
+    folderId: input.folderId
+      ? // biome-ignore lint/style/noNestedTernary: allow nested ternary
+        input.folderId === rootFolderId
+        ? { isNull: true as const }
+        : input.folderId
+      : undefined,
   }
 
-  if (input.folderId) {
-    where.folderId = input.folderId === rootFolderId ? null : input.folderId
-  }
+  const pagination = parsePagination(input)
+  const orderBy = parseOrderByAsObject(tagModel, input)
 
-  if (input.name) {
-    where.name = {
-      contains: input.name,
-      mode: "insensitive",
-    }
-  }
-
-  const orderBy = input.sort.map((sortItem) => {
-    if ((sortItem.id as string) === "contacts") {
-      return {
-        contacts: {
-          _count: sortItem.desc ? "desc" : "asc",
-        },
-      } as Prisma.TagOrderByWithRelationInput
-    }
-    return {
-      [sortItem.id]: sortItem.desc ? "desc" : "asc",
-    } as Prisma.TagOrderByWithRelationInput
-  })
-
-  const [data, total] = await prisma.$transaction([
-    prisma.tag.findMany({
-      skip: (input.page - 1) * input.perPage,
-      take: input.perPage,
+  const [data, totalRows] = await Promise.all([
+    db.query.tagModel.findMany({
       where,
       orderBy,
-      include: {
-        _count: {
-          select: {
-            contacts: true,
-          },
-        },
+      ...pagination,
+      extras: {
+        contactsCount: (table) =>
+          db.$count(
+            contactsToTagsModel,
+            eq(contactsToTagsModel.tagId, table.id),
+          ),
       },
     }),
-    prisma.tag.count({ where }),
+    pagination?.limit
+      ? db.$count(tagModel, relationsFilterToSQL(tagModel, where))
+      : Promise.resolve(1),
   ])
 
-  const pageCount = Math.ceil(total / input.perPage)
+  const pageCount = pagination?.limit
+    ? Math.ceil(totalRows / pagination.limit)
+    : 1
 
   return { data, pageCount }
+}
+
+export const findTag = async (input: FindTagRequest) => {
+  const { folderId, ...where } = input
+  return await db.query.tagModel.findFirst({
+    where: {
+      ...where,
+      folderId: folderId === null ? { isNull: true as const } : folderId,
+    },
+  })
 }

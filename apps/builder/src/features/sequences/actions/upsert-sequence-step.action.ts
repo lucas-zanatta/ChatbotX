@@ -1,6 +1,8 @@
 "use server"
 
-import { type Prisma, prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
+import { sequenceModel, sequenceStepModel } from "@aha.chat/database/schema"
+import { createId } from "@paralleldrive/cuid2"
 import {
   type ChatbotIdRequestParams,
   chatbotIdRequestParams,
@@ -20,17 +22,19 @@ async function validateSequenceOwnership(
   sequenceId: string,
   chatbotId: string,
 ) {
-  await prisma.sequence.findFirstOrThrow({
-    where: {
+  await findOrFail(
+    sequenceModel,
+    {
       id: sequenceId,
       chatbotId,
     },
-  })
+    "Sequence not found",
+  )
 }
 
 function buildUpdateData(
   parsedInput: UpsertSequenceStepRequest,
-): Prisma.SequenceStepUpdateInput {
+): Partial<typeof sequenceStepModel.$inferInsert> {
   const {
     order,
     delayDays,
@@ -69,7 +73,7 @@ function buildUpdateData(
 function buildCreateData(
   parsedInput: UpsertSequenceStepRequest,
   sequenceId: string,
-): Prisma.SequenceStepCreateInput {
+): typeof sequenceStepModel.$inferInsert {
   const {
     order,
     delayDays,
@@ -85,28 +89,19 @@ function buildCreateData(
   } = parsedInput
 
   return {
+    id: createId(),
+    sequenceId,
     order,
     delayDays: delayDays ?? 1,
     delayMinutes: delayMinutes ?? 0,
     delayUnit: delayUnit ?? "days",
-    sequence: {
-      connect: { id: sequenceId },
-    },
-    ...(flowId !== undefined && {
-      flow: { connect: { id: flowId } },
-    }),
-    ...(specificDateTime !== undefined && {
-      specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
-    }),
-    ...(isActive !== undefined && { isActive }),
-    ...(anytime !== undefined && { anytime }),
-    ...(sendTimeStart !== undefined && {
-      sendTimeStart: sendTimeStart || null,
-    }),
-    ...(sendTimeEnd !== undefined && { sendTimeEnd: sendTimeEnd || null }),
-    ...(sendDays !== undefined && {
-      sendDays: sendDays ? JSON.stringify(sendDays) : null,
-    }),
+    flowId: flowId ?? null,
+    specificDateTime: specificDateTime ? new Date(specificDateTime) : null,
+    isActive: isActive ?? true,
+    anytime: anytime ?? true,
+    sendTimeStart: sendTimeStart || null,
+    sendTimeEnd: sendTimeEnd || null,
+    sendDays: sendDays ? JSON.stringify(sendDays) : null,
   }
 }
 
@@ -268,28 +263,44 @@ async function handleStepUpdate(
 
 async function updateSequenceStep(
   stepId: string,
-  updateData: Prisma.SequenceStepUpdateInput,
+  updateData: Partial<typeof sequenceStepModel.$inferInsert>,
   chatbotId: string,
 ) {
-  const step = await prisma.sequenceStep.findFirstOrThrow({
-    where: { id: stepId },
-    include: { sequence: true },
+  const step = await db.query.sequenceStepModel.findFirst({
+    where: {
+      id: stepId,
+    },
+    with: {
+      sequence: true,
+    },
   })
+
+  if (!step) {
+    throw new Error("Step not found")
+  }
 
   if (step.sequence.chatbotId !== chatbotId) {
     throw new Error("Unauthorized: Step does not belong to this chatbot")
   }
 
-  return await prisma.sequenceStep.update({
-    where: { id: stepId },
-    data: updateData,
-  })
+  const [updated] = await db
+    .update(sequenceStepModel)
+    .set(updateData)
+    .where(eq(sequenceStepModel.id, stepId))
+    .returning()
+
+  return updated
 }
 
-async function createSequenceStep(createData: Prisma.SequenceStepCreateInput) {
-  return await prisma.sequenceStep.create({
-    data: createData,
-  })
+async function createSequenceStep(
+  createData: typeof sequenceStepModel.$inferInsert,
+) {
+  const [created] = await db
+    .insert(sequenceStepModel)
+    .values(createData)
+    .returning()
+
+  return created
 }
 
 export const upsertSequenceStepAction = chatbotActionClient

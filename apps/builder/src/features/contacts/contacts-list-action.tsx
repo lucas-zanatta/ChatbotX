@@ -41,11 +41,12 @@ import ClearContactCustomFieldDialog from "./components/delete-contact-custom-fi
 import DeleteContactDialog from "./components/remove-contact-dialog"
 import RemoveContactSequenceDialog from "./components/remove-contact-sequence-dialog"
 import RemoveContactTagDialog from "./components/remove-contact-tag-dialog"
-import type { ContactResource } from "./schemas/resource"
+import { ExportContactDialog } from "./export-contact-dialog"
+import type { ListContactsItem } from "./schemas/query"
 
 type ContactListActionProps = {
   chatbotId: string
-  table: Table<ContactResource>
+  table: Table<ListContactsItem>
 }
 
 export function ContactListAction({
@@ -136,12 +137,25 @@ export function ContactListAction({
           }
         />
 
-        <DropdownMenuItem disabled={true}>
-          <CloudDownloadIcon />
-          {t("actions.export")}
-        </DropdownMenuItem>
+        <ExportContactDialog
+          chatbotId={chatbotId}
+          contactIds={rows.map((r) => r.id)}
+          trigger={
+            <DropdownMenuItem
+              disabled={rows.length === 0}
+              onSelect={(e) => e.preventDefault()}
+            >
+              <CloudDownloadIcon />
+              {t("actions.export")}
+            </DropdownMenuItem>
+          }
+        />
 
-        <DropdownMenuItem disabled={true}>
+        <DropdownMenuItem
+          onSelect={() => {
+            router.push(`/chatbots/${chatbotId}/contacts/import`)
+          }}
+        >
           <CloudUploadIcon />
           {t("actions.import")}
         </DropdownMenuItem>
@@ -199,7 +213,11 @@ export function ContactListAction({
               />
 
               <DisableBotDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter(Boolean) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}
@@ -212,7 +230,11 @@ export function ContactListAction({
               />
 
               <EnableBotDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter((v) => v) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}
@@ -225,7 +247,11 @@ export function ContactListAction({
               />
 
               <ArchiveConversationDialog
-                ids={rows.map((r) => r.id)}
+                ids={
+                  rows
+                    .map((r) => r.original.conversation?.id || null)
+                    .filter((v) => v) as string[]
+                }
                 trigger={
                   <DropdownMenuItem
                     disabled={rows.length === 0}

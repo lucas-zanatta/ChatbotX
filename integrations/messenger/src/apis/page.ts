@@ -1,7 +1,7 @@
 import {
-  type AttachmentEntity,
   type Context,
   guessFileTypeFromMimeType,
+  type IncomingAttachment,
 } from "@aha.chat/sdk"
 import { createId } from "@paralleldrive/cuid2"
 import fetch from "cross-fetch"
@@ -89,7 +89,7 @@ export const unsubscribePageFromAppWebhook = async (props: {
       },
     })
   } catch (error) {
-    logger.error("Unsubscribe Page From AppWebhook failed", error)
+    logger.error(error, "Unsubscribe Page From AppWebhook failed")
     throw new MessengerAPIException(
       "Unsubscribe Page From AppWebhook failed",
       `${version}/${props.pageId}/subscribed_apps`,
@@ -97,30 +97,22 @@ export const unsubscribePageFromAppWebhook = async (props: {
   }
 }
 
-export const sendMessage = async (
+export const sendPageMessage = async (
   auth: MessengerAuthValue,
   payload: FacebookSendMessageRequest,
 ): Promise<FacebookSendMessageResponse> => {
   const { version = DEFAULT_API_VERSION } = auth
 
-  try {
-    return await facebookGraphClient.post<FacebookSendMessageResponse>(
-      `${version}/me/messages`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.tokens.accessToken}`,
-        },
-        json: payload,
+  return await facebookGraphClient.post<FacebookSendMessageResponse>(
+    `${version}/me/messages`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.tokens.accessToken}`,
       },
-    )
-  } catch (error) {
-    logger.error("Send Message error", error)
-    throw new MessengerAPIException(
-      "An error occurred while sending the message",
-      `${version}/${auth.metadata.pageId}/messages`,
-    )
-  }
+      json: payload,
+    },
+  )
 }
 
 export const getMessageAttachmentEntity = async ({
@@ -129,7 +121,7 @@ export const getMessageAttachmentEntity = async ({
 }: {
   ctx: Context<MessengerAuthValue>
   attachment: FacebookMessageAttachment
-}): Promise<AttachmentEntity | undefined> => {
+}): Promise<IncomingAttachment | undefined> => {
   if (!attachment.payload.url) {
     throw new Error("No attachment URL found")
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { FolderType } from "@aha.chat/database/types"
+import { FolderType } from "@aha.chat/database/enums"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import {
@@ -62,7 +62,7 @@ export function BulkMoveFolderDialog({
       await Promise.all(
         sequences.map((sequence) =>
           changeFolderAction(chatbotId, {
-            modelId: sequence.id,
+            modelIds: [sequence.id],
             newFolderId: values.newFolderId,
             folderType: FolderType.sequence,
           }),

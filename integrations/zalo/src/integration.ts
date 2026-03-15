@@ -7,7 +7,7 @@ import {
 import { getUserProfile } from "./api/user"
 import { callbackHandler } from "./handlers/callback"
 import { webhookHandler } from "./handlers/webhook"
-import { parseIncomingMessage } from "./incoming-message"
+import { receiveMessage } from "./incoming-message"
 import { sendFlowStep, sendOutgoingMessage } from "./outgoing-message"
 import type {
   ZaloActions,
@@ -17,14 +17,17 @@ import type {
 
 const config: IntegrationDefinition<ZaloConfig, ZaloAuthValue, ZaloActions> = {
   name: "zalo",
-  actions: {
-    receiveMessage: async ({ ctx, data }) =>
-      await parseIncomingMessage({ ctx, data }),
-    sendMessage: async ({ ctx, message, conversation }) => {
-      await sendOutgoingMessage(ctx, conversation, message)
+  channels: {
+    channel: {
+      message: {
+        sendMessage: sendOutgoingMessage,
+        receiveMessage,
+      },
     },
-    sendFlowStep: async ({ ctx, flowVersionId, step, conversation }) => {
-      await sendFlowStep(ctx, conversation, flowVersionId, step)
+  },
+  actions: {
+    sendFlowStep: async (props) => {
+      await sendFlowStep(props)
     },
     getUserProfile: async ({ ctx, psid }) =>
       await getUserProfile({ ctx, psid }),
@@ -45,7 +48,7 @@ const config: IntegrationDefinition<ZaloConfig, ZaloAuthValue, ZaloActions> = {
     }
   },
   disconnect: (_props: ZaloAuthValue): Promise<void> => {
-    throw new Error("Function not implemented.")
+    throw new Error("Method is not implemented.")
   },
 }
 

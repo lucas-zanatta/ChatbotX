@@ -1,6 +1,6 @@
 "use client"
 
-import { FileType } from "@aha.chat/database/types"
+import type { FileType } from "@aha.chat/database/types"
 import { Button } from "@aha.chat/ui/components/ui/button"
 import { Input } from "@aha.chat/ui/components/ui/input"
 import {
@@ -13,6 +13,7 @@ import { cn } from "@aha.chat/ui/lib/utils"
 import { useTranslations } from "next-intl"
 import {
   File,
+  FileIcon,
   ImageIcon,
   ImagePlay,
   type LucideIcon,
@@ -53,23 +54,23 @@ function UploadIcon({
   ...props
 }: { type?: FileType; size: number } & SVGProps<SVGSVGElement>) {
   const uploadIcons: Record<FileType, { icon: LucideIcon }> = {
-    [FileType.video]: {
+    video: {
       icon: Video,
     },
-    [FileType.file]: {
+    file: {
       icon: File,
     },
-    [FileType.audio]: {
+    audio: {
       icon: Volume2,
     },
-    [FileType.gif]: {
+    gif: {
       icon: ImagePlay,
     },
-    [FileType.image]: {
+    image: {
       icon: ImageIcon,
     },
   }
-  const dyanmicIcon = uploadIcons[type ?? FileType.image]
+  const dyanmicIcon = uploadIcons[type ?? "image"]
 
   return <dyanmicIcon.icon {...props} />
 }
@@ -78,7 +79,7 @@ export default function FileDropzone({
   register,
   unregister,
   parentName,
-  type = FileType.image,
+  type = "image",
   mode = "file",
   configs: {
     uploadKeyName = "texts.or",
@@ -146,6 +147,8 @@ export default function FileDropzone({
         _imagePreview(file)
       } else if (file.type.startsWith("video/")) {
         _videoPreview(file)
+      } else {
+        setPreview(file.name)
       }
 
       onDrop?.(file)
@@ -176,9 +179,10 @@ export default function FileDropzone({
       <div className="flex flex-col items-center">
         <UploadIcon className="text-gray-500" size={30} type={type} />
         <div>
-          {t("texts.or")}
+          {t("actions.selectFile")}
           {!isCard && (
             <>
+              {t("texts.or")}
               {"\u00A0"}
               <Button
                 className="p-0 text-destructive"
@@ -195,24 +199,32 @@ export default function FileDropzone({
   }
 
   const _hasFile = () => {
+    if (type === "image") {
+      return (
+        <>
+          <Image
+            alt="Thumbnail"
+            className="h-full w-full object-cover"
+            src={preview}
+          />
+          <div className="absolute top-1 right-1 z-10">
+            <Button
+              className="size-5 rounded-full"
+              onClick={_onRemove}
+              size="icon"
+              variant="outline"
+            >
+              <X size={10} />
+            </Button>
+          </div>
+        </>
+      )
+    }
     return (
-      <>
-        <Image
-          alt="Thumbnail"
-          className="h-full w-full object-cover"
-          src={preview}
-        />
-        <div className="absolute top-1 right-1 z-10">
-          <Button
-            className="size-5 rounded-full"
-            onClick={_onRemove}
-            size="icon"
-            variant="outline"
-          >
-            <X size={10} />
-          </Button>
-        </div>
-      </>
+      <div className="flex flex-col gap-2 items-center px-4">
+        <FileIcon />
+        <span className="text-sm">{preview}</span>
+      </div>
     )
   }
 

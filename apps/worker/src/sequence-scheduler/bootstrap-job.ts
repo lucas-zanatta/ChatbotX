@@ -1,4 +1,4 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import { logger } from "../lib/logger"
 
@@ -9,8 +9,8 @@ const BATCH_SIZE = 1000
 const TOTAL_BUCKETS = 256
 
 interface BootstrapJobOptions {
-  intervalMs: number
   cleanupIntervalMs: number
+  intervalMs: number
 }
 
 export class BootstrapJob {
@@ -80,23 +80,19 @@ export class BootstrapJob {
       while (hasMore) {
         const windowEndMs = BigInt(windowEnd.getTime())
 
-        const dispatches = await prisma.sequenceDispatch.findMany({
-          where: {
-            status: "pending",
-            runAtMs: {
-              lte: windowEndMs,
-            },
-          },
-          select: {
+        const dispatches = await db.query.sequenceDispatchModel.findMany({
+          where: (d, { eq, and, lte }) =>
+            and(eq(d.status, "pending"), lte(d.runAtMs, windowEndMs)),
+          columns: {
             id: true,
             bucket: true,
             runAtMs: true,
             chatbotId: true,
             contactId: true,
           },
-          orderBy: { runAtMs: "asc" },
-          skip: offset,
-          take: BATCH_SIZE,
+          orderBy: (d, { asc }) => [asc(d.runAtMs)],
+          offset,
+          limit: BATCH_SIZE,
         })
 
         if (dispatches.length === 0) {
@@ -200,12 +196,10 @@ export class BootstrapJob {
           continue
         }
 
-        const validDispatches = await prisma.sequenceDispatch.findMany({
-          where: {
-            id: { in: allIds },
-            status: "pending",
-          },
-          select: { id: true },
+        const validDispatches = await db.query.sequenceDispatchModel.findMany({
+          where: (d, { eq, and, inArray }) =>
+            and(inArray(d.id, allIds), eq(d.status, "pending")),
+          columns: { id: true },
         })
 
         const validIds = new Set(validDispatches.map((d) => d.id))
