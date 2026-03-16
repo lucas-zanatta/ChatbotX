@@ -413,7 +413,7 @@ importers:
         version: link:../../packages/typescript-config
       '@types/node':
         specifier: 24.x
-        version: 25.5.0
+        version: 24.12.0
       dotenv-cli:
         specifier: ^11.0.0
         version: 11.0.0
@@ -545,8 +545,8 @@ importers:
         specifier: ^2.0.2
         version: 2.0.2
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1
+        specifier: 5.9.3
+        version: 5.9.3
       kafkajs:
         specifier: ^2.2.4
         version: 2.2.4
@@ -554,10 +554,10 @@ importers:
         specifier: ^1.14.3
         version: 1.14.3
       mailparser:
-        specifier: ^3.9.4
+        specifier: ^3.9.3
         version: 3.9.4
       mammoth:
-        specifier: ^1.12.0
+        specifier: ^1.11.0
         version: 1.12.0
       mime-types:
         specifier: ^3.0.2
@@ -847,8 +847,8 @@ importers:
         specifier: ^11.0.0
         version: 11.0.0
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1
+        specifier: 5.9.3
+        version: 5.9.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -858,7 +858,7 @@ importers:
         version: link:../typescript-config
       '@types/node':
         specifier: 24.x
-        version: 25.5.0
+        version: 24.12.0
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -885,7 +885,7 @@ importers:
         version: 0.13.10(typescript@5.9.3)(valibot@1.2.0(typescript@5.9.3))(zod@4.3.6)
       '@types/node':
         specifier: 24.x
-        version: 25.5.0
+        version: 24.12.0
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -941,7 +941,7 @@ importers:
         version: 3.3.0
       '@types/node':
         specifier: 24.x
-        version: 25.5.0
+        version: 24.12.0
       dotenv-cli:
         specifier: ^11.0.0
         version: 11.0.0
@@ -1179,8 +1179,8 @@ importers:
         specifier: workspace:*
         version: link:../logger
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1
+        specifier: 5.9.3
+        version: 5.9.3
     devDependencies:
       '@aha.chat/typescript-config':
         specifier: workspace:*
@@ -1498,8 +1498,8 @@ importers:
         specifier: ^5.71.0
         version: 5.71.0
       ioredis:
-        specifier: 5.10.1
-        version: 5.10.1
+        specifier: 5.9.3
+        version: 5.9.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3335,9 +3335,6 @@ packages:
 
   '@ioredis/commands@1.5.0':
     resolution: {integrity: sha512-eUgLqrMf8nJkZxT24JvVRrQya1vZkQh8BBeYNwGDqa5I0VUi8ACx7uFvAaLxintokpTenkK6DASvo/bvNbBGow==}
-
-  '@ioredis/commands@1.5.1':
-    resolution: {integrity: sha512-JH8ZL/ywcJyR9MmJ5BNqZllXNZQqQbnVZOqpPQqE1vHiFgAw4NHbvE0FOduNU8IX9babitBT46571OnPTT0Zcw==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -6493,9 +6490,6 @@ packages:
   '@types/node@24.12.0':
     resolution: {integrity: sha512-GYDxsZi3ChgmckRT9HPU0WEhKLP08ev/Yfcq2AstjrDASOYCSXeyjDsHg4v5t4jOj7cyDX3vmprafKlWIG9MXQ==}
 
-  '@types/node@25.5.0':
-    resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
-
   '@types/nodemailer@7.0.11':
     resolution: {integrity: sha512-E+U4RzR2dKrx+u3N4DlsmLaDC6mMZOM/TPROxA0UAPiTgI0y4CEFBmZE+coGWTjakDriRsXG368lNk1u9Q0a2g==}
 
@@ -8317,10 +8311,6 @@ packages:
 
   intl-messageformat@11.2.0:
     resolution: {integrity: sha512-IhghAA8n4KSlXuWKzYsWyWb82JoYTzShfyvdSF85oJPnNOjvv4kAo7S7Jtkm3/vJ53C7dQNRO+Gpnj3iWgTjBQ==}
-
-  ioredis@5.10.1:
-    resolution: {integrity: sha512-HuEDBTI70aYdx1v6U97SbNx9F1+svQKBDo30o0b9fw055LMepzpOOd0Ccg9Q6tbqmBSJaMuY0fB7yw9/vjBYCA==}
-    engines: {node: '>=12.22.0'}
 
   ioredis@5.9.3:
     resolution: {integrity: sha512-VI5tMCdeoxZWU5vjHWsiE/Su76JGhBvWF1MJnV9ZtGltHk9BmD48oDq8Tj8haZ85aceXZMxLNDQZRVo5QKNgXA==}
@@ -11005,9 +10995,6 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  undici-types@7.18.2:
-    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
-
   undici@5.29.0:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
     engines: {node: '>=14.0'}
@@ -13221,8 +13208,6 @@ snapshots:
     optional: true
 
   '@ioredis/commands@1.5.0': {}
-
-  '@ioredis/commands@1.5.1': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -16308,7 +16293,7 @@ snapshots:
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
 
   '@types/d3-array@3.2.2': {}
 
@@ -16465,7 +16450,7 @@ snapshots:
 
   '@types/mailparser@3.4.6':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
       iconv-lite: 0.6.3
 
   '@types/markdown-it@14.1.2':
@@ -16496,7 +16481,7 @@ snapshots:
 
   '@types/needle@3.3.0':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
 
   '@types/node@24.10.13':
     dependencies:
@@ -16506,26 +16491,22 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/node@25.5.0':
-    dependencies:
-      undici-types: 7.18.2
-
   '@types/nodemailer@7.0.11':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
 
   '@types/parse-json@4.0.2': {}
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
   '@types/probe-image-size@7.2.5':
     dependencies:
       '@types/needle': 3.3.0
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -16561,7 +16542,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -17678,7 +17659,7 @@ snapshots:
   engine.io@6.6.6:
     dependencies:
       '@types/cors': 2.8.19
-      '@types/node': 24.10.13
+      '@types/node': 24.12.0
       '@types/ws': 8.18.1
       accepts: 1.3.8
       base64id: 2.0.0
@@ -18536,20 +18517,6 @@ snapshots:
       '@formatjs/ecma402-abstract': 3.2.0
       '@formatjs/fast-memoize': 3.1.1
       '@formatjs/icu-messageformat-parser': 3.5.3
-
-  ioredis@5.10.1:
-    dependencies:
-      '@ioredis/commands': 1.5.1
-      cluster-key-slot: 1.1.2
-      debug: 4.4.3(supports-color@10.2.2)
-      denque: 2.1.0
-      lodash.defaults: 4.2.0
-      lodash.isarguments: 3.1.0
-      redis-errors: 1.2.0
-      redis-parser: 3.0.0
-      standard-as-callback: 2.1.0
-    transitivePeerDependencies:
-      - supports-color
 
   ioredis@5.9.3:
     dependencies:
@@ -21837,8 +21804,6 @@ snapshots:
   underscore@1.13.8: {}
 
   undici-types@7.16.0: {}
-
-  undici-types@7.18.2: {}
 
   undici@5.29.0:
     dependencies:
