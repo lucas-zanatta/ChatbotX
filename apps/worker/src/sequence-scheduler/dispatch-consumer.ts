@@ -223,7 +223,9 @@ export class DispatchConsumer {
   private async executeStep(dispatch: NonNullable<DispatchWithRelations>) {
     try {
       const step = await db.query.sequenceStepModel.findFirst({
-        where: (s, { eq }) => eq(s.id, dispatch.stepId),
+        where: {
+          id: dispatch.stepId,
+        },
         with: { flow: true },
       })
 
@@ -249,6 +251,7 @@ export class DispatchConsumer {
         throw new Error(`Step ${dispatch.stepId} has no flow configured`)
       }
 
+      // console.log("step", step)
       const sentAt = await this.sendFlowMessage(dispatch, step)
 
       await db
@@ -339,11 +342,10 @@ export class DispatchConsumer {
   ) {
     await db.transaction(async (tx) => {
       const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
-        where: (cos, { eq, and }) =>
-          and(
-            eq(cos.id, dispatch.enrollmentId),
-            eq(cos.chatbotId, dispatch.chatbotId),
-          ),
+        where: {
+          id: dispatch.enrollmentId,
+          chatbotId: dispatch.chatbotId,
+        },
       })
 
       if (!enrollment) {
@@ -373,13 +375,12 @@ export class DispatchConsumer {
       }
 
       const nextStep = await tx.query.sequenceStepModel.findFirst({
-        where: (s, { eq, and, gt }) =>
-          and(
-            eq(s.sequenceId, dispatch.sequenceId),
-            gt(s.order, step.order),
-            eq(s.isActive, true),
-          ),
-        orderBy: (s, { asc }) => [asc(s.order)],
+        where: {
+          sequenceId: dispatch.sequenceId,
+          order: { gt: step.order },
+          isActive: true,
+        },
+        orderBy: { order: "asc" },
         with: { flow: true },
       })
 

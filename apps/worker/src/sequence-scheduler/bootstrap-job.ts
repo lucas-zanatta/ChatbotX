@@ -48,13 +48,13 @@ export class BootstrapJob {
 
     this.intervalId = setInterval(() => {
       this.reconcile().catch((error) => {
-        logger.error({ error }, "Error in reconcile job")
+        logger.error(error, "Error in reconcile job")
       })
     }, this.options.intervalMs)
 
     this.cleanupIntervalId = setInterval(() => {
       this.cleanupOrphans().catch((error) => {
-        logger.error({ error }, "Error in cleanup job")
+        logger.error(error, "Error in cleanup job")
       })
     }, this.options.cleanupIntervalMs)
 
@@ -81,8 +81,10 @@ export class BootstrapJob {
         const windowEndMs = BigInt(windowEnd.getTime())
 
         const dispatches = await db.query.sequenceDispatchModel.findMany({
-          where: (d, { eq, and, lte }) =>
-            and(eq(d.status, "pending"), lte(d.runAtMs, windowEndMs)),
+          where: {
+            status: "pending",
+            runAtMs: { lte: Number(windowEndMs) },
+          },
           columns: {
             id: true,
             bucket: true,
@@ -197,8 +199,10 @@ export class BootstrapJob {
         }
 
         const validDispatches = await db.query.sequenceDispatchModel.findMany({
-          where: (d, { eq, and, inArray }) =>
-            and(inArray(d.id, allIds), eq(d.status, "pending")),
+          where: {
+            id: { in: allIds },
+            status: "pending",
+          },
           columns: { id: true },
         })
 

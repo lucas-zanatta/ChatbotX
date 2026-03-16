@@ -109,7 +109,7 @@ export class SchedulerWorker {
       try {
         await this.processBucket(bucket)
       } catch (error) {
-        logger.error(`Error processing bucket ${bucket}:`, error)
+        logger.error(error, `Error processing bucket ${bucket}`)
       }
 
       if (this.running) {

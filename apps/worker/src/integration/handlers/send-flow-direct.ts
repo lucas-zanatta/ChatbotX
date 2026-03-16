@@ -14,8 +14,10 @@ export async function sendFlowDirect(
   const { flowId, chatbotId, contactId } = params
 
   const conversation = await db.query.conversationModel.findFirst({
-    where: (c, { eq, and }) =>
-      and(eq(c.contactId, contactId), eq(c.chatbotId, chatbotId)),
+    where: {
+      contactId,
+      chatbotId,
+    },
   })
 
   if (!conversation) {
