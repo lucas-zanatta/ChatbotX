@@ -38,26 +38,22 @@ export async function listSequences(
     return sortItem.desc ? sql`${column} DESC` : sql`${column} ASC`
   })
 
-  const [data, totalResult] = await db.transaction(async (tx) => {
-    const sequences = await tx
-      .select()
-      .from(sequenceModel)
-      .where(whereClause)
-      .limit(input.perPage)
-      .offset((input.page - 1) * input.perPage)
-      .orderBy(...orderBy)
+  const sequences = await db
+    .select()
+    .from(sequenceModel)
+    .where(whereClause)
+    .limit(input.perPage)
+    .offset((input.page - 1) * input.perPage)
+    .orderBy(...orderBy)
 
-    const [totalCount] = await tx
-      .select({ count: count() })
-      .from(sequenceModel)
-      .where(whereClause)
+  const [totalCount] = await db
+    .select({ count: count() })
+    .from(sequenceModel)
+    .where(whereClause)
 
-    return [sequences, totalCount]
-  })
+  const pageCount = Math.ceil((totalCount?.count ?? 0) / input.perPage)
 
-  const pageCount = Math.ceil((totalResult?.count ?? 0) / input.perPage)
-
-  return { data, pageCount }
+  return { data: sequences, pageCount }
 }
 
 export async function getSequence(chatbotId: string, sequenceId: string) {

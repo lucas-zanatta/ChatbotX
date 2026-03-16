@@ -679,6 +679,48 @@ export const relations = defineRelations(schema, (r) => ({
       optional: false,
     }),
   },
-  sequenceEventModel: {},
-  sequenceDispatchModel: {},
+  sequenceEventModel: {
+    chatbot: r.one.chatbotModel({
+      from: r.sequenceEventModel.chatbotId,
+      to: r.chatbotModel.id,
+      optional: false,
+    }),
+    sequence: r.one.sequenceModel({
+      from: r.sequenceEventModel.sequenceId,
+      to: r.sequenceModel.id,
+      optional: false,
+    }),
+    contact: r.one.contactModel({
+      from: r.sequenceEventModel.contactId,
+      to: r.contactModel.id,
+      optional: false,
+    }),
+  },
+  sequenceDispatchModel: {
+    chatbot: r.one.chatbotModel({
+      from: r.sequenceDispatchModel.chatbotId,
+      to: r.chatbotModel.id,
+      optional: false,
+    }),
+    sequence: r.one.sequenceModel({
+      from: r.sequenceDispatchModel.sequenceId,
+      to: r.sequenceModel.id,
+      optional: false,
+    }),
+    contact: r.one.contactModel({
+      from: r.sequenceDispatchModel.contactId,
+      to: r.contactModel.id,
+      optional: false,
+    }),
+    enrollment: r.one.contactsOnSequenceModel({
+      from: r.sequenceDispatchModel.enrollmentId,
+      to: r.contactsOnSequenceModel.id,
+      optional: false,
+    }),
+    step: r.one.sequenceStepModel({
+      from: r.sequenceDispatchModel.stepId,
+      to: r.sequenceStepModel.id,
+      optional: false,
+    }),
+  },
 }))

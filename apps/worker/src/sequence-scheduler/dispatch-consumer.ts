@@ -1,4 +1,4 @@
-import { db } from "@aha.chat/database/client"
+import { and, db, eq } from "@aha.chat/database/client"
 import {
   contactsOnSequenceModel,
   sequenceDispatchModel,
@@ -11,7 +11,6 @@ import {
   createDispatch,
 } from "@aha.chat/sequence-scheduler"
 import { createId } from "@paralleldrive/cuid2"
-import { and, eq } from "drizzle-orm"
 import { type Consumer, Kafka } from "kafkajs"
 import pLimit, { type LimitFunction } from "p-limit"
 import { sendFlowDirect } from "../integration/handlers/send-flow-direct"
@@ -38,7 +37,7 @@ type DispatchWithRelations = Awaited<
       with: { sequence: true; contact: true; enrollment: true }
     }>
   >
-> & {}
+>
 
 type StepWithRelations = Awaited<
   ReturnType<
@@ -141,7 +140,9 @@ export class DispatchConsumer {
 
     try {
       const dispatch = await db.query.sequenceDispatchModel.findFirst({
-        where: (d, { eq }) => eq(d.id, payload.dispatchId),
+        where: {
+          id: payload.dispatchId,
+        },
         with: {
           sequence: true,
           contact: true,
