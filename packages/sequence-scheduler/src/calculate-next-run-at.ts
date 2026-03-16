@@ -1,4 +1,6 @@
-import { db } from "@aha.chat/database/client"
+import { db, type Transaction } from "@aha.chat/database/client"
+
+type DrizzleClient = typeof db | Transaction
 
 export interface SequenceStepDelay {
   delayDays: number
@@ -24,17 +26,16 @@ export function calculateNextRunAtFromStep(
 export async function calculateNextRunAt(
   sequenceId: string,
   enrolledAt: Date = new Date(),
-  tx?: DrizzleTransaction,
+  tx?: DrizzleClient,
 ): Promise<{ nextRunAt: Date; nextStepId: string | null }> {
   const client = tx ?? db
 
   const firstStep = await client.query.sequenceStepModel.findFirst({
-    where: (step, { eq, and }) =>
-      and(
-        eq(step.sequenceId, sequenceId),
-        eq(step.order, 0),
-        eq(step.isActive, true),
-      ),
+    where: {
+      sequenceId,
+      order: 0,
+      isActive: true,
+    },
     columns: {
       id: true,
       delayDays: true,

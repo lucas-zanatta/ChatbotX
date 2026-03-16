@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import {
+  bigint,
   boolean,
   doublePrecision,
   foreignKey,
@@ -1758,7 +1759,7 @@ export const sequenceDispatchModel = pgTable(
   "SequenceDispatch",
   {
     ...sharedColumns,
-    runAtMs: integer().notNull().default(0),
+    runAtMs: bigint({ mode: "number" }).notNull().default(0),
     bucket: integer().notNull().default(0),
     status: text().notNull().default("pending"),
     idempotencyKey: text().notNull(),

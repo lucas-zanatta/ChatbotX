@@ -1,8 +1,8 @@
 export interface SendTimeWindow {
   anytime: boolean
-  sendTimeStart: string | null
-  sendTimeEnd: string | null
   sendDays: string | null
+  sendTimeEnd: string | null
+  sendTimeStart: string | null
 }
 
 export function calculateNextValidSendTime(

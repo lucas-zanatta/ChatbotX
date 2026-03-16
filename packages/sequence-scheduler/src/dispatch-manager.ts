@@ -1,11 +1,10 @@
 import {
   and,
   db,
-  type ExtractTablesWithRelations,
   eq,
   inArray,
+  type Transaction,
 } from "@aha.chat/database/client"
-import type * as schema from "@aha.chat/database/schema"
 import {
   contactsOnSequenceModel,
   sequenceDispatchModel,
@@ -14,14 +13,9 @@ import {
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import { createId } from "@paralleldrive/cuid2"
 import { createHash } from "crypto"
-import type { PgTransaction } from "drizzle-orm/pg-core"
-import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js"
 
-type DrizzleTransaction = PgTransaction<
-  PostgresJsQueryResultHKT,
-  typeof schema,
-  ExtractTablesWithRelations<typeof schema>
->
+type DrizzleClient = typeof db | Transaction
+
 export function calculateBucket(chatbotId: string, contactId: string): number {
   const key = `${chatbotId}:${contactId}`
   const hash = createHash("sha256").update(key).digest()
@@ -37,7 +31,7 @@ export function generateIdempotencyKey(
 }
 export interface CreateDispatchParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   contactId: string
   enrollmentId: string
   runAt: Date
@@ -73,7 +67,7 @@ export async function createDispatch(
       contactId,
       stepId,
       enrollmentId,
-      runAtMs: BigInt(runAtMs),
+      runAtMs,
       bucket,
       idempotencyKey,
       status: "pending",
@@ -89,14 +83,11 @@ export async function createDispatch(
     throw new Error("Failed to create dispatch")
   }
 
-  return {
-    ...dispatch,
-    runAtMs: Number(dispatch.runAtMs),
-  }
+  return dispatch
 }
 export interface CancelPendingDispatchesParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   enrollmentId: string
   reason?: string
 }
@@ -106,12 +97,11 @@ export async function cancelPendingDispatches(
   const { enrollmentId, chatbotId, reason = "canceled", client = db } = params
 
   const pendingDispatches = await client.query.sequenceDispatchModel.findMany({
-    where: (dispatch, { eq, and }) =>
-      and(
-        eq(dispatch.enrollmentId, enrollmentId),
-        eq(dispatch.chatbotId, chatbotId),
-        eq(dispatch.status, "pending"),
-      ),
+    where: {
+      enrollmentId,
+      chatbotId,
+      status: "pending",
+    },
     columns: {
       id: true,
       bucket: true,
@@ -166,7 +156,7 @@ export async function cancelPendingDispatches(
 }
 export interface RescheduleEnrollmentParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   enrollmentId: string
   newNextRunAt: Date
   newStepId: string
@@ -185,7 +175,7 @@ export async function rescheduleEnrollment(
     client = db,
   } = params
 
-  const executeReschedule = async (tx: DrizzleTransaction) => {
+  const executeReschedule = async (tx: DrizzleClient) => {
     await tx
       .update(contactsOnSequenceModel)
       .set({
@@ -201,12 +191,11 @@ export async function rescheduleEnrollment(
       )
 
     const currentDispatch = await tx.query.sequenceDispatchModel.findFirst({
-      where: (dispatch, { eq, and, inArray }) =>
-        and(
-          eq(dispatch.enrollmentId, enrollmentId),
-          eq(dispatch.chatbotId, chatbotId),
-          inArray(dispatch.status, ["pending", "running"]),
-        ),
+      where: {
+        enrollmentId,
+        chatbotId,
+        status: { in: ["pending", "running"] },
+      },
       orderBy: (dispatch, { desc }) => [desc(dispatch.runAtMs)],
       columns: {
         id: true,
@@ -254,8 +243,10 @@ export async function rescheduleEnrollment(
     }
 
     const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
-      where: (cos, { eq, and }) =>
-        and(eq(cos.id, enrollmentId), eq(cos.chatbotId, chatbotId)),
+      where: {
+        id: enrollmentId,
+        chatbotId,
+      },
       columns: {
         sequenceId: true,
         contactId: true,
@@ -285,7 +276,7 @@ export async function rescheduleEnrollment(
 }
 export interface PauseEnrollmentParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   enrollmentId: string
 }
 export async function pauseEnrollment(
@@ -293,7 +284,7 @@ export async function pauseEnrollment(
 ): Promise<Array<{ id: string; bucket: number }>> {
   const { enrollmentId, chatbotId, client = db } = params
 
-  const executePause = async (tx: DrizzleTransaction) => {
+  const executePause = async (tx: DrizzleClient) => {
     await tx
       .update(contactsOnSequenceModel)
       .set({
@@ -321,7 +312,7 @@ export async function pauseEnrollment(
 }
 export interface ResumeEnrollmentParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   enrollmentId: string
   nextRunAt: Date
   nextStepId: string
@@ -331,7 +322,7 @@ export async function resumeEnrollment(
 ): Promise<{ id: string; bucket: number; runAtMs: number }> {
   const { enrollmentId, chatbotId, nextRunAt, nextStepId, client = db } = params
 
-  const executeResume = async (tx: DrizzleTransaction) => {
+  const executeResume = async (tx: DrizzleClient) => {
     await tx
       .update(contactsOnSequenceModel)
       .set({
@@ -348,8 +339,10 @@ export async function resumeEnrollment(
       )
 
     const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
-      where: (cos, { eq, and }) =>
-        and(eq(cos.id, enrollmentId), eq(cos.chatbotId, chatbotId)),
+      where: {
+        id: enrollmentId,
+        chatbotId,
+      },
       columns: {
         sequenceId: true,
         contactId: true,

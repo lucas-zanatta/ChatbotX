@@ -1,22 +1,14 @@
-import { db } from "@aha.chat/database/client"
-import type * as schema from "@aha.chat/database/schema"
+import { db, type Transaction } from "@aha.chat/database/client"
 import { contactsOnSequenceModel } from "@aha.chat/database/schema"
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import { createId } from "@paralleldrive/cuid2"
-import type { ExtractTablesWithRelations } from "drizzle-orm"
-import type { PgTransaction } from "drizzle-orm/pg-core"
-import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js"
 import { createDispatch } from "./dispatch-manager"
 
-type DrizzleTransaction = PgTransaction<
-  PostgresJsQueryResultHKT,
-  typeof schema,
-  ExtractTablesWithRelations<typeof schema>
->
+type DrizzleClient = typeof db | Transaction
 
 export interface EnrollContactParams {
   chatbotId: string
-  client?: DrizzleTransaction
+  client?: DrizzleClient
   contactId: string
   enrolledAt?: Date
   nextRunAt: Date
@@ -35,12 +27,11 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
   } = params
 
   const existing = await client.query.contactsOnSequenceModel.findFirst({
-    where: (cos, { eq, and }) =>
-      and(
-        eq(cos.contactId, contactId),
-        eq(cos.sequenceId, sequenceId),
-        eq(cos.chatbotId, chatbotId),
-      ),
+    where: {
+      contactId,
+      sequenceId,
+      chatbotId,
+    },
     columns: { id: true },
   })
 
@@ -116,12 +107,11 @@ export async function enrollContactsInSequenceBulk(
     const sequenceIds = enrollments.map((e) => e.sequenceId)
 
     return await tx.query.contactsOnSequenceModel.findMany({
-      where: (cos, { eq, and, inArray }) =>
-        and(
-          eq(cos.chatbotId, chatbotId),
-          inArray(cos.contactId, contactIds),
-          inArray(cos.sequenceId, sequenceIds),
-        ),
+      where: {
+        chatbotId,
+        contactId: { in: contactIds },
+        sequenceId: { in: sequenceIds },
+      },
       columns: {
         id: true,
         contactId: true,

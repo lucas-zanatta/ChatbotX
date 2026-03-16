@@ -56,47 +56,6 @@ async function createAndScheduleDispatch(
   await dragonfly.addToSchedule(dispatch.bucket, dispatch.id, dispatch.runAtMs)
 }
 
-export async function calculateNextRunAt(
-  sequenceId: string,
-  enrolledAt: Date = new Date(),
-  tx?: DrizzleClient,
-): Promise<{ nextRunAt: Date; nextStepId: string | null }> {
-  const client = tx ?? db
-
-  const firstStep = await client.query.sequenceStepModel.findFirst({
-    where: {
-      sequenceId,
-      order: 0,
-      isActive: true,
-    },
-    columns: {
-      id: true,
-      delayDays: true,
-      delayMinutes: true,
-      delayUnit: true,
-      specificDateTime: true,
-    },
-  })
-
-  if (!firstStep) {
-    return { nextRunAt: enrolledAt, nextStepId: null }
-  }
-
-  if (firstStep.delayUnit === "specificTime" && firstStep.specificDateTime) {
-    return { nextRunAt: firstStep.specificDateTime, nextStepId: firstStep.id }
-  }
-
-  const delayMs =
-    firstStep.delayDays * 24 * 60 * 60 * 1000 +
-    firstStep.delayMinutes * 60 * 1000
-
-  return {
-    nextRunAt:
-      delayMs > 0 ? new Date(enrolledAt.getTime() + delayMs) : enrolledAt,
-    nextStepId: firstStep.id,
-  }
-}
-
 export async function calculateNextRunAtBulk(
   sequenceIds: string[],
   enrolledAt: Date = new Date(),
