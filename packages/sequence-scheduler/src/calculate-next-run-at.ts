@@ -1,9 +1,6 @@
-import { prisma } from "@aha.chat/database"
+import { db, type Transaction } from "@aha.chat/database/client"
 
-type PrismaClient = Omit<
-  typeof prisma,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
->
+type DrizzleClient = typeof db | Transaction
 
 export interface SequenceStepDelay {
   delayDays: number
@@ -29,17 +26,17 @@ export function calculateNextRunAtFromStep(
 export async function calculateNextRunAt(
   sequenceId: string,
   enrolledAt: Date = new Date(),
-  tx?: PrismaClient,
+  tx?: DrizzleClient,
 ): Promise<{ nextRunAt: Date; nextStepId: string | null }> {
-  const client = tx ?? prisma
+  const client = tx ?? db
 
-  const firstStep = await client.sequenceStep.findFirst({
+  const firstStep = await client.query.sequenceStepModel.findFirst({
     where: {
       sequenceId,
       order: 0,
       isActive: true,
     },
-    select: {
+    columns: {
       id: true,
       delayDays: true,
       delayMinutes: true,

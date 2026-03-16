@@ -17,8 +17,10 @@ import {
   UsersIcon,
   WorkflowIcon,
 } from "lucide-react"
+import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { type ComponentProps, use } from "react"
+import { BrandIcon } from "@/components/brand-icon"
 import { ChatbotSwitcher } from "@/components/chatbot-switcher"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -66,7 +68,7 @@ export function AppSidebar({
         icon: UsersIcon,
       },
       {
-        title: t("fields.aiAgent.label"),
+        title: t("aiHub.title"),
         url: `/chatbots/${chatbotId}/ai-agents`,
         icon: BrainIcon,
       },
@@ -100,8 +102,16 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="px-2">
-        <ChatbotSwitcher chatbots={chatbots} />
+      <SidebarHeader className="gap-0 px-0 py-0">
+        <Link
+          className="flex h-12 items-center justify-center border-b"
+          href="/"
+        >
+          <BrandIcon alt="Brand" />
+        </Link>
+        <div className="border-b px-1">
+          <ChatbotSwitcher chatbots={chatbots} />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />

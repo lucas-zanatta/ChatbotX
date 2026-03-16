@@ -1,6 +1,6 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import { enrollContactsInSequenceBulk } from "@aha.chat/sequence-scheduler"
 import {
   type ChatbotIdRequestParams,
@@ -21,13 +21,13 @@ async function getExistingEnrollments(
   contactIds: string[],
   sequenceIds: string[],
 ): Promise<Set<string>> {
-  const enrollments = await prisma.contactsOnSequence.findMany({
+  const enrollments = await db.query.contactsOnSequenceModel.findMany({
     where: {
       chatbotId,
       contactId: { in: contactIds },
       sequenceId: { in: sequenceIds },
     },
-    select: {
+    columns: {
       contactId: true,
       sequenceId: true,
     },
@@ -42,12 +42,12 @@ async function getExistingEnrollments(
 }
 
 function getValidContacts(chatbotId: string, contactIds: string[]) {
-  return prisma.contact.findMany({
+  return db.query.contactModel.findMany({
     where: {
       chatbotId,
       id: { in: contactIds },
     },
-    select: {
+    columns: {
       id: true,
     },
   })

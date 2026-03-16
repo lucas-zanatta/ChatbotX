@@ -1,10 +1,16 @@
-import { type Prisma, prisma } from "@aha.chat/database"
+import { and, db, eq } from "@aha.chat/database/client"
+import {
+  contactsOnSequenceModel,
+  sequenceDispatchModel,
+  sequenceEventModel,
+} from "@aha.chat/database/schema"
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import {
   calculateNextRunAtFromStep,
   calculateNextValidSendTime,
   createDispatch,
 } from "@aha.chat/sequence-scheduler"
+import { createId } from "@paralleldrive/cuid2"
 import { type Consumer, Kafka } from "kafkajs"
 import pLimit, { type LimitFunction } from "p-limit"
 import { sendFlowDirect } from "../integration/handlers/send-flow-direct"
@@ -19,23 +25,27 @@ const RETRY_BASE_DELAY_MS = 60_000
 
 interface ConsumerConfig {
   groupId: string
-  maxWaitTimeInMs: number
-  sessionTimeout: number
   heartbeatInterval: number
   maxProcess: number
+  maxWaitTimeInMs: number
+  sessionTimeout: number
 }
 
-type DispatchWithRelations = Prisma.SequenceDispatchGetPayload<{
-  include: {
-    sequence: true
-    contact: true
-    enrollment: true
-  }
-}>
+type DispatchWithRelations = Awaited<
+  ReturnType<
+    typeof db.query.sequenceDispatchModel.findFirst<{
+      with: { sequence: true; contact: true; enrollment: true }
+    }>
+  >
+>
 
-type StepWithRelations = Prisma.SequenceStepGetPayload<{
-  include: { flow: true }
-}>
+type StepWithRelations = Awaited<
+  ReturnType<
+    typeof db.query.sequenceStepModel.findFirst<{
+      with: { flow: true }
+    }>
+  >
+> & {}
 
 type DispatchMessage = {
   dispatchId: string
@@ -129,14 +139,16 @@ export class DispatchConsumer {
     const startTime = Date.now()
 
     try {
-      const dispatch = (await prisma.sequenceDispatch.findFirst({
-        where: { id: payload.dispatchId },
-        include: {
+      const dispatch = await db.query.sequenceDispatchModel.findFirst({
+        where: {
+          id: payload.dispatchId,
+        },
+        with: {
           sequence: true,
           contact: true,
           enrollment: true,
         },
-      })) as DispatchWithRelations | null
+      })
 
       if (!dispatch) {
         logger.warn({ dispatchId: payload.dispatchId }, "Dispatch not found")
@@ -161,21 +173,24 @@ export class DispatchConsumer {
         return
       }
 
-      const updated = await prisma.sequenceDispatch.updateMany({
-        where: {
-          id: dispatch.id,
-          chatbotId: dispatch.chatbotId,
-          status: "pending",
-        },
-        data: {
+      const updated = await db
+        .update(sequenceDispatchModel)
+        .set({
           status: "running",
           lockedAt: new Date(),
           lockOwner: process.env.HOSTNAME || "unknown",
           updatedAt: new Date(),
-        },
-      })
+        })
+        .where(
+          and(
+            eq(sequenceDispatchModel.id, dispatch.id),
+            eq(sequenceDispatchModel.chatbotId, dispatch.chatbotId),
+            eq(sequenceDispatchModel.status, "pending"),
+          ),
+        )
+        .returning({ id: sequenceDispatchModel.id })
 
-      if (updated.count === 0) {
+      if (updated.length === 0) {
         logger.warn({ dispatchId: payload.dispatchId }, "Dispatch not acquired")
         return
       }
@@ -205,11 +220,13 @@ export class DispatchConsumer {
     }
   }
 
-  private async executeStep(dispatch: DispatchWithRelations) {
+  private async executeStep(dispatch: NonNullable<DispatchWithRelations>) {
     try {
-      const step = await prisma.sequenceStep.findUnique({
-        where: { id: dispatch.stepId },
-        include: { flow: true },
+      const step = await db.query.sequenceStepModel.findFirst({
+        where: {
+          id: dispatch.stepId,
+        },
+        with: { flow: true },
       })
 
       if (!step) {
@@ -234,36 +251,36 @@ export class DispatchConsumer {
         throw new Error(`Step ${dispatch.stepId} has no flow configured`)
       }
 
+      // console.log("step", step)
       const sentAt = await this.sendFlowMessage(dispatch, step)
 
-      await prisma.sequenceDispatch.update({
-        where: {
-          id_chatbotId: {
-            id: dispatch.id,
-            chatbotId: dispatch.chatbotId,
-          },
-        },
-        data: {
+      await db
+        .update(sequenceDispatchModel)
+        .set({
           status: "completed",
           completedAt: sentAt,
           updatedAt: new Date(),
-        },
-      })
+        })
+        .where(
+          and(
+            eq(sequenceDispatchModel.id, dispatch.id),
+            eq(sequenceDispatchModel.chatbotId, dispatch.chatbotId),
+          ),
+        )
 
-      await prisma.sequenceEvent.create({
-        data: {
-          chatbotId: dispatch.chatbotId,
-          sequenceId: dispatch.sequenceId,
-          contactId: dispatch.contactId,
-          stepId: dispatch.stepId,
-          dispatchId: dispatch.id,
-          eventType: "dispatch_completed",
-          payload: {
-            attempt: dispatch.attempt,
-            duration: Date.now() - Number(dispatch.runAtMs),
-          },
-          occurredAt: sentAt,
+      await db.insert(sequenceEventModel).values({
+        id: createId(),
+        chatbotId: dispatch.chatbotId,
+        sequenceId: dispatch.sequenceId,
+        contactId: dispatch.contactId,
+        stepId: dispatch.stepId,
+        dispatchId: dispatch.id,
+        eventType: "dispatch_completed",
+        payload: {
+          attempt: dispatch.attempt,
+          duration: Date.now() - Number(dispatch.runAtMs),
         },
+        occurredAt: sentAt,
       })
 
       await this.advanceEnrollment(dispatch, step, sentAt)
@@ -285,20 +302,19 @@ export class DispatchConsumer {
             error instanceof Error ? error.message : "Unknown error",
           )
 
-          await prisma.sequenceEvent.create({
-            data: {
-              chatbotId: dispatch.chatbotId,
-              sequenceId: dispatch.sequenceId,
-              contactId: dispatch.contactId,
-              stepId: dispatch.stepId,
-              dispatchId: dispatch.id,
-              eventType: "dispatch_failed",
-              payload: {
-                attempt: dispatch.attempt,
-                error: error instanceof Error ? error.message : "Unknown error",
-              },
-              occurredAt: new Date(),
+          await db.insert(sequenceEventModel).values({
+            id: createId(),
+            chatbotId: dispatch.chatbotId,
+            sequenceId: dispatch.sequenceId,
+            contactId: dispatch.contactId,
+            stepId: dispatch.stepId,
+            dispatchId: dispatch.id,
+            eventType: "dispatch_failed",
+            payload: {
+              attempt: dispatch.attempt,
+              error: error instanceof Error ? error.message : "Unknown error",
             },
+            occurredAt: new Date(),
           })
         }
       } catch (retryError) {
@@ -320,17 +336,15 @@ export class DispatchConsumer {
   }
 
   private async advanceEnrollment(
-    dispatch: DispatchWithRelations,
-    step: StepWithRelations,
+    dispatch: NonNullable<DispatchWithRelations>,
+    step: NonNullable<StepWithRelations>,
     sentAt: Date,
   ) {
-    await prisma.$transaction(async (tx) => {
-      const enrollment = await tx.contactsOnSequence.findUnique({
+    await db.transaction(async (tx) => {
+      const enrollment = await tx.query.contactsOnSequenceModel.findFirst({
         where: {
-          id_chatbotId: {
-            id: dispatch.enrollmentId,
-            chatbotId: dispatch.chatbotId,
-          },
+          id: dispatch.enrollmentId,
+          chatbotId: dispatch.chatbotId,
         },
       })
 
@@ -360,25 +374,20 @@ export class DispatchConsumer {
         return
       }
 
-      const nextStep = (await tx.sequenceStep.findFirst({
+      const nextStep = await tx.query.sequenceStepModel.findFirst({
         where: {
           sequenceId: dispatch.sequenceId,
           order: { gt: step.order },
           isActive: true,
         },
         orderBy: { order: "asc" },
-        include: { flow: true },
-      })) as StepWithRelations | null
+        with: { flow: true },
+      })
 
       if (!nextStep) {
-        await tx.contactsOnSequence.update({
-          where: {
-            id_chatbotId: {
-              id: dispatch.enrollmentId,
-              chatbotId: dispatch.chatbotId,
-            },
-          },
-          data: {
+        await tx
+          .update(contactsOnSequenceModel)
+          .set({
             status: "completed",
             completedAt: sentAt,
             currentStep: step.order + 1,
@@ -386,8 +395,13 @@ export class DispatchConsumer {
             nextStepId: null,
             nextRunAt: null,
             updatedAt: new Date(),
-          },
-        })
+          })
+          .where(
+            and(
+              eq(contactsOnSequenceModel.id, dispatch.enrollmentId),
+              eq(contactsOnSequenceModel.chatbotId, dispatch.chatbotId),
+            ),
+          )
 
         logger.info(
           { enrollmentId: dispatch.enrollmentId },
@@ -399,21 +413,21 @@ export class DispatchConsumer {
 
       const nextRunAt = this.calculateNextRunAt(nextStep, sentAt)
 
-      await tx.contactsOnSequence.update({
-        where: {
-          id_chatbotId: {
-            id: dispatch.enrollmentId,
-            chatbotId: dispatch.chatbotId,
-          },
-        },
-        data: {
+      await tx
+        .update(contactsOnSequenceModel)
+        .set({
           currentStep: nextStep.order,
           lastStepId: step.id,
           nextStepId: nextStep.id,
           nextRunAt,
           updatedAt: new Date(),
-        },
-      })
+        })
+        .where(
+          and(
+            eq(contactsOnSequenceModel.id, dispatch.enrollmentId),
+            eq(contactsOnSequenceModel.chatbotId, dispatch.chatbotId),
+          ),
+        )
 
       const nextDispatch = await createDispatch({
         chatbotId: dispatch.chatbotId,
@@ -442,7 +456,10 @@ export class DispatchConsumer {
     })
   }
 
-  private calculateNextRunAt(step: StepWithRelations, baseTime: Date): Date {
+  private calculateNextRunAt(
+    step: NonNullable<StepWithRelations>,
+    baseTime: Date,
+  ): Date {
     const calculatedTime = calculateNextRunAtFromStep(
       {
         delayDays: step.delayDays,
@@ -464,8 +481,8 @@ export class DispatchConsumer {
   }
 
   private async sendFlowMessage(
-    dispatch: DispatchWithRelations,
-    step: StepWithRelations,
+    dispatch: NonNullable<DispatchWithRelations>,
+    step: NonNullable<StepWithRelations>,
   ): Promise<Date> {
     if (!step.flow) {
       throw new Error(`Step ${step.id} has no flow configured`)
@@ -495,19 +512,19 @@ export class DispatchConsumer {
     chatbotId: string,
     errorMessage: string,
   ) {
-    await prisma.sequenceDispatch.update({
-      where: {
-        id_chatbotId: {
-          id: dispatchId,
-          chatbotId,
-        },
-      },
-      data: {
+    await db
+      .update(sequenceDispatchModel)
+      .set({
         status: "failed",
         lastError: errorMessage,
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(
+        and(
+          eq(sequenceDispatchModel.id, dispatchId),
+          eq(sequenceDispatchModel.chatbotId, chatbotId),
+        ),
+      )
 
     logger.error({ dispatchId, errorMessage }, "Dispatch marked as failed")
   }
@@ -517,61 +534,63 @@ export class DispatchConsumer {
     chatbotId: string,
     reason: string,
   ) {
-    await prisma.sequenceDispatch.update({
-      where: {
-        id_chatbotId: {
-          id: dispatchId,
-          chatbotId,
-        },
-      },
-      data: {
+    await db
+      .update(sequenceDispatchModel)
+      .set({
         status: "canceled",
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(
+        and(
+          eq(sequenceDispatchModel.id, dispatchId),
+          eq(sequenceDispatchModel.chatbotId, chatbotId),
+        ),
+      )
 
     logger.info({ dispatchId, reason }, "Dispatch marked as canceled")
   }
 
-  private async scheduleRetry(dispatch: DispatchWithRelations, error: unknown) {
+  private async scheduleRetry(
+    dispatch: NonNullable<DispatchWithRelations>,
+    error: unknown,
+  ) {
     const nextAttempt = dispatch.attempt + 1
     const retryDelayMs = this.calculateRetryDelay(dispatch.attempt)
     const retryAtMs = Date.now() + retryDelayMs
 
-    await prisma.sequenceDispatch.update({
-      where: {
-        id_chatbotId: {
-          id: dispatch.id,
-          chatbotId: dispatch.chatbotId,
-        },
-      },
-      data: {
+    await db
+      .update(sequenceDispatchModel)
+      .set({
         status: "pending",
         attempt: nextAttempt,
         lastError: error instanceof Error ? error.message : "Unknown error",
         updatedAt: new Date(),
-      },
-    })
+      })
+      .where(
+        and(
+          eq(sequenceDispatchModel.id, dispatch.id),
+          eq(sequenceDispatchModel.chatbotId, dispatch.chatbotId),
+        ),
+      )
 
     await this.dragonfly.addToRetry(dispatch.bucket, dispatch.id, retryAtMs)
 
-    await prisma.sequenceEvent.create({
-      data: {
-        chatbotId: dispatch.chatbotId,
-        sequenceId: dispatch.sequenceId,
-        contactId: dispatch.contactId,
-        stepId: dispatch.stepId,
-        dispatchId: dispatch.id,
-        eventType: "dispatch_retry_scheduled",
-        payload: {
-          attempt: dispatch.attempt,
-          nextAttempt,
-          retryAtMs,
-          retryDelayMs,
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-        occurredAt: new Date(),
+    await db.insert(sequenceEventModel).values({
+      id: createId(),
+      chatbotId: dispatch.chatbotId,
+      sequenceId: dispatch.sequenceId,
+      contactId: dispatch.contactId,
+      stepId: dispatch.stepId,
+      dispatchId: dispatch.id,
+      eventType: "dispatch_retry_scheduled",
+      payload: {
+        attempt: dispatch.attempt,
+        nextAttempt,
+        retryAtMs,
+        retryDelayMs,
+        error: error instanceof Error ? error.message : "Unknown error",
       },
+      occurredAt: new Date(),
     })
 
     logger.info(

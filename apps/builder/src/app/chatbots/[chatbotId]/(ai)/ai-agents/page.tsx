@@ -1,12 +1,12 @@
 import type { SearchParams } from "nuqs/server"
 import { Suspense } from "react"
-import { getAIAgents } from "@/features/ai-agents/actions/list.action"
 import { AIAgentsTable } from "@/features/ai-agents/ai-agent-table"
-import { listAIAgentRequest } from "@/features/ai-agents/schemas/query"
-import { getAIFiles } from "@/features/ai-files/queries"
-import { getAIFunctions } from "@/features/ai-functions/queries"
+import { listAIAgents } from "@/features/ai-agents/queries"
+import { listAIAgentsRequest } from "@/features/ai-agents/schemas/query"
+import { listAIFiles } from "@/features/ai-files/queries"
+import { listAIFunctions } from "@/features/ai-functions/queries"
 import { AIHubBreadcrumb } from "@/features/ai-hub/ai-hub-breadcrumb"
-import { getAIMcpServers } from "@/features/ai-mcp-servers/queries"
+import { listAIMcpServers } from "@/features/ai-mcp-servers/queries"
 
 type AIAgentsPageProps = {
   params: Promise<{
@@ -20,20 +20,20 @@ export default async function AIAgentsPage(props: AIAgentsPageProps) {
   const searchParams = await props.searchParams
 
   const aiAgentPromises = Promise.all([
-    getAIAgents({
+    listAIAgents({
       chatbotId,
-      ...listAIAgentRequest.parse(searchParams),
+      ...listAIAgentsRequest.parse(searchParams),
     }),
   ])
 
   const aiCreatePromises = Promise.all([
-    getAIFiles({
+    listAIFiles({
       chatbotId,
     }),
-    getAIFunctions({
+    listAIFunctions({
       chatbotId,
     }),
-    getAIMcpServers({
+    listAIMcpServers({
       chatbotId,
     }),
   ])

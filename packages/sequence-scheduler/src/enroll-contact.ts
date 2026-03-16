@@ -1,19 +1,19 @@
-import { prisma } from "@aha.chat/database"
+import { db, type Transaction } from "@aha.chat/database/client"
+import { contactsOnSequenceModel } from "@aha.chat/database/schema"
 import { getDragonflyClient } from "@aha.chat/scheduler"
+import { createId } from "@paralleldrive/cuid2"
 import { createDispatch } from "./dispatch-manager"
 
-type PrismaTransactionClient = Omit<
-  typeof prisma,
-  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
->
+type DrizzleClient = typeof db | Transaction
+
 export interface EnrollContactParams {
   chatbotId: string
+  client?: DrizzleClient
   contactId: string
-  sequenceId: string
+  enrolledAt?: Date
   nextRunAt: Date
   nextStepId: string | null
-  enrolledAt?: Date
-  client?: PrismaTransactionClient
+  sequenceId: string
 }
 export async function enrollContactInSequence(params: EnrollContactParams) {
   const {
@@ -23,26 +23,27 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
     nextRunAt,
     nextStepId,
     enrolledAt = new Date(),
-    client = prisma,
+    client = db,
   } = params
 
-  const existing = await client.contactsOnSequence.findUnique({
+  const existing = await client.query.contactsOnSequenceModel.findFirst({
     where: {
-      contactId_sequenceId_chatbotId: {
-        contactId,
-        sequenceId,
-        chatbotId,
-      },
+      contactId,
+      sequenceId,
+      chatbotId,
     },
-    select: { id: true },
+    columns: { id: true },
   })
 
   if (existing) {
     return
   }
 
-  const enrollment = await client.contactsOnSequence.create({
-    data: {
+  const enrollmentId = createId()
+  const [enrollment] = await client
+    .insert(contactsOnSequenceModel)
+    .values({
+      id: enrollmentId,
       chatbotId,
       contactId,
       sequenceId,
@@ -51,9 +52,10 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
       nextRunAt,
       nextStepId,
       enrolledAt,
-    },
-  })
-  if (!nextStepId) {
+    })
+    .returning({ id: contactsOnSequenceModel.id })
+
+  if (!(nextStepId && enrollment)) {
     return
   }
   const dispatch = await createDispatch({
@@ -71,39 +73,46 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
 }
 export interface EnrollContactsBulkParams {
   chatbotId: string
+  enrolledAt?: Date
   enrollments: Array<{
     contactId: string
     sequenceId: string
     nextRunAt: Date
     nextStepId: string | null
   }>
-  enrolledAt?: Date
 }
 export async function enrollContactsInSequenceBulk(
   params: EnrollContactsBulkParams,
 ) {
   const { chatbotId, enrollments, enrolledAt = new Date() } = params
-  const createdEnrollments = await prisma.$transaction(async (tx) => {
-    await tx.contactsOnSequence.createMany({
-      data: enrollments.map((e) => ({
-        chatbotId,
-        contactId: e.contactId,
-        sequenceId: e.sequenceId,
-        currentStep: 0,
-        status: "active",
-        nextRunAt: e.nextRunAt,
-        nextStepId: e.nextStepId,
-        enrolledAt,
-      })),
-      skipDuplicates: true,
-    })
-    return await tx.contactsOnSequence.findMany({
+  const createdEnrollments = await db.transaction(async (tx) => {
+    await tx
+      .insert(contactsOnSequenceModel)
+      .values(
+        enrollments.map((e) => ({
+          id: createId(),
+          chatbotId,
+          contactId: e.contactId,
+          sequenceId: e.sequenceId,
+          currentStep: 0,
+          status: "active" as const,
+          nextRunAt: e.nextRunAt,
+          nextStepId: e.nextStepId,
+          enrolledAt,
+        })),
+      )
+      .onConflictDoNothing()
+
+    const contactIds = enrollments.map((e) => e.contactId)
+    const sequenceIds = enrollments.map((e) => e.sequenceId)
+
+    return await tx.query.contactsOnSequenceModel.findMany({
       where: {
         chatbotId,
-        contactId: { in: enrollments.map((e) => e.contactId) },
-        sequenceId: { in: enrollments.map((e) => e.sequenceId) },
+        contactId: { in: contactIds },
+        sequenceId: { in: sequenceIds },
       },
-      select: {
+      columns: {
         id: true,
         contactId: true,
         sequenceId: true,

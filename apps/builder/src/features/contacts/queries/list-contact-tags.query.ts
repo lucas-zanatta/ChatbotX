@@ -1,25 +1,23 @@
-import { prisma } from "@aha.chat/database"
-import type { TagModel } from "@aha.chat/database/types"
+import { db } from "@aha.chat/database/client"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { ListContactTagsRequest } from "../schemas/contact-tag"
+import type {
+  ListContactTagsRequest,
+  ListContactTagsResponse,
+} from "../schemas/contact-tag"
 
 export async function listContactTags(
   input: ListContactTagsRequest,
-): Promise<{ data: TagModel[] }> {
+): Promise<ListContactTagsResponse> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const [data] = await prisma.$transaction([
-    prisma.tag.findMany({
-      where: {
-        chatbotId: input.chatbotId,
-        contacts: {
-          some: {
-            id: input.contactId,
-          },
-        },
+  const data = await db.query.tagModel.findMany({
+    where: {
+      chatbotId: input.chatbotId,
+      contactsToTags: {
+        contactId: input.contactId,
       },
-    }),
-  ])
+    },
+  })
 
   return {
     data,

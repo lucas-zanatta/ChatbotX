@@ -1,10 +1,54 @@
 export const RealtimeEventType = {
-  CREATE_MESSAGE: "CREATE_MESSAGE",
+  messageCreated: "messageCreated",
+  typing: "typing",
+  contactBlocked: "contactBlocked",
+  contactUnblocked: "contactUnblocked",
+  conversationAssigned: "conversationAssigned",
+  notifyExportResult: "notifyExportResult",
 } as const
 
 export type RealtimeEventCreateMessage = {
-  eventType: typeof RealtimeEventType.CREATE_MESSAGE
+  eventType: typeof RealtimeEventType.messageCreated
   data: unknown
 }
 
-export type RealtimeEventData = RealtimeEventCreateMessage
+export type RealtimeEventTyping = {
+  eventType: typeof RealtimeEventType.typing
+  data: {
+    conversationId: string
+    typing: boolean
+  }
+}
+
+export type RealtimeEventContactCommon = {
+  eventType:
+    | typeof RealtimeEventType.contactBlocked
+    | typeof RealtimeEventType.contactUnblocked
+  data: {
+    contactId: string
+  }
+}
+
+export type RealtimeEventConversationAssigned = {
+  eventType: typeof RealtimeEventType.conversationAssigned
+  data: {
+    conversationIds: string[]
+    assignedUserId: string | null
+    assignedInboxTeamId: string | null
+  }
+}
+
+export type RealtimeEventNotifyExportResult = {
+  eventType: typeof RealtimeEventType.notifyExportResult
+  data: {
+    outputPath: string
+    status: "pending" | "processing" | "completed" | "failed"
+    error?: string
+  }
+}
+
+export type RealtimeEventData =
+  | RealtimeEventCreateMessage
+  | RealtimeEventContactCommon
+  | RealtimeEventConversationAssigned
+  | RealtimeEventTyping

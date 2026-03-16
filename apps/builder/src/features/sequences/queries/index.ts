@@ -1,4 +1,5 @@
-import { type Prisma, prisma } from "@aha.chat/database"
+import { and, count, db, eq, ilike, sql } from "@aha.chat/database/client"
+import { sequenceModel } from "@aha.chat/database/schema"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import type {
   GetSequencesSchema,
@@ -10,70 +11,75 @@ export async function listSequences(
 ): Promise<{ data: SequenceResource[]; pageCount: number }> {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.SequenceWhereInput = {
-    chatbotId: input.chatbotId,
-  }
-
-  const orderBy = input.sort.map((sortItem) => ({
-    [sortItem.id]: sortItem.desc ? "desc" : "asc",
-  }))
+  const conditions = [eq(sequenceModel.chatbotId, input.chatbotId)]
 
   if (input.folderId !== undefined) {
-    where.folderId =
+    const folderId =
       input.folderId === null || input.folderId === "0" ? null : input.folderId
-  }
-
-  if (input.name) {
-    where.name = {
-      contains: input.name,
-      mode: "insensitive",
+    if (folderId === null) {
+      conditions.push(sql`${sequenceModel.folderId} IS NULL`)
+    } else {
+      conditions.push(eq(sequenceModel.folderId, folderId))
     }
   }
 
-  if (input.active !== undefined && input.active !== null) {
-    where.active = input.active
+  if (input.name) {
+    conditions.push(ilike(sequenceModel.name, `%${input.name}%`))
   }
 
-  const [data, total] = await prisma.$transaction([
-    prisma.sequence.findMany({
-      skip: (input.page - 1) * input.perPage,
-      take: input.perPage,
-      where,
-      include: {
-        _count: {
-          select: {
-            steps: true,
-            contactsOnSequences: true,
-          },
-        },
-      },
-      orderBy,
-    }),
-    prisma.sequence.count({ where }),
-  ])
+  if (input.active !== undefined && input.active !== null) {
+    conditions.push(eq(sequenceModel.active, input.active))
+  }
 
-  const pageCount = Math.ceil(total / input.perPage)
+  const whereClause = and(...conditions)
 
-  return { data, pageCount }
+  const orderBy = input.sort.map((sortItem) => {
+    const column = sequenceModel[sortItem.id as keyof typeof sequenceModel]
+    return sortItem.desc ? sql`${column} DESC` : sql`${column} ASC`
+  })
+
+  const sequences = await db
+    .select()
+    .from(sequenceModel)
+    .where(whereClause)
+    .limit(input.perPage)
+    .offset((input.page - 1) * input.perPage)
+    .orderBy(...orderBy)
+
+  const [totalCount] = await db
+    .select({ count: count() })
+    .from(sequenceModel)
+    .where(whereClause)
+
+  const pageCount = Math.ceil((totalCount?.count ?? 0) / input.perPage)
+
+  return { data: sequences, pageCount }
 }
 
 export async function getSequence(chatbotId: string, sequenceId: string) {
   await assertCurrentUserCanAccessChatbot(chatbotId)
 
-  return await prisma.sequence.findFirstOrThrow({
+  const sequence = await db.query.sequenceModel.findFirst({
     where: {
       id: sequenceId,
       chatbotId,
     },
-    include: {
-      steps: {
-        include: {
+    with: {
+      sequenceSteps: {
+        with: {
           flow: true,
         },
-        orderBy: {
-          order: "asc",
-        },
+        orderBy: (step, { asc }) => [asc(step.order)],
       },
     },
   })
+
+  if (!sequence) {
+    throw new Error("Sequence not found")
+  }
+
+  return {
+    ...sequence,
+    steps: sequence.sequenceSteps,
+  }
 }

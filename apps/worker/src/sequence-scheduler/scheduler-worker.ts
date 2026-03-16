@@ -9,9 +9,9 @@ const TICK_INTERVAL_MS = 500
 
 interface SchedulerConfig {
   buckets: number[]
-  tickIntervalMs: number
   claimLimit: number
   lockTtlMs: number
+  tickIntervalMs: number
 }
 
 export class SchedulerWorker {
@@ -109,7 +109,7 @@ export class SchedulerWorker {
       try {
         await this.processBucket(bucket)
       } catch (error) {
-        logger.error(`Error processing bucket ${bucket}:`, error)
+        logger.error(error, `Error processing bucket ${bucket}`)
       }
 
       if (this.running) {

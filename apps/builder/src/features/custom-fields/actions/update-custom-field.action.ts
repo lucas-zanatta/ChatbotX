@@ -1,55 +1,61 @@
 "use server"
 
-import { FieldType, FolderType, prisma } from "@aha.chat/database"
+import { db, eq, findOrFail } from "@aha.chat/database/client"
+import { customFieldModel } from "@aha.chat/database/schema"
+import type { FieldModel } from "@aha.chat/database/types"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
 } from "@/features/common/schemas"
-import { ensureFolderIdIsExists } from "@/features/folders/actions/utils"
+import { ensureFolderIsExists } from "@/features/folders/actions/utils"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { chatbotActionClient } from "@/lib/safe-action"
 import {
-  type UpdateCustomFieldSchema,
-  updateCustomFieldSchema,
-} from "../schemas/update-custom-field.schema"
+  type UpdateCustomFieldRequest,
+  updateCustomFieldRequest,
+} from "../schemas/action"
 
 export const updateCustomFieldAction = chatbotActionClient
   .bindArgsSchemas(chatbotIdAndIdRequestParams)
-  .inputSchema(updateCustomFieldSchema)
+  .inputSchema(updateCustomFieldRequest)
   .action(
     async ({
       bindArgsParsedInputs: [chatbotId, id],
       parsedInput,
     }: {
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
-      parsedInput: UpdateCustomFieldSchema
+      parsedInput: UpdateCustomFieldRequest
     }) => {
-      const customField = await prisma.field.findFirstOrThrow({
-        where: {
-          id,
-          chatbotId,
-          fieldType: FieldType.accountField,
-        },
-      })
-
-      if (
-        parsedInput.folderId &&
-        parsedInput.folderId !== customField.folderId
-      ) {
-        await ensureFolderIdIsExists(
-          parsedInput.folderId,
-          chatbotId,
-          FolderType.customField,
-        )
-      }
-
-      await prisma.field.update({
-        where: {
-          id,
-        },
-        data: parsedInput,
-      })
-
-      revalidateCacheTags(`chatbots:${chatbotId}#customFields`)
+      await updateCustomField({ chatbotId, id, parsedInput })
     },
   )
+
+export const updateCustomField = async ({
+  chatbotId,
+  id,
+  parsedInput,
+}: {
+  chatbotId: string
+  id: string
+  parsedInput: UpdateCustomFieldRequest
+}) => {
+  const customField = await findOrFail<FieldModel>(
+    customFieldModel,
+    {
+      id,
+      chatbotId,
+    },
+    "Custom field not found",
+  )
+
+  if (parsedInput.folderId && parsedInput.folderId !== customField.folderId) {
+    await ensureFolderIsExists(parsedInput.folderId, chatbotId, "customField")
+  }
+
+  await db
+    .update(customFieldModel)
+    .set(parsedInput)
+    .where(eq(customFieldModel.id, id))
+
+  revalidateCacheTags(`chatbots:${chatbotId}#customFields`)
+}

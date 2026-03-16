@@ -1,6 +1,7 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, findOrFail } from "@aha.chat/database/client"
+import { sequenceModel } from "@aha.chat/database/schema"
 import {
   type ChatbotIdAndIdRequestParams,
   chatbotIdAndIdRequestParams,
@@ -16,18 +17,20 @@ export const deleteSequenceAction = chatbotActionClient
     }: {
       bindArgsParsedInputs: ChatbotIdAndIdRequestParams
     }) => {
-      const sequence = await prisma.sequence.findFirstOrThrow({
-        where: {
+      await findOrFail(
+        sequenceModel,
+        {
           id,
           chatbotId,
         },
-      })
+        "Sequence not found",
+      )
 
-      await prisma.sequence.delete({
-        where: {
-          id: sequence.id,
-        },
-      })
+      await db
+        .delete(sequenceModel)
+        .where(
+          and(eq(sequenceModel.id, id), eq(sequenceModel.chatbotId, chatbotId)),
+        )
 
       revalidateCacheTags([`chatbots:${chatbotId}#sequences`])
     },

@@ -1,6 +1,8 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { db, inArray } from "@aha.chat/database/client"
+import { conversationModel } from "@aha.chat/database/schema"
+import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -32,10 +34,9 @@ export const assignConversationAction = chatbotActionClient
         assignedInboxTeamId: null,
       }
 
-      // Verify again assigned
-      if (parsedInput.assignedId.startsWith("u_")) {
+      if (parsedInput.assignedId?.startsWith("u_")) {
         const userId = parsedInput.assignedId.substring(2)
-        const chatbotMember = await prisma.chatbotMember.findFirst({
+        const chatbotMember = await db.query.chatbotMemberModel.findFirst({
           where: {
             chatbotId,
             userId,
@@ -49,9 +50,9 @@ export const assignConversationAction = chatbotActionClient
           })
         }
         updatedData.assignedUserId = chatbotMember.userId
-      } else if (parsedInput.assignedId.startsWith("t_")) {
+      } else if (parsedInput.assignedId?.startsWith("t_")) {
         const inboxteamId = parsedInput.assignedId.substring(2)
-        const inboxTeam = await prisma.inboxTeam.findFirst({
+        const inboxTeam = await db.query.inboxTeamModel.findFirst({
           where: {
             chatbotId,
             id: inboxteamId,
@@ -67,19 +68,39 @@ export const assignConversationAction = chatbotActionClient
         updatedData.assignedInboxTeamId = inboxTeam.id
       }
 
-      await prisma.conversation.updateMany({
+      const conversations = await db.query.conversationModel.findMany({
         where: {
           chatbotId,
           contactId: {
             in: parsedInput.contactIds,
           },
         },
-        data: updatedData,
+        columns: { id: true },
       })
+      const conversationIds = conversations.map((c) => c.id)
+      if (conversationIds.length === 0) {
+        return
+      }
+
+      const updatedConversations = await db
+        .update(conversationModel)
+        .set({
+          assignedUserId: updatedData.assignedUserId,
+          assignedInboxTeamId: updatedData.assignedInboxTeamId,
+        })
+        .where(inArray(conversationModel.id, conversationIds))
+        .returning()
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#conversations`,
         `chatbots:${chatbotId}#contacts`,
       ])
+
+      await integrationQueue.add(IntegrationJobAction.assignConversation, {
+        type: IntegrationJobAction.assignConversation,
+        data: {
+          conversations: updatedConversations,
+        },
+      })
     },
   )

@@ -1,3 +1,4 @@
+import { contactModel, createSelectSchema } from "@aha.chat/database/schema"
 import type {
   ContactCustomFieldModel,
   ContactModel,
@@ -9,9 +10,6 @@ import type {
 } from "@aha.chat/database/types"
 import type { LucideIcon } from "lucide-react"
 import type { ConversationResource } from "@/features/conversations/schemas/resource"
-import { BaseException } from "@/lib/errors/exception"
-
-export class ContactException extends BaseException {}
 
 export type ContactResource = ContactModel & {
   contactCustomFields?: ContactCustomFieldModel[]
@@ -29,10 +27,24 @@ export type ContactCollection = {
   pageCount: number
 }
 
+// Base schema for validation
+export const contactResource = createSelectSchema(contactModel)
+
 export type ContactEditableField = {
   key: string
   icon: LucideIcon
   label: string
   value: string | null | undefined
-  customFieldType: CustomFieldType
+  type: CustomFieldType
 }
+
+export const publicContactResource = contactResource.pick({
+  id: true,
+  phoneNumber: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  gender: true,
+  source: true,
+  sourceId: true,
+})

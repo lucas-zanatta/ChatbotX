@@ -1,20 +1,26 @@
 import type {
   SendAudioStepSchema,
   SendFileStepSchema,
-  SendVideoStepSchema,
 } from "@aha.chat/flow-config"
+import type { SendFlowStepProps } from "@aha.chat/sdk"
 import { uploadAttachment } from "../apis/attachment"
 import { logger } from "../lib/logger"
 import type { MessengerAuthValue } from "../schemas"
 import { convertMediaType } from "./send-attachment"
 
 export async function* convertFlowStepFile(
-  auth: MessengerAuthValue,
-  payload: SendAudioStepSchema | SendFileStepSchema | SendVideoStepSchema,
+  props: SendFlowStepProps<
+    MessengerAuthValue,
+    SendAudioStepSchema | SendFileStepSchema
+  >,
 ) {
+  const {
+    ctx,
+    data: { step },
+  } = props
   try {
-    const media_type = convertMediaType(payload.stepType)
-    const attachment = await uploadAttachment(auth, payload.url, media_type)
+    const media_type = convertMediaType(step.stepType)
+    const attachment = await uploadAttachment(ctx.auth, step.url, media_type)
     yield {
       attachment: {
         type: media_type,
@@ -24,9 +30,6 @@ export async function* convertFlowStepFile(
       },
     }
   } catch (error) {
-    logger.error(
-      "An error occurred while uploading the attachment",
-      JSON.stringify(error),
-    )
+    logger.error(error, "An error occurred while uploading the attachment")
   }
 }

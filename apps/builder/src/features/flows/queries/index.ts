@@ -1,59 +1,72 @@
-import type { Prisma } from "@aha.chat/database"
-import { prisma } from "@aha.chat/database"
+import { db, relationsFilterToSQL } from "@aha.chat/database/client"
 import { rootFolderId } from "@aha.chat/database/enums"
-import type { FlowModel } from "@aha.chat/database/types"
-import type { PaginatedResponse } from "@/features/common/schemas/pagination"
+import { flowModel } from "@aha.chat/database/schema"
+import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import { FlowException } from "../schemas/exception"
-import type { FindFlowParams, ListFlowsParams } from "../schemas/query"
+import { notFoundException } from "@/lib/errors/exception"
+import type {
+  FindFlowParams,
+  ListFlowsRequest,
+  ListFlowsResponse,
+} from "../schemas/query"
 import type { FlowResource } from "../schemas/resource"
 
-export async function getFlows(
-  input: ListFlowsParams,
-): Promise<PaginatedResponse<FlowResource>> {
+export const listFlowsRSC = async (
+  input: ListFlowsRequest & { chatbotId: string },
+) => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const where: Prisma.FlowWhereInput = {
+  return listFlows(input)
+}
+
+export async function listFlows(
+  input: ListFlowsRequest & { chatbotId: string },
+): Promise<ListFlowsResponse> {
+  await assertCurrentUserCanAccessChatbot(input.chatbotId)
+
+  const where = {
     chatbotId: input.chatbotId,
+    folderId: input.folderId
+      ? // biome-ignore lint/style/noNestedTernary: allow nested ternary
+        input.folderId === rootFolderId
+        ? { isNull: true as const }
+        : input.folderId
+      : undefined,
+    name: input.name
+      ? {
+          ilike: `%${input.name.toLowerCase()}%`,
+        }
+      : undefined,
+    active: input.active !== null ? input.active : undefined,
   }
 
-  if (input.folderId) {
-    where.folderId = input.folderId === rootFolderId ? null : input.folderId
-  }
+  const pagination = parsePagination(input)
+  const orderBy = parseOrderByAsObject(flowModel, input)
 
-  if (input.name) {
-    where.name = {
-      contains: input.name,
-      mode: "insensitive",
-    }
-  }
-
-  if (input.active) {
-    where.active = input.active
-  }
-
-  const orderBy = input.sort
-    ? input.sort.map((sortItem) => ({
-        [sortItem.id]: sortItem.desc ? "desc" : "asc",
-      }))
-    : [{ updatedAt: "desc" }]
-
-  const [data, total] = await prisma.$transaction(async (tx) => {
-    const flows = await tx.flow.findMany({
-      skip: (input.page - 1) * input.perPage,
-      take: input.perPage,
+  const [data, total] = await Promise.all([
+    db.query.flowModel.findMany({
       where,
       orderBy,
-    })
+      ...pagination,
+      with: {
+        flowVersions: {
+          where: {
+            OR: [
+              { isDraft: true },
+              {
+                isLatest: true,
+              },
+            ],
+          },
+        },
+      },
+    }),
+    db.$count(flowModel, relationsFilterToSQL(flowModel, where)),
+  ])
 
-    const count = await tx.flow.count({ where })
+  const pageCount = pagination?.limit ? Math.ceil(total / pagination.limit) : 1
 
-    return [flows, count]
-  })
-
-  const pageCount = Math.ceil(total / input.perPage)
-
-  return { data, pageCount }
+  return { data, pageCount, ...pagination }
 }
 
 export const findFlow = async (
@@ -61,50 +74,38 @@ export const findFlow = async (
 ): Promise<{ data: FlowResource | null }> => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const flow = await prisma.flow.findFirst({
+  const targetFlow = await db.query.flowModel.findFirst({
     where: {
-      ...input,
+      chatbotId: input.chatbotId,
+      id: input.id,
     },
-    include: {
+    with: {
       flowVersions: true,
     },
   })
-
-  return { data: flow }
-}
-
-export const ensureFlowIdIsExists = async (
-  chatbotId: string,
-  id: string,
-): Promise<FlowModel> => {
-  const flow = await prisma.flow.findFirst({
-    where: {
-      chatbotId,
-      id,
-    },
-  })
-
-  if (!flow) {
-    throw new FlowException("Flow does not exists.")
+  if (!targetFlow) {
+    throw notFoundException("Flow does not exists.")
   }
 
-  return flow
+  return { data: targetFlow }
 }
 
 export const ensureAllFlowIdsExists = async (
   chatbotId: string,
   flowIds: string[],
 ): Promise<void> => {
-  const count = await prisma.flow.count({
+  const rows = await db.query.flowModel.findMany({
     where: {
       chatbotId,
       id: {
         in: flowIds,
       },
     },
+    columns: { id: true },
   })
+  const count = rows.length
 
   if (count !== flowIds.length) {
-    throw new FlowException("Flow does not exists.")
+    throw notFoundException("Flow does not exists.")
   }
 }

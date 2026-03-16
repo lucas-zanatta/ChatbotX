@@ -1,4 +1,4 @@
-import { prisma } from "@aha.chat/database"
+import { db } from "@aha.chat/database/client"
 import { getDragonflyClient } from "@aha.chat/scheduler"
 import { logger } from "../lib/logger"
 
@@ -9,8 +9,8 @@ const BATCH_SIZE = 1000
 const TOTAL_BUCKETS = 256
 
 interface BootstrapJobOptions {
-  intervalMs: number
   cleanupIntervalMs: number
+  intervalMs: number
 }
 
 export class BootstrapJob {
@@ -48,13 +48,13 @@ export class BootstrapJob {
 
     this.intervalId = setInterval(() => {
       this.reconcile().catch((error) => {
-        logger.error({ error }, "Error in reconcile job")
+        logger.error(error, "Error in reconcile job")
       })
     }, this.options.intervalMs)
 
     this.cleanupIntervalId = setInterval(() => {
       this.cleanupOrphans().catch((error) => {
-        logger.error({ error }, "Error in cleanup job")
+        logger.error(error, "Error in cleanup job")
       })
     }, this.options.cleanupIntervalMs)
 
@@ -80,23 +80,21 @@ export class BootstrapJob {
       while (hasMore) {
         const windowEndMs = BigInt(windowEnd.getTime())
 
-        const dispatches = await prisma.sequenceDispatch.findMany({
+        const dispatches = await db.query.sequenceDispatchModel.findMany({
           where: {
             status: "pending",
-            runAtMs: {
-              lte: windowEndMs,
-            },
+            runAtMs: { lte: Number(windowEndMs) },
           },
-          select: {
+          columns: {
             id: true,
             bucket: true,
             runAtMs: true,
             chatbotId: true,
             contactId: true,
           },
-          orderBy: { runAtMs: "asc" },
-          skip: offset,
-          take: BATCH_SIZE,
+          orderBy: (d, { asc }) => [asc(d.runAtMs)],
+          offset,
+          limit: BATCH_SIZE,
         })
 
         if (dispatches.length === 0) {
@@ -200,12 +198,12 @@ export class BootstrapJob {
           continue
         }
 
-        const validDispatches = await prisma.sequenceDispatch.findMany({
+        const validDispatches = await db.query.sequenceDispatchModel.findMany({
           where: {
             id: { in: allIds },
             status: "pending",
           },
-          select: { id: true },
+          columns: { id: true },
         })
 
         const validIds = new Set(validDispatches.map((d) => d.id))

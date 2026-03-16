@@ -1,5 +1,5 @@
 import {
-  CustomFieldType,
+  type CustomFieldType,
   type ReservedCustomFieldNames,
   reservedCustomFieldNames,
 } from "@aha.chat/database/types"
@@ -16,106 +16,109 @@ import { useMemo } from "react"
 import { useCustomFieldStore } from "./custom-field-store-context"
 
 export const customFieldIconsMap: Record<CustomFieldType, LucideIcon> = {
-  [CustomFieldType.shortText]: TextIcon,
-  [CustomFieldType.longText]: TextIcon,
-  [CustomFieldType.number]: HashIcon,
-  [CustomFieldType.date]: CalendarDaysIcon,
-  [CustomFieldType.datetime]: CalendarClockIcon,
-  [CustomFieldType.boolean]: CheckIcon,
+  shortText: TextIcon,
+  longText: TextIcon,
+  number: HashIcon,
+  date: CalendarDaysIcon,
+  datetime: CalendarClockIcon,
+  boolean: CheckIcon,
 }
 
 export const reservedCustomFieldOptions: {
   name: string
-  customFieldType: CustomFieldType
+  type: CustomFieldType
   id: ReservedCustomFieldNames
 }[] = [
   {
     name: "First Name",
     id: reservedCustomFieldNames.first_name,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Last Name",
     id: reservedCustomFieldNames.last_name,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Full Name",
     id: reservedCustomFieldNames.full_name,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Email",
     id: reservedCustomFieldNames.email,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Phone Number",
     id: reservedCustomFieldNames.phone_number,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Avatar",
     id: reservedCustomFieldNames.avatar,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Locale",
     id: reservedCustomFieldNames.locale,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Gender",
     id: reservedCustomFieldNames.gender,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Timezone",
     id: reservedCustomFieldNames.timezone,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "User ID",
     id: reservedCustomFieldNames.user_id,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "User Tags",
     id: reservedCustomFieldNames.user_tags,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Account Name",
     id: reservedCustomFieldNames.account_name,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Account ID",
     id: reservedCustomFieldNames.account_id,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Page User Name",
     id: reservedCustomFieldNames.page_user_name,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Last Input",
     id: reservedCustomFieldNames.last_input,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
   {
     name: "Current Time",
     id: reservedCustomFieldNames.current_time,
-    customFieldType: CustomFieldType.shortText,
+    type: "shortText",
   },
 ]
 
-export const useCustomFieldSelectOptions = (props: {
-  customFieldTypes?: CustomFieldType[]
-  includeReserved?: boolean
-}): SelectOption[] => {
-  const { customFieldTypes, includeReserved = true } = props
+export const useCustomFieldSelectOptions = (
+  props: {
+    customFieldTypes?: CustomFieldType[]
+    includeReserved?: boolean
+    prefix?: string
+  } = {},
+): SelectOption[] => {
+  const { customFieldTypes, includeReserved, prefix } = props
 
   const { customFields } = useCustomFieldStore((state) => state)
 
@@ -126,20 +129,18 @@ export const useCustomFieldSelectOptions = (props: {
 
     if (customFieldTypes) {
       return allFields
-        .filter((customField) =>
-          customFieldTypes.includes(customField.customFieldType),
-        )
+        .filter((customField) => customFieldTypes.includes(customField.type))
         .map((customField) => ({
           label: customField.name,
-          value: customField.id,
-          Icon: customFieldIconsMap[customField.customFieldType],
+          value: prefix ? `${prefix}:${customField.id}` : customField.id,
+          Icon: customFieldIconsMap[customField.type],
         }))
     }
 
     return allFields.map((customField) => ({
       label: customField.name,
-      value: customField.id,
-      Icon: customFieldIconsMap[customField.customFieldType],
+      value: prefix ? `${prefix}:${customField.id}` : customField.id,
+      Icon: customFieldIconsMap[customField.type],
     }))
-  }, [customFieldTypes, includeReserved, customFields])
+  }, [customFieldTypes, includeReserved, customFields, prefix])
 }

@@ -2,6 +2,7 @@ import type {
   SendImageStepSchema,
   SendVideoStepSchema,
 } from "@aha.chat/flow-config"
+import type { SendFlowStepProps } from "@aha.chat/sdk"
 import { uploadAttachment } from "../apis/attachment"
 import { logger } from "../lib/logger"
 import type { MessengerAuthValue } from "../schemas"
@@ -9,14 +10,23 @@ import { convertMediaType } from "./send-attachment"
 import { convertFacebookButtons } from "./send-button"
 
 export async function* convertFlowStepMedia(
-  auth: MessengerAuthValue,
-  flowVersionId: string,
-  payload: SendImageStepSchema | SendVideoStepSchema,
+  props: SendFlowStepProps<
+    MessengerAuthValue,
+    SendImageStepSchema | SendVideoStepSchema
+  >,
 ) {
+  const {
+    ctx,
+    data: { flowId, flowVersionId, step },
+  } = props
   try {
-    const media_type = convertMediaType(payload.stepType)
-    const attachment = await uploadAttachment(auth, payload.url, media_type)
-    const buttons = convertFacebookButtons(flowVersionId, payload.buttons)
+    const media_type = convertMediaType(step.stepType)
+    const attachment = await uploadAttachment(ctx.auth, step.url, media_type)
+    const buttons = convertFacebookButtons({
+      flowId,
+      flowVersionId,
+      buttons: step.buttons,
+    })
     yield {
       attachment: {
         type: "template" as const,
@@ -33,6 +43,6 @@ export async function* convertFlowStepMedia(
       },
     }
   } catch (error) {
-    logger.error("Error uploading media:", JSON.stringify(error))
+    logger.error(error, "Error uploading media")
   }
 }

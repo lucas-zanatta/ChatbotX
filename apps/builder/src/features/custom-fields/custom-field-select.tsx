@@ -1,6 +1,6 @@
 "use client"
 
-import { CustomFieldType } from "@aha.chat/database/types"
+import type { CustomFieldType } from "@aha.chat/database/types"
 import { FieldOperationType } from "@aha.chat/flow-config"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import {
@@ -43,13 +43,14 @@ export const CustomFieldSelect = (props: CustomFieldSelectProps) => {
     customFieldTypes,
     includeReserved,
   })
+
   const getAllCustomFields = useCustomFieldStore(
     (state) => state.getAllCustomFields,
   )
 
   const handleSuccess = useCallback(() => {
-    getAllCustomFields(params.chatbotId)
-  }, [getAllCustomFields, params.chatbotId])
+    getAllCustomFields()
+  }, [getAllCustomFields])
 
   const showLabel = label && label !== ""
 
@@ -96,17 +97,14 @@ type CustomFieldOperationSelectProps = {
   name: string
   label?: string
   required?: boolean
-  customFieldType: CustomFieldType | null
+  type: CustomFieldType | null
 }
 
 const getOperationOptions = (
-  customFieldType: CustomFieldType | null,
+  type: CustomFieldType | null,
   t: ReturnType<typeof useTranslations>,
 ): SelectOption[] => {
-  if (
-    customFieldType === CustomFieldType.shortText ||
-    customFieldType === CustomFieldType.longText
-  ) {
+  if (type === "shortText" || type === "longText") {
     return [
       {
         label: t("fields.customField.set_value"),
@@ -123,7 +121,7 @@ const getOperationOptions = (
     ]
   }
 
-  if (customFieldType === CustomFieldType.number) {
+  if (type === "number") {
     return [
       {
         label: t("fields.customField.set_value"),
@@ -152,16 +150,9 @@ export const CustomFieldOperationSelect = (
   props: CustomFieldOperationSelectProps,
 ) => {
   const t = useTranslations()
-  const {
-    label = t("fields.operation.label"),
-    customFieldType,
-    ...rest
-  } = props
+  const { label = t("fields.operation.label"), type, ...rest } = props
 
-  const options = useMemo(
-    () => getOperationOptions(customFieldType, t),
-    [customFieldType, t],
-  )
+  const options = useMemo(() => getOperationOptions(type, t), [type, t])
 
   return <SelectField label={label} options={options} {...rest} />
 }

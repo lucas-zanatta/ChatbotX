@@ -8,35 +8,37 @@
       "title": "Cập nhật trường tài khoản"
     }
   },
-  "accountFields": {
-    "create": {
-      "successMessage": "Đã tạo trường tài khoản thành công"
-    },
-    "delete": {
-      "successMessage": "Đã xóa trường tài khoản thành công"
-    }
-  },
   "actions": {
+    "copy": "Sao chép",
+    "copyUrl": "Sao chép URL",
     "actions": "Hành động",
     "add": "Thêm",
     "addContactNotes": "Thêm ghi chú liên hệ",
     "addContactTag": "Thêm thẻ liên hệ",
+    "addVariable": "Thêm biến",
     "addFeature": "Thêm {feature}",
     "addFlowReply": "Thêm phản hồi luồng",
     "addMore": "Thêm nữa",
     "addTag": "Thêm thẻ",
+    "addAction": "Thêm hành động",
+    "addCondition": "Thêm điều kiện",
     "addTextReply": "Thêm phản hồi văn bản",
-    "addSequence": "Thêm chăm sóc",
     "appendToEnd": "Thêm vào cuối",
+    "markAsFollowUp": "Đánh dấu theo dõi",
+    "removeFromFollowUp": "Xóa khỏi theo dõi",
+    "markAsUnread": "Đánh dấu chưa đọc",
     "archive": "Lưu trữ",
+    "unarchive": "Bỏ lưu trữ",
     "archiveConversation": "Lưu trữ cuộc trò chuyện",
     "assign": "Gán",
     "assignConversation": "Gán cuộc trò chuyện",
     "autoAssignConversation": "Tự động gán cuộc trò chuyện",
     "back": "Quay lại",
     "blockContact": "Chặn liên hệ",
+    "unblockContact": "Bỏ chặn liên hệ",
     "broadcastActions": "Phát sóng",
     "cancel": "Hủy",
+    "remove": "Xóa",
     "clearCustomField": "Xóa trường tùy chỉnh",
     "confirm": "Xác nhận",
     "connect": "Kết nối",
@@ -63,12 +65,17 @@
     "followConversation": "Theo dõi cuộc trò chuyện",
     "formatDate": "Định dạng ngày",
     "generateCode": "Tạo mã",
+    "generateText": "Tạo văn bản",
     "getDataFromJson": "Lấy dữ liệu từ JSON",
     "getEmbedCode": "Lấy mã nhúng",
     "getID": "Lấy ID",
     "getTools": "Lấy công cụ",
     "import": "Nhập",
     "inboxActions": "Hộp thư",
+    "selectOptions": "Chọn tùy chọn",
+    "exportContacts": "Xuất liên hệ",
+    "filter": "Lọc",
+    "selectFile": "Chọn tệp",
     "insertLink": "Chèn liên kết",
     "loginWithMagicLink": "Đăng nhập bằng Magic Link",
     "manage": "Quản lý",
@@ -86,13 +93,8 @@
     "reconnect": "Kết nối lại",
     "removeContactTag": "Xóa thẻ liên hệ",
     "removeTag": "Xóa thẻ",
-    "removeSequence": "Xóa chăm sóc",
     "rename": "Đổi tên",
-    "activate": "Kích hoạt",
-    "deactivate": "Tắt",
     "save": "Lưu",
-    "saving": "Đang lưu...",
-    "creating": "Đang tạo...",
     "selectAll": "Chọn tất cả",
     "selectRow": "Chọn hàng",
     "sendAudio": "Gửi âm thanh",
@@ -142,25 +144,54 @@
     "scanQRCode": "Quét tôi bằng camera của bạn",
     "inviteFeature": "Mời {feature}",
     "joinTheTeam": "Tham gia nhóm",
-    "copy": "Sao chép",
     "chooseChannel": "Chọn kênh",
     "chooseSubaction": "Chọn hành động phụ",
     "resend": "Gửi lại",
     "publish": "Xuất bản",
+    "setStartNode": "Đặt làm nút bắt đầu",
+    "getNodeId": "Lấy ID nút",
     "setAsDefaultAgent": "Đặt làm Agent mặc định",
     "unsetDefaultAgent": "Bỏ đặt Agent mặc định",
     "randomRow": "Hàng ngẫu nhiên",
     "clickToEdit": "Nhấp để chỉnh sửa",
-    "move": "Di chuyển"
+    "move": "Di chuyển",
+    "removeAssignee": "Xóa người được gán",
+    "condition": "Điều kiện",
+    "sendMail": "Gửi thư",
+    "splitTraffic": "Chia lưu lượng",
+    "wait": "Chờ",
+    "landingPage": "Trang đích",
+    "addNotes": "Thêm ghi chú",
+    "generate": "Tạo",
+    "regenerate": "Tạo lại",
+    "qrCode": "Mã QR",
+    "addSequence": "Thêm chăm sóc",
+    "removeSequence": "Xóa chăm sóc",
+    "activate": "Kích hoạt",
+    "deactivate": "Tắt",
+    "saving": "Đang lưu...",
+    "creating": "Đang tạo..."
+  },
+  "states": {
+    "success": "Thành công",
+    "error": "Lỗi",
+    "skip": "Bỏ qua"
   },
   "admins": {
     "title": "Quản trị viên"
+  },
+  "assignAdmin": {
+    "assignConversation": "Gán cuộc trò chuyện",
+    "assignedToMe": "Đã gán cho tôi",
+    "assignedTo": "Đã gán cho {name}",
+    "removeAssigner": "Xóa người gán",
+    "assignedAndUnassigned": "Đã gán và Chưa gán",
+    "unAssigned": "Chưa gán"
   },
   "aiAgent": {
     "defaultAgent": "Agent mặc định",
     "description": "Quản lý và cấu hình AI Agents để nâng cao khả năng chatbot của bạn với tự động hóa và phản hồi thông minh.",
     "setting": {
-      "description": "Mô tả AI Agents",
       "label": "AI Agents"
     },
     "subtitle": "Quản lý AI agents và công cụ để nâng cao khả năng chatbot của bạn.",
@@ -187,7 +218,6 @@
   },
   "aiTrigger": {
     "setting": {
-      "description": "Mô tả AI Triggers",
       "label": "AI Triggers"
     }
   },
@@ -197,7 +227,6 @@
     },
     "delete": {
       "confirmDescription": "Bạn có chắc chắn muốn xóa AI Trigger này?",
-      "successMessage": "Đã xóa AI Trigger thành công",
       "title": "Xóa AI Trigger"
     },
     "description": {
@@ -205,6 +234,10 @@
     },
     "name": {
       "label": "Tên AI Trigger"
+    },
+    "setting": {
+      "description": "Mô tả AI Triggers",
+      "label": "AI Triggers"
     },
     "update": {
       "title": "Cập nhật AI Trigger"
@@ -238,6 +271,8 @@
     "title": "Thanh toán"
   },
   "broadcasts": {
+    "title": "Phát sóng",
+    "description": "Gửi tin nhắn cho liên hệ của bạn theo thời gian thực hoặc lên lịch sau. Bạn có thể gửi cho tất cả liên hệ, một danh sách cụ thể hoặc một liên hệ cụ thể.",
     "scheduleSendMessage": "Lên lịch gửi tin nhắn",
     "update": {
       "title": "Cập nhật phát sóng"
@@ -245,7 +280,7 @@
     "inboxType": {
       "messenger": "Messenger",
       "whatsapp": "WhatsApp",
-      "zalo": "Zalo"
+      "zalo": "Zalo OA"
     },
     "status": {
       "scheduled": "Đã lên lịch",
@@ -280,6 +315,8 @@
   "condition": {
     "add": "Thêm điều kiện",
     "title": "Điều kiện",
+    "yes": "Có",
+    "no": "Không",
     "fields": {
       "language": "Ngôn ngữ",
       "fullName": "Họ và tên",
@@ -293,47 +330,12 @@
       "conversationTransferredToHuman": "Cuộc trò chuyện đã chuyển cho người",
       "interactedInLast24H": "Đã tương tác trong 24 giờ qua",
       "existingContact": "Liên hệ hiện có",
-      "isGuestUser": "Là người dùng khách",
       "currentChannel": "Kênh hiện tại",
       "timezone": "Múi giờ",
-      "hasOpportunity": "Có cơ hội",
-      "hasOpenOpportunity": "Có cơ hội mở",
-      "hasWonOpportunity": "Có cơ hội thắng",
-      "hasLostOpportunity": "Có cơ hội thua",
-      "followsBusinessOnInstagram": "Theo dõi doanh nghiệp trên Instagram",
-      "businessFollowsUserOnInstagram": "Doanh nghiệp theo dõi người dùng trên Instagram",
-      "verifiedAccountOnInstagram": "Tài khoản đã xác minh trên Instagram",
-      "followerCountOnInstagram": "Số người theo dõi trên Instagram",
-      "lastSent": "Lần gửi cuối",
-      "lastDelivered": "Lần giao cuối",
-      "lastSeen": "Lần xem cuối",
-      "lastSeenMinutesAgo": "Lần xem cuối (phút trước)",
-      "lastInteraction": "Tương tác cuối",
-      "lastInteractionMinutesAgo": "Tương tác cuối (phút trước)",
-      "noAdminReply": "Không có phản hồi quản trị viên",
       "tags": "Thẻ",
-      "getDataFromJSON": "Lấy dữ liệu từ JSON",
-      "messengerList": "Danh sách Messenger",
-      "subscribedToDripCampaign": "Đã đăng ký chiến dịch nhỏ giọt",
-      "conversationAssigned": "Cuộc trò chuyện đã được gán",
-      "emptyPointsLinks": "Liên kết điểm trống",
-      "sentMessage": "Đã gửi tin nhắn",
-      "automatedResponseReceived": "Đã nhận phản hồi tự động",
-      "executedFlow": "Đã thực thi luồng",
-      "executedStep": "Đã thực thi bước",
-      "questionnaireStarted": "Đã bắt đầu bảng câu hỏi",
-      "questionnaireInProgress": "Bảng câu hỏi đang tiến hành",
-      "questionnaireFinished": "Đã hoàn thành bảng câu hỏi",
-      "votedOnThePoll": "Đã bình chọn",
-      "commentedOnThePost": "Đã bình luận bài đăng",
+      "customFields": "Trường tùy chỉnh",
       "phone": "Số điện thoại",
-      "phoneWasVerified": "Số điện thoại đã được xác minh",
-      "optedInForSMS": "Đã đăng ký nhận SMS",
-      "broadcastSent": "Đã gửi phát sóng",
-      "broadcastDelivered": "Đã giao phát sóng",
-      "broadcastSeen": "Đã xem phát sóng",
-      "broadcastClicked": "Đã nhấp phát sóng",
-      "broadcastFailed": "Phát sóng thất bại",
+      "executedFlow": "Đã thực thi luồng",
       "email": "Email",
       "emailWasVerified": "Email đã được xác minh",
       "optedInForEmail": "Đã đăng ký nhận email",
@@ -350,7 +352,12 @@
       "shoppingCartIsEmpty": "Giỏ hàng trống",
       "shoppingCartContainsItems": "Giỏ hàng chứa mặt hàng",
       "lastUserInput": "Đầu vào người dùng cuối",
-      "lastUserInputType": "Loại đầu vào người dùng cuối"
+      "lastUserInputType": "Loại đầu vào người dùng cuối",
+      "followUp": "Theo dõi",
+      "unread": "Chưa đọc",
+      "archived": "Đã lưu trữ",
+      "blocked": "Đã chặn",
+      "noAdminReply": "Không có phản hồi quản trị viên"
     },
     "groups": {
       "instagram": "Instagram",
@@ -368,7 +375,8 @@
     "label": "Kênh"
   },
   "channels": {
-    "title": "Kênh"
+    "title": "Kênh",
+    "allChannels": "Tất cả kênh"
   },
   "chatbots": {
     "create": {
@@ -381,27 +389,18 @@
   "customField": {
     "heading": {
       "title": "Trường tùy chỉnh"
-    },
-    "placeholders": {
-      "enterNumber": "Nhập số",
-      "enterText": "Nhập văn bản",
-      "selectTrueFalse": "Chọn đúng/sai"
-    },
-    "values": {
-      "false": "Sai",
-      "true": "Đúng"
     }
   },
   "dialog": {
     "archiveConversation": {
-      "description": "Bạn có chắc chắn muốn lưu trữ những cuộc trò chuyện đó?",
+      "description": "Bạn có chắc chắn muốn lưu trữ các cuộc trò chuyện này?",
       "title": "Lưu trữ cuộc trò chuyện"
     },
     "clearCustomField": "Xóa trường tùy chỉnh",
     "connect": {
       "title": "Kết nối {feature}"
     },
-    "deleteConfirmation": "Bạn có thực sự chắc chắn?\nHành động này không thể hoàn tác. Điều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi",
+    "deleteConfirmation": "Bạn có thực sự chắc chắn?\nHành động này không thể hoàn tác.\nĐiều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi.",
     "disableBot": {
       "description": "Bạn có chắc chắn muốn tắt bot?",
       "title": "Tắt Bot"
@@ -423,7 +422,7 @@
       "label": "Messenger"
     },
     "zalo": {
-      "label": "Zalo"
+      "label": "Zalo OA"
     },
     "matchAll": {
       "label": "Khớp tất cả các điều kiện bên dưới"
@@ -433,6 +432,18 @@
     },
     "condition": {
       "label": "Điều kiện"
+    },
+    "actions": {
+      "label": "Hành động"
+    },
+    "pipelines": {
+      "label": "Pipeline"
+    },
+    "sequences": {
+      "label": "Chuỗi"
+    },
+    "entryPointLink": {
+      "label": "Liên kết điểm vào"
     },
     "assignedId": {
       "label": "Gán cho"
@@ -457,28 +468,29 @@
     "contactFilter": {
       "label": "Bộ lọc liên hệ"
     },
+    "contactNote": {
+      "label": "Ghi chú liên hệ"
+    },
     "chooseTime": {
       "label": "Chọn thời gian"
     },
-    "fullName": {
-      "label": "Họ và tên"
+    "notificationType": {
+      "label": "Loại thông báo",
+      "notifyAdmin": "Thông báo quản trị viên",
+      "newMessageToHuman": "Tin nhắn mới cho người",
+      "newOrder": "Đơn hàng mới"
     },
-    "continent": {
-      "label": "Lục địa"
-    },
-    "subscribedToBroadcast": {
-      "label": "Đã đăng ký phát sóng"
-    },
-    "createdAtMinutesAgo": {
-      "label": "Tạo lúc (phút trước)"
-    },
-    "source": {
-      "label": "Nguồn"
+    "notificationChannel": {
+      "label": "Kênh thông báo",
+      "messenger": "Messenger",
+      "email": "Email",
+      "telegram": "Telegram",
+      "browser": "Trình duyệt"
     },
     "accessToken": {
       "label": "Token truy cập"
     },
-    "accountField": {
+    "botField": {
       "label": "Trường tài khoản"
     },
     "accountTimezone": {
@@ -545,6 +557,15 @@
     "automatedResponses": {
       "label": "Phản hồi tự động"
     },
+    "reflink": {
+      "label": "Liên kết giới thiệu"
+    },
+    "learnMore": {
+      "label": "Tìm hiểu thêm"
+    },
+    "savePayloadToCustomField": {
+      "label": "Lưu payload vào trường tùy chỉnh"
+    },
     "autoReply": {
       "label": "Tự động trả lời"
     },
@@ -563,6 +584,12 @@
     },
     "broadcasts": {
       "label": "Phát sóng"
+    },
+    "trigger": {
+      "label": "Trigger"
+    },
+    "webhook": {
+      "label": "Webhook"
     },
     "button": {
       "label": "Nút",
@@ -620,6 +647,7 @@
     },
     "customField": {
       "label": "Trường tùy chỉnh",
+      "savePayloadTo": "Lưu phản hồi vào Trường tùy chỉnh",
       "set_value": "Thiết lập giá trị",
       "append": "Thêm vào cuối",
       "prepend": "Thêm vào đầu",
@@ -691,6 +719,12 @@
       "label": "Tên",
       "placeholder": "Nhập tên"
     },
+    "countryCode": {
+      "label": "Mã quốc gia"
+    },
+    "contactId": {
+      "label": "ID Liên hệ / ID Người đăng ký / PSID"
+    },
     "flow": {
       "label": "Luồng"
     },
@@ -758,6 +792,9 @@
     "inboxTeam": {
       "label": "Nhóm hộp thư"
     },
+    "teamMembers": {
+      "label": "Thành viên nhóm"
+    },
     "inboxTeamMember": {
       "label": "Thành viên nhóm hộp thư"
     },
@@ -792,14 +829,18 @@
       "description": "Vui lòng đợi",
       "label": "Đang tải..."
     },
-    "log": {
-      "label": "Nhật ký"
+    "errorLog": {
+      "label": "Nhật ký lỗi"
+    },
+    "auditLog": {
+      "label": "Nhật ký kiểm toán"
     },
     "max": {
       "label": "Tối đa"
     },
-    "maxTokens": {
-      "label": "Token tối đa"
+    "maxOutputTokens": {
+      "label": "Token tối đa",
+      "placeholder": "Số lượng token tối đa để tạo"
     },
     "mcpServer": {
       "label": "MCP Server"
@@ -816,7 +857,8 @@
     },
     "name": {
       "label": "Tên",
-      "placeholder": "Nhập tên"
+      "placeholder": "Nhập tên",
+      "searchPlaceholder": "Tìm kiếm tên..."
     },
     "node": {
       "label": "Nút"
@@ -837,8 +879,11 @@
     "openai": {
       "label": "OpenAI"
     },
-    "openAIModel": {
-      "label": "Mô hình OpenAI"
+    "claude": {
+      "label": "Claude"
+    },
+    "deepseek": {
+      "label": "DeepSeek"
     },
     "operation": {
       "label": "Hoạt động"
@@ -878,10 +923,10 @@
       "noPhoneNumbersFound": "Không tìm thấy số điện thoại cho tài khoản này"
     },
     "prompt": {
-      "label": "Prompt"
+      "label": "Prompt",
+      "placeholder": "Nhập prompt"
     },
     "promptMessages": {
-      "label": "Tin nhắn prompt",
       "role": {
         "assistant": "Trợ lý",
         "user": "Người dùng"
@@ -901,14 +946,14 @@
       "label": "Tìm kiếm",
       "placeholder": "Tìm kiếm..."
     },
-    "settings": {
-      "label": "Cài đặt"
-    },
     "showLogo": {
       "label": "Hiển thị logo cá nhân"
     },
     "size": {
       "label": "Kích thước"
+    },
+    "imageSize": {
+      "label": "Kích thước hình ảnh"
     },
     "sort": {
       "label": "Sắp xếp",
@@ -938,6 +983,9 @@
     "team": {
       "label": "Nhóm"
     },
+    "rememberConversation": {
+      "label": "Ghi nhớ cuộc trò chuyện"
+    },
     "temperature": {
       "label": "Nhiệt độ"
     },
@@ -965,7 +1013,26 @@
     },
     "type": {
       "label": "Loại",
-      "placeholder": "Chọn loại"
+      "placeholder": "Chọn loại",
+      "searchPlaceholder": "Tìm kiếm loại..."
+    },
+    "lastSeen": {
+      "label": "Lần xem cuối"
+    },
+    "assignee": {
+      "label": "Người được gán"
+    },
+    "modified": {
+      "label": "Đã chỉnh sửa"
+    },
+    "estimatedContacts": {
+      "label": "Số liên hệ ước tính"
+    },
+    "scheduledAt": {
+      "label": "Lên lịch lúc"
+    },
+    "channel": {
+      "label": "Kênh"
     },
     "updatedAt": {
       "label": "Cập nhật lúc"
@@ -1042,19 +1109,6 @@
       "datetime": "Ngày giờ",
       "location": "Vị trí"
     },
-    "notificationType": {
-      "label": "Loại thông báo",
-      "notifyAdmin": "Thông báo quản trị viên",
-      "newMessageToHuman": "Tin nhắn mới cho người",
-      "newOrder": "Đơn hàng mới"
-    },
-    "notificationChannel": {
-      "label": "Kênh thông báo",
-      "messenger": "Messenger",
-      "email": "Email",
-      "telegram": "Telegram",
-      "browser": "Trình duyệt"
-    },
     "chatbotMember": {
       "label": "Thành viên chatbot"
     },
@@ -1076,6 +1130,10 @@
       "label": "Lịch trình",
       "now": "Ngay bây giờ",
       "scheduled": "Lên lịch cho sau"
+    },
+    "placeholders": {
+      "selectTools": "Chọn công cụ",
+      "temperatureHint": "Điều khiển độ ngẫu nhiên (0-2), cao hơn = sáng tạo hơn"
     },
     "inputCfId": {
       "label": "Trường tùy chỉnh đầu vào"
@@ -1105,9 +1163,701 @@
     "autoSkip": {
       "label": "Tự động bỏ qua"
     },
-    "sequences": {
-      "label": "Chăm sóc"
+    "spreadsheet": {
+      "label": "Bảng tính"
+    },
+    "conversationType": {
+      "label": "Loại cuộc trò chuyện"
+    },
+    "source": {
+      "label": "Nguồn"
+    },
+    "password": {
+      "label": "Mật khẩu"
+    },
+    "passwordConfirmation": {
+      "label": "Nhập lại mật khẩu"
+    },
+    "newPassword": {
+      "label": "Mật khẩu mới"
+    },
+    "chatbotToken": {
+      "label": "Token truy cập API"
+    },
+    "fullName": {
+      "label": "Họ và tên"
+    },
+    "moreOptions": {
+      "label": "Tùy chọn khác"
+    },
+    "customFields": {
+      "label": "Trường tùy chỉnh"
+    },
+    "tags": {
+      "label": "Thẻ"
+    },
+    "botFields": {
+      "label": "Trường tài khoản"
+    },
+    "ecommerce": {
+      "label": "Thương mại điện tử"
+    },
+    "settings": {
+      "label": "Cài đặt",
+      "agents": {
+        "description": "Mô tả AI Agents",
+        "title": "AI Agents"
+      },
+      "aiTriggers": {
+        "description": "Mô tả AI Triggers",
+        "title": "AI Triggers"
+      },
+      "automatedResponses": {
+        "title": "Từ khóa"
+      },
+      "title": "Cài đặt"
+    },
+    "signIn": {
+      "acceptTermsAndPolicy": "Bằng cách nhấn tiếp tục, bạn đồng ý với",
+      "and": "và",
+      "email": "Email",
+      "password": "Mật khẩu",
+      "privacyPolicy": "Chính sách bảo mật",
+      "termsOfService": "Điều khoản dịch vụ",
+      "title": "Đăng nhập vào {name}",
+      "checkYourEmail": "Kiểm tra email của bạn",
+      "magicLinkSent": "Chúng tôi đã gửi URL xác minh đến email của bạn",
+      "magicLinkSentDescription": "Nhấp vào liên kết trong email của bạn để tiếp tục.",
+      "backToSignIn": "Quay lại đăng nhập",
+      "didNotReceiveEmail": "Không nhận được email? Kiểm tra thư mục spam.",
+      "trySigningInAgain": "Bạn cũng có thể thử đăng nhập lại bằng email khác."
+    },
+    "keyword": {
+      "label": "Từ khóa",
+      "placeholder": "Nhập từ khóa",
+      "searchPlaceholder": "Tìm kiếm từ khóa..."
+    },
+    "accountFields": {
+      "label": "Trường tài khoản"
     }
+  },
+  "flows": {
+    "title": "Luồng",
+    "aiGenerateText": {
+      "label": "{name}: AI Tạo văn bản"
+    },
+    "actions": {
+      "addContactNotes": "Thêm ghi chú liên hệ",
+      "addContactTag": "Thêm thẻ liên hệ",
+      "aiAnalyzeImage": "AI phân tích hình ảnh",
+      "aiGenerateImage": "AI tạo hình ảnh",
+      "aiGenerateTextAgent": "AI tạo văn bản agent",
+      "aiSpeechToText": "AI chuyển giọng nói thành văn bản",
+      "aiTextToSpeech": "AI chuyển văn bản thành giọng nói",
+      "archiveConversation": "Lưu trữ cuộc trò chuyện",
+      "assignConversation": "Gán cuộc trò chuyện",
+      "autoAssignConversation": "Tự động gán cuộc trò chuyện",
+      "blockContact": "Chặn liên hệ",
+      "broadcastActions": "Hành động phát sóng",
+      "callPhoneNumber": "Gọi số điện thoại",
+      "chooseChannel": "Chọn kênh",
+      "clearCustomField": "Xóa trường tùy chỉnh",
+      "contactActions": "Hành động liên hệ",
+      "countCharacters": "Đếm ký tự",
+      "deleteContact": "Xóa liên hệ",
+      "emailActions": "Hành động email",
+      "flowActions": "Hành động luồng",
+      "followConversation": "Theo dõi cuộc trò chuyện",
+      "formatDate": "Định dạng ngày",
+      "generateCode": "Tạo mã",
+      "getDataFromJson": "Lấy dữ liệu từ JSON",
+      "inboxActions": "Hành động hộp thư",
+      "markEmailVerified": "Đánh dấu email đã xác minh",
+      "openWebsite": "Mở trang web",
+      "optInEmail": "Đăng ký nhận email",
+      "optOutEmail": "Hủy đăng ký email",
+      "performAction": "Thực hiện hành động",
+      "removeContactTag": "Xóa thẻ liên hệ",
+      "sendAudio": "Gửi âm thanh",
+      "sendCard": "Gửi thẻ",
+      "sendExternalFlow": "Gửi luồng bên ngoài",
+      "sendExternalNode": "Gửi nút bên ngoài",
+      "sendFile": "Gửi tệp",
+      "sendFlow": "Gửi luồng",
+      "sendGif": "Gửi Gif",
+      "sendImage": "Gửi hình ảnh",
+      "sendMessage": "Gửi tin nhắn",
+      "sendNode": "Bắt đầu nút khác",
+      "sendText": "Gửi văn bản",
+      "sendVideo": "Gửi video",
+      "setCustomField": "Thiết lập trường tùy chỉnh",
+      "startAnotherNode": "Bắt đầu nút khác",
+      "startExternalFlow": "Bắt đầu luồng bên ngoài",
+      "startExternalNode": "Bắt đầu nút bên ngoài",
+      "startFlow": "Bắt đầu luồng",
+      "subscribeBroadcast": "Đăng ký phát sóng",
+      "tools": "Công cụ",
+      "transferConversationToBot": "Chuyển cuộc trò chuyện cho bot",
+      "transferConversationToHuman": "Chuyển cuộc trò chuyện cho người",
+      "unarchiveConversation": "Bỏ lưu trữ cuộc trò chuyện",
+      "unassignConversation": "Bỏ gán cuộc trò chuyện",
+      "unfollowConversation": "Bỏ theo dõi cuộc trò chuyện",
+      "unsubscribeBroadcast": "Hủy đăng ký phát sóng",
+      "waitUserReply": "Chờ người dùng trả lời",
+      "getUserData": "Lấy đầu vào người dùng",
+      "sendCarousel": "Gửi băng chuyền",
+      "actions": "Hành động",
+      "findGif": "Tìm Gif",
+      "spreadsheetGetRow": "Lấy hàng",
+      "spreadsheetAddRow": "Thêm hàng",
+      "spreadsheetUpdateRow": "Cập nhật hàng",
+      "spreadsheetSendData": "Gửi dữ liệu",
+      "spreadsheetGetRandomRow": "Lấy hàng ngẫu nhiên",
+      "spreadsheetClearRow": "Xóa hàng",
+      "emailText": "Văn bản",
+      "emailH3": "Tiêu đề",
+      "emailImage": "Hình ảnh",
+      "emailButton": "Nút",
+      "emailLine": "Đường kẻ",
+      "emailSpacing": "Khoảng cách",
+      "emailCode": "Mã",
+      "emailHeader": "Tiêu đề",
+      "typing": "Đang gõ",
+      "sequenceActions": "Hành động chăm sóc",
+      "subscribeSequence": "Đăng ký chăm sóc",
+      "unsubscribeSequence": "Hủy đăng ký chăm sóc"
+    },
+    "additionalSteps": "Các bước bổ sung",
+    "button": {
+      "label": "Nhãn nút"
+    },
+    "clickToSelectFlow": "Nhấp để chọn luồng",
+    "create": {
+      "title": "Tạo luồng mới"
+    },
+    "delayType": {
+      "datetimeCustomField": "Trường tùy chỉnh ngày giờ",
+      "datetimeCustomFieldValue": "{customField}",
+      "duration": "Thời lượng",
+      "durationValue": "{duration}",
+      "placeholder": "Chọn loại",
+      "specificDate": "Ngày cụ thể",
+      "specificDateValue": "{date}"
+    },
+    "formatTimezone": {
+      "accountTimezone": "Múi giờ tài khoản",
+      "contactTimezone": "Múi giờ liên hệ"
+    },
+    "name": {
+      "label": "Tên luồng"
+    },
+    "operators": {
+      "append": "Thêm vào cuối",
+      "prepend": "Thêm vào đầu",
+      "set": "Thiết lập thành"
+    },
+    "wait": {
+      "datetimeTooltip": "Ngày và giờ khi luồng sẽ được kích hoạt.",
+      "setInterval": "Thiết lập khoảng thời gian"
+    }
+  },
+  "folders": {
+    "heading": {
+      "title": "Thư mục"
+    }
+  },
+  "gemini": {
+    "autoReply": {
+      "description": "Bật AI tự động trả lời để trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
+      "label": "AI tự động trả lời"
+    },
+    "connect": {
+      "description": "Trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
+      "label": "Google Gemini"
+    },
+    "title": "Google Gemini"
+  },
+  "general": {
+    "title": "Chung"
+  },
+  "googleSheets": {
+    "spreadsheet": "Bảng tính",
+    "name": "Tên bảng tính",
+    "link": "Liên kết bảng tính",
+    "add": {
+      "title": "Thêm bảng tính"
+    },
+    "confirmDeleteDesc": "Bạn có chắc chắn muốn xóa Google Sheets này?",
+    "update": {
+      "dialog_title": "Cập nhật bảng tính"
+    },
+    "deleted": "Google Sheets đã được xóa thành công",
+    "length": "Số lượng Google Sheets",
+    "setting": {
+      "description": "Mô tả Google Sheets",
+      "label": "Google Sheets"
+    },
+    "header": "Tiêu đề cột",
+    "title": "Google Sheets"
+  },
+  "inboxTeam": {
+    "updateAction": {
+      "heading": {
+        "label": "Đổi tên nhóm hộp thư"
+      }
+    }
+  },
+  "integration": {
+    "disconnectConfirm": "Bạn có chắc chắn muốn ngắt kết nối?",
+    "disconnectDescription": "Hành động này không thể hoàn tác."
+  },
+  "integrations": {
+    "gemini": {
+      "apiKey": "Khóa API Gemini",
+      "button": {
+        "connect": "Kết nối"
+      }
+    },
+    "googleSheets": {
+      "button": {
+        "connect": "Kết nối"
+      }
+    },
+    "title": "Tích hợp"
+  },
+  "messages": {
+    "moveFeature": "Di chuyển {feature}",
+    "poweredBy": "Được cung cấp bởi {name}",
+    "noGiphyApiKey": "Không tìm thấy khóa API GIPHY. Vui lòng thêm khóa API GIPHY trong cài đặt tổ chức.",
+    "actionCompleted": "Hành động hoàn tất thành công",
+    "actionFailed": "Hành động thất bại. Vui lòng thử lại.",
+    "archivedSuccess": "Đã lưu trữ {feature} thành công",
+    "connectedSuccess": "{feature} đã được kết nối thành công",
+    "connectFailed": "Không thể kết nối {feature}",
+    "connectSuccess": "Đã kết nối {feature} thành công",
+    "success": "Thành công",
+    "failed": "Thất bại",
+    "copiedToClipboard": "Đã sao chép vào bộ nhớ tạm",
+    "createdFailed": "Tạo {feature} thất bại",
+    "deleteComingSoon": "Chức năng xóa sẽ sớm có",
+    "deletedSuccess": "{feature} đã được xóa thành công",
+    "deleteFileComingSoon": "Chức năng xóa tệp sẽ sớm có",
+    "disconnectFeature": "Ngắt kết nối {feature}",
+    "disconnectFeatureDescription": "Bạn có chắc chắn muốn ngắt kết nối {feature}?",
+    "disconnectSuccess": "Đã ngắt kết nối {feature} thành công",
+    "downloadComingSoon": "Chức năng tải xuống sẽ sớm có",
+    "enabledSuccessfully": "Đã bật {feature} thành công",
+    "failedToCopy": "Sao chép thất bại",
+    "failedToPreviewImage": "Không thể xem trước hình ảnh",
+    "inboxTeamCreated": "Đã tạo nhóm hộp thư thành công",
+    "loadingData": "Đang tải dữ liệu...",
+    "magicLinkSent": "Chúng tôi đã gửi URL xác minh đến email của bạn",
+    "needToAddSettings": "Bạn cần thêm cài đặt để sử dụng tích hợp này",
+    "noChatbotsFound": "Không tìm thấy chatbot nào",
+    "noDataAvailable": "Không có dữ liệu",
+    "pleaseWait": "Vui lòng đợi...",
+    "processingRequest": "Đang xử lý yêu cầu của bạn...",
+    "savedSuccessfully": "Đã lưu thành công",
+    "signedInSuccessfully": "Đăng nhập thành công",
+    "unarchivedSuccess": "Đã bỏ lưu trữ {feature} thành công",
+    "unknownError": "Lỗi không xác định",
+    "updatedSuccess": "{feature} đã được cập nhật thành công",
+    "updateFileComingSoon": "Chức năng cập nhật tệp sẽ sớm có",
+    "uploadFailed": "Tải lên thất bại",
+    "videoError": "Lỗi video",
+    "viewFileComingSoon": "Chức năng xem tệp sẽ sớm có",
+    "createdSuccess": "{feature} đã được tạo thành công",
+    "createFeature": "Tạo {feature}",
+    "noItemsFound": "Không tìm thấy mục nào",
+    "editFeature": "Chỉnh sửa {feature}",
+    "deleteFeature": "Xóa {feature}",
+    "deleteConfirmation": "Bạn có thực sự chắc chắn?\nHành động này không thể hoàn tác.\nĐiều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi.",
+    "addFeature": "Thêm {feature}",
+    "signOutConfirmation": "Bạn có chắc chắn muốn đăng xuất?",
+    "unableToConnectFeature": "Không thể kết nối {feature}. Vui lòng gửi nhật ký cho nhóm phát triển.",
+    "copyInvitationUrlSuccess": "Sao chép liên kết bên dưới và gửi cho người mà bạn muốn thêm làm quản trị viên.",
+    "noAIIntegrationFound": "Không tìm thấy tích hợp AI. Vui lòng kết nối tích hợp AI để sử dụng AI agents.",
+    "resendFeature": "Gửi lại {feature}",
+    "resendFeatureDescription": "Gửi lại {feature} cho các liên hệ chưa nhận được.",
+    "resendSuccess": "Gửi lại thành công",
+    "duplicateTitle": "Nhân bản {feature}",
+    "duplicateDescription": "Bạn có chắc chắn muốn nhân bản {feature}?\nHành động này không thể hoàn tác.",
+    "duplicateSuccess": "Đã nhân bản {feature} thành công",
+    "changeDefault": "Thay đổi mặc định",
+    "changeDefaultDescription": "Bạn có chắc chắn muốn thay đổi AI agent mặc định?",
+    "unsetDefaultDescription": "Bạn có chắc chắn muốn bỏ đặt AI agent mặc định?",
+    "botIsActive": "Bot đang hoạt động",
+    "archiveFeature": "Lưu trữ {feature}",
+    "archiveFeatureDescription": "Bạn có chắc chắn muốn lưu trữ {feature}?",
+    "archiveSuccess": "Đã lưu trữ {feature} thành công",
+    "unarchiveFeature": "Bỏ lưu trữ {feature}",
+    "unarchiveFeatureDescription": "Bạn có chắc chắn muốn bỏ lưu trữ {feature}?",
+    "unarchiveSuccess": "Đã bỏ lưu trữ {feature} thành công",
+    "disableFeature": "Tắt {feature}",
+    "disableFeatureDescription": "Bạn có chắc chắn muốn tắt {feature}?",
+    "disableSuccess": "Đã tắt {feature} thành công",
+    "enableFeature": "Bật {feature}",
+    "enableFeatureDescription": "Bạn có chắc chắn muốn bật {feature}?",
+    "enableSuccess": "Đã bật {feature} thành công",
+    "exportedSuccess": "{feature} đã được xuất thành công",
+    "syncedSuccessfully": "Đã đồng bộ thành công",
+    "selectedCount": "Đã chọn {count}",
+    "deleteMultipleItems": "Bạn có chắc chắn muốn xóa {count} {feature}?",
+    "deleteFeatureDescription": "Bạn có chắc chắn muốn xóa {feature} này?\nHành động này không thể hoàn tác.\nĐiều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi."
+  },
+  "messenger": {
+    "description": "Tích hợp này cho phép bạn tạo bot Messenger.",
+    "selectFacebookPage": "Chọn trang Facebook",
+    "title": "Facebook Messenger"
+  },
+  "omnichannel": {
+    "title": "Đa kênh"
+  },
+  "openai": {
+    "connect": {
+      "description": "Trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
+      "title": "OpenAI"
+    },
+    "setting": {
+      "description": "Mô tả tích hợp OpenAI",
+      "label": "Tích hợp OpenAI"
+    },
+    "title": "OpenAI"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "description": "Cấu hình cài đặt chatbot của bạn.",
+    "agents": {
+      "description": "Mô tả AI Agents",
+      "title": "AI Agents"
+    },
+    "aiTriggers": {
+      "description": "Mô tả AI Triggers",
+      "title": "AI Triggers"
+    },
+    "automatedResponses": {
+      "title": "Từ khóa"
+    },
+    "openai": {
+      "description": "Mô tả tích hợp OpenAI",
+      "title": "Tích hợp OpenAI"
+    }
+  },
+  "auth": {
+    "orContinueWith": "Hoặc tiếp tục với",
+    "dontHaveAnAccount": "Chưa có tài khoản?",
+    "alreadyHaveAnAccount": "Đã có tài khoản?",
+    "signUp": "Đăng ký",
+    "acceptTermsAndPolicy": "Bằng cách nhấn tiếp tục, bạn đồng ý với",
+    "and": "và",
+    "privacyPolicy": "Chính sách bảo mật",
+    "termsOfService": "Điều khoản dịch vụ",
+    "signInTitle": "Đăng nhập vào {name}",
+    "forgotPasswordTitle": "Quên mật khẩu?",
+    "forgotPasswordDescription": "Đừng lo! Chúng tôi sẽ gửi cho bạn liên kết hướng dẫn đặt lại mật khẩu.",
+    "checkYourEmail": "Kiểm tra email của bạn",
+    "magicLinkSent": "Chúng tôi đã gửi URL xác minh đến email của bạn",
+    "magicLinkSentDescription": "Nhấp vào liên kết trong email của bạn để tiếp tục.",
+    "backToSignIn": "Quay lại đăng nhập",
+    "didNotReceiveEmail": "Không nhận được email? Kiểm tra thư mục spam.",
+    "trySigningInAgain": "Bạn cũng có thể thử đăng nhập lại bằng email khác.",
+    "sentMagicLink": "Chúng tôi đã gửi magic link đến email của bạn. Vui lòng kiểm tra email và nhấp vào liên kết để tiếp tục.",
+    "signIn": "Đăng nhập",
+    "signUpSuccess": "Đăng ký thành công. Vui lòng kiểm tra email để xác minh.",
+    "forgotPassword": "Quên mật khẩu?",
+    "rememberedPassword": "Đã nhớ mật khẩu?",
+    "forgotPasswordEmailSent": "Chúng tôi đã gửi email hướng dẫn đặt lại mật khẩu cho bạn.",
+    "magicLinkSentTitle": "Đã gửi magic link",
+    "passwordResetSuccess": "Đặt lại mật khẩu thành công",
+    "resetPasswordTitle": "Đặt lại mật khẩu",
+    "resetPasswordDescription": "Nhập mật khẩu mới của bạn bên dưới.",
+    "signUpTitle": "Đăng ký vào {name}"
+  },
+  "tags": {
+    "title": "Thẻ",
+    "heading": {
+      "title": "Thẻ"
+    }
+  },
+  "texts": {
+    "or": "hoặc"
+  },
+  "theme": {
+    "dark": "Tối",
+    "light": "Sáng",
+    "system": "Hệ thống"
+  },
+  "validation": {
+    "invalidEmail": "Vui lòng nhập địa chỉ email hợp lệ",
+    "invalidFormat": "Định dạng không hợp lệ",
+    "invalidNumber": "Vui lòng nhập số hợp lệ",
+    "invalidPhoneNumber": "Vui lòng nhập số điện thoại hợp lệ",
+    "invalidUrl": "Vui lòng nhập URL hợp lệ",
+    "maxLength": "Độ dài tối đa là {max} ký tự",
+    "maxSize": "Kích thước tệp vượt quá giới hạn tối đa",
+    "maxValue": "Giá trị tối đa là {max}",
+    "minLength": "Độ dài tối thiểu là {min} ký tự",
+    "minValue": "Giá trị tối thiểu là {min}",
+    "passwordMismatch": "Mật khẩu không khớp",
+    "required": "Trường này là bắt buộc",
+    "maxItemsReached": "Tối đa {max} {feature} cho mỗi chatbot",
+    "minOneContactRequired": "Cần ít nhất một liên hệ",
+    "minOneSequenceRequired": "Cần ít nhất một chuỗi chăm sóc"
+  },
+  "webchat": {
+    "description": "Cho phép khách hàng của bạn nhận phản hồi tự động ngay lập tức từ doanh nghiệp của bạn trực tiếp từ trang web của bạn",
+    "title": "Web Chat"
+  },
+  "whatsapp": {
+    "category": {
+      "makerting": {
+        "description": "Mô tả danh mục Marketing",
+        "label": "Marketing"
+      },
+      "utility": {
+        "description": "Mô tả danh mục Tiện ích",
+        "label": "Tiện ích"
+      }
+    },
+    "commands": {
+      "description": "Đây là những từ khóa đặc biệt cho bot WhatsApp biết phải làm gì",
+      "label": "Lệnh"
+    },
+    "connectExisting": "Kết nối tài khoản WhatsApp Business hiện có",
+    "conversationStarters": {
+      "description": "Câu mở đầu cuộc trò chuyện được sử dụng để bắt đầu cuộc trò chuyện với người dùng.",
+      "label": "Câu mở đầu cuộc trò chuyện"
+    },
+    "description": "Mô tả WhatsApp",
+    "hideHeader": {
+      "label": "Hiển thị tiêu đề"
+    },
+    "icebreakers": {
+      "description": "Đây là những câu hỏi phổ biến mà mọi người có thể dễ dàng hỏi bạn.",
+      "label": "Câu mở đầu"
+    },
+    "manualConnect": "Kết nối thủ công bằng token truy cập System User.",
+    "marketingMessageLite": "Tin nhắn tiếp thị Lite",
+    "messageTemplate": {
+      "carouselImage": {
+        "label": "Hình ảnh carousel"
+      },
+      "carouselVideo": {
+        "label": "Video carousel"
+      },
+      "document": {
+        "label": "Tài liệu"
+      },
+      "image": {
+        "label": "Hình ảnh"
+      },
+      "label": "Mẫu tin nhắn",
+      "location": {
+        "label": "Vị trí"
+      },
+      "product": {
+        "label": "Sản phẩm"
+      },
+      "text": {
+        "label": "Văn bản"
+      },
+      "video": {
+        "label": "Video"
+      },
+      "viewCatalog": {
+        "label": "Xem danh mục"
+      },
+      "viewProduct": {
+        "label": "Xem sản phẩm"
+      }
+    },
+    "sampleBodyCardContent": {
+      "label": "Nội dung thẻ mẫu"
+    },
+    "sampleBodyContent": {
+      "label": "Nội dung mẫu"
+    },
+    "sampleHeaderContent": {
+      "label": "Nội dung tiêu đề mẫu"
+    },
+    "showFooter": {
+      "label": "Hiển thị chân trang"
+    },
+    "tabs": {
+      "automation": "Tự động hóa",
+      "ecommerce": "Thương mại điện tử",
+      "flows": "Luồng",
+      "messageTemplates": "Mẫu tin nhắn",
+      "profile": "Hồ sơ",
+      "usefulLinks": "Liên kết hữu ích"
+    },
+    "templateFooter": {
+      "label": "Chân trang mẫu"
+    },
+    "templateHeader": {
+      "label": "Tiêu đề mẫu"
+    },
+    "title": "WhatsApp",
+    "transferPhoneNumber": "Chuyển số điện thoại từ nhà cung cấp WhatsApp khác"
+  },
+  "zalo": {
+    "description": "Tích hợp này cho phép bạn tạo bot Zalo OA.",
+    "title": "Zalo OA"
+  },
+  "invitation": {
+    "title": "Lời mời",
+    "chatbotInvitationDescription1": "Tham gia {chatbotName} trên {organizationName}",
+    "chatbotInvitationDescription2": "{userName} đã mời bạn tham gia {chatbotName} trên {organizationName}.",
+    "organizationInvitationDescription1": "Tham gia {organizationName}",
+    "organizationInvitationDescription2": "{userName} đã mời bạn tham gia {organizationName}."
+  },
+  "inboxTeams": {
+    "title": "Nhóm hộp thư"
+  },
+  "errorLog": {
+    "heading": {
+      "title": "Nhật ký lỗi"
+    }
+  },
+  "trigger": {
+    "when": "Khi điều này xảy ra",
+    "conditions": {
+      "tagApplied": "Thẻ được áp dụng",
+      "tagRemoved": "Thẻ bị xóa",
+      "dateTimeBasedTrigger": "Trigger dựa trên ngày giờ",
+      "customFieldValueChanged": "Trường tùy chỉnh thay đổi",
+      "conversationTransferredToHuman": "Cuộc trò chuyện được chuyển cho người",
+      "conversationTransferredToBot": "Cuộc trò chuyện được chuyển cho bot",
+      "newContact": "Liên hệ mới",
+      "contactUnsubscribedFormBroadcast": "Liên hệ hủy đăng ký phát sóng",
+      "archived": "Đã lưu trữ",
+      "followUp": "Theo dõi",
+      "conversationAssigned": "Cuộc trò chuyện được gán",
+      "conversationUnassigned": "Cuộc trò chuyện bị bỏ gán",
+      "incomingCall": "Cuộc gọi đến",
+      "missedAudioCall": "Cuộc gọi âm thanh nhỡ",
+      "callEnded": "Cuộc gọi kết thúc",
+      "ticketCreated": "Phiếu được tạo",
+      "ticketMovedToStage": "Phiếu được chuyển giai đoạn",
+      "ticketValueChanged": "Giá trị phiếu thay đổi",
+      "ticketStatusChanged": "Trạng thái phiếu thay đổi",
+      "ticketPriorityChanged": "Ưu tiên phiếu thay đổi",
+      "subscribedToSequence": "Đăng ký chuỗi",
+      "unsubscribedFromSequence": "Hủy đăng ký chuỗi",
+      "WhatsappShoppingCartSent": "Giỏ hàng WhatsApp đã gửi",
+      "userAskedAboutProduct": "Người dùng hỏi về sản phẩm",
+      "cartAbandoned": "Giỏ hàng bị bỏ rơi",
+      "newOrder": "Đơn hàng mới",
+      "orderAccepted": "Đơn hàng được chấp nhận",
+      "orderShipped": "Đơn hàng đã giao",
+      "orderConcluded": "Đơn hàng hoàn tất",
+      "orderCancelled": "Đơn hàng bị hủy",
+      "categoryAddedToCart": "Danh mục thêm vào giỏ",
+      "productAddedToCart": "Sản phẩm thêm vào giỏ",
+      "productRemovedFromCart": "Sản phẩm xóa khỏi giỏ",
+      "productOrdered": "Sản phẩm đã đặt",
+      "contactReferredANewContact": "Liên hệ giới thiệu liên hệ mới",
+      "contactReferredExistingContact": "Liên hệ giới thiệu liên hệ hiện có"
+    },
+    "actions": {
+      "addTag": "Thêm thẻ",
+      "removeTag": "Xóa thẻ",
+      "setCustomField": "Thiết lập trường tùy chỉnh",
+      "clearCustomField": "Xóa trường tùy chỉnh",
+      "startAnotherFlow": "Bắt đầu luồng khác",
+      "notifyAdmins": "Thông báo quản trị viên",
+      "transferConversationToHuman": "Chuyển cuộc trò chuyện cho người"
+    },
+    "triggerGoesOff": "Trigger kích hoạt",
+    "before": "Trước",
+    "after": "Sau",
+    "atTheDayOf": "Vào ngày của",
+    "day": "Ngày",
+    "hour": "Giờ",
+    "minute": "Phút",
+    "at": "Lúc"
+  },
+  "teams": {
+    "create": {
+      "title": "Tạo nhóm hộp thư"
+    }
+  },
+  "chatbotToken": {
+    "title": "Token truy cập API ChatbotX",
+    "description": "Tạo token để cho phép chatbot của bạn truy cập API ChatbotX. Giữ token này bí mật và không chia sẻ với ai."
+  },
+  "contacts": {
+    "title": "Liên hệ"
+  },
+  "errorLogs": {
+    "title": "Nhật ký lỗi"
+  },
+  "auditLogs": {
+    "title": "Nhật ký kiểm tra"
+  },
+  "customFields": {
+    "title": "Trường tùy chỉnh"
+  },
+  "aiHub": {
+    "title": "AI Hub"
+  },
+  "keywords": {
+    "title": "Từ khóa"
+  },
+  "triggers": {
+    "title": "Kích hoạt"
+  },
+  "messengerList": {
+    "title": "Danh sách Messenger",
+    "description": "Xây dựng danh sách và gửi phát sóng hàng ngày để tăng tương tác và doanh số. Có thể là chiến dịch tiếp thị theo thời gian, chiến dịch nhỏ giọt, khuyến mãi..."
+  },
+  "facebookCommentAutomation": {
+    "title": "Tự động hóa bình luận Facebook",
+    "description": "Thu hút thêm khách hàng và tăng doanh số trong khi tiết kiệm thời gian bằng cách tự động trả lời bình luận Facebook."
+  },
+  "facebookLeadAdsAutomation": {
+    "title": "Tự động hóa Facebook Lead Ads",
+    "description": "Bán nhiều hơn và có khách hàng tốt hơn bằng cách tự động sàng lọc lead Facebook hoặc Instagram trên WhatsApp."
+  },
+  "qrCodeGenerator": {
+    "title": "Trình tạo mã QR",
+    "description": "Tạo mã QR để giúp khách hàng nhanh chóng bắt đầu cuộc trò chuyện với doanh nghiệp của bạn tại địa điểm thực."
+  },
+  "templates": {
+    "title": "Mẫu",
+    "description": "Mẫu cho phép bạn nhanh chóng sao chép luồng và nội dung khác sang tài khoản khác."
+  },
+  "appointmentScheduling": {
+    "title": "Lên lịch hẹn",
+    "description": "Để liên hệ của bạn dễ dàng đặt lịch hẹn với bạn."
+  },
+  "questionnaires": {
+    "title": "Bảng câu hỏi",
+    "description": "Nhanh chóng thực hiện khảo sát và câu đố với phản hồi kết quả theo thời gian thực."
+  },
+  "ecommerce": {
+    "title": "Thương mại điện tử",
+    "description": "Để khách hàng mua sản phẩm của bạn trong bot."
+  },
+  "placesNearMe": {
+    "title": "Địa điểm gần tôi",
+    "description": "Để khách hàng dễ dàng tìm địa điểm kinh doanh của bạn gần họ."
+  },
+  "pollManager": {
+    "title": "Quản lý bình chọn",
+    "description": "Thực hiện bình chọn hoặc hệ thống bỏ phiếu. Bạn cũng có thể sử dụng để thu thập ý kiến khách hàng."
+  },
+  "botSimulator": {
+    "title": "Mô phỏng Bot",
+    "description": "Mô phỏng Bot cho phép bạn hiển thị bot hoạt động trên bất kỳ trang web nào mà không cần thêm mã."
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "description": "Thông báo cho hệ thống của bạn khi một số sự kiện xảy ra trong bot. Bạn có thể sử dụng webhooks để chuyển dữ liệu sang hệ thống của bạn."
+  },
+  "reflinks": {
+    "title": "Liên kết giới thiệu",
+    "description": "Chia sẻ bot của bạn trên trang web, mạng xã hội hoặc ứng dụng nhắn tin khác làm điểm vào để người dùng bắt đầu cuộc trò chuyện với bot."
   },
   "sequences": {
     "heading": {
@@ -1237,452 +1987,6 @@
       "submit": "Xóa chăm sóc",
       "success": "Đã xóa chăm sóc thành công",
       "error": "Không thể xóa chăm sóc"
-    }
-  },
-  "flows": {
-    "actions": {
-      "addContactNotes": "Thêm ghi chú liên hệ",
-      "addContactTag": "Thêm thẻ liên hệ",
-      "aiAnalyzeImage": "AI phân tích hình ảnh",
-      "aiGenerateImage": "AI tạo hình ảnh",
-      "aiGenerateTextAgent": "AI tạo văn bản agent",
-      "aiSpeechToText": "AI chuyển giọng nói thành văn bản",
-      "aiTextToSpeech": "AI chuyển văn bản thành giọng nói",
-      "archiveConversation": "Lưu trữ cuộc trò chuyện",
-      "assignConversation": "Gán cuộc trò chuyện",
-      "autoAssignConversation": "Tự động gán cuộc trò chuyện",
-      "blockContact": "Chặn liên hệ",
-      "broadcastActions": "Hành động phát sóng",
-      "callPhoneNumber": "Gọi số điện thoại",
-      "chooseChannel": "Chọn kênh",
-      "clearCustomField": "Xóa trường tùy chỉnh",
-      "contactActions": "Hành động liên hệ",
-      "countCharacters": "Đếm ký tự",
-      "deleteContact": "Xóa liên hệ",
-      "emailActions": "Hành động email",
-      "flowActions": "Hành động luồng",
-      "followConversation": "Theo dõi cuộc trò chuyện",
-      "formatDate": "Định dạng ngày",
-      "generateCode": "Tạo mã",
-      "getDataFromJson": "Lấy dữ liệu từ JSON",
-      "inboxActions": "Hành động hộp thư",
-      "markEmailVerified": "Đánh dấu email đã xác minh",
-      "openWebsite": "Mở trang web",
-      "optInEmail": "Đăng ký nhận email",
-      "optOutEmail": "Hủy đăng ký email",
-      "performAction": "Thực hiện hành động",
-      "removeContactTag": "Xóa thẻ liên hệ",
-      "sendAudio": "Gửi âm thanh",
-      "sendCard": "Gửi thẻ",
-      "sendExternalFlow": "Gửi luồng bên ngoài",
-      "sendExternalNode": "Gửi nút bên ngoài",
-      "sendFile": "Gửi tệp",
-      "sendFlow": "Gửi luồng",
-      "sendGif": "Gửi Gif",
-      "sendImage": "Gửi hình ảnh",
-      "sendMessage": "Gửi tin nhắn",
-      "sendNode": "Bắt đầu nút khác",
-      "sendText": "Gửi văn bản",
-      "sendVideo": "Gửi video",
-      "setCustomField": "Thiết lập trường tùy chỉnh",
-      "startAnotherNode": "Bắt đầu nút khác",
-      "startExternalFlow": "Bắt đầu luồng bên ngoài",
-      "startExternalNode": "Bắt đầu nút bên ngoài",
-      "startFlow": "Bắt đầu luồng",
-      "subscribeBroadcast": "Đăng ký phát sóng",
-      "tools": "Công cụ",
-      "transferConversationToBot": "Chuyển cuộc trò chuyện cho bot",
-      "transferConversationToHuman": "Chuyển cuộc trò chuyện cho người",
-      "unarchiveConversation": "Bỏ lưu trữ cuộc trò chuyện",
-      "unassignConversation": "Bỏ gán cuộc trò chuyện",
-      "unfollowConversation": "Bỏ theo dõi cuộc trò chuyện",
-      "unsubscribeBroadcast": "Hủy đăng ký phát sóng",
-      "waitUserReply": "Chờ người dùng trả lời",
-      "getUserInput": "Lấy đầu vào người dùng",
-      "sendCarousel": "Gửi băng chuyền",
-      "actions": "Hành động",
-      "findGif": "Tìm Gif",
-      "spreadsheetGetRow": "Lấy hàng",
-      "spreadsheetAddRow": "Thêm hàng",
-      "spreadsheetUpdateRow": "Cập nhật hàng",
-      "spreadsheetSendData": "Gửi dữ liệu",
-      "spreadsheetGetRandomRow": "Lấy hàng ngẫu nhiên",
-      "spreadsheetClearRow": "Xóa hàng",
-      "sequenceActions": "Hành động chăm sóc",
-      "subscribeSequence": "Đăng ký chăm sóc",
-      "unsubscribeSequence": "Hủy đăng ký chăm sóc"
-    },
-    "additionalSteps": "Các bước bổ sung",
-    "button": {
-      "label": "Nhãn nút"
-    },
-    "clickToSelectFlow": "Nhấp để chọn luồng",
-    "create": {
-      "title": "Tạo luồng mới"
-    },
-    "delayType": {
-      "datetimeCustomField": "Trường tùy chỉnh ngày giờ",
-      "datetimeCustomFieldValue": "{customField}",
-      "duration": "Thời lượng",
-      "durationValue": "{duration}",
-      "placeholder": "Chọn loại",
-      "specificDate": "Ngày cụ thể",
-      "specificDateValue": "{date}"
-    },
-    "formatTimezone": {
-      "accountTimezone": "Múi giờ tài khoản",
-      "contactTimezone": "Múi giờ liên hệ"
-    },
-    "name": {
-      "label": "Tên luồng"
-    },
-    "operators": {
-      "append": "Thêm vào cuối",
-      "prepend": "Thêm vào đầu",
-      "set": "Thiết lập thành"
-    },
-    "wait": {
-      "datetimeTooltip": "Ngày và giờ khi luồng sẽ được kích hoạt.",
-      "setInterval": "Thiết lập khoảng thời gian"
-    }
-  },
-  "folders": {
-    "heading": {
-      "title": "Thư mục"
-    }
-  },
-  "gemini": {
-    "autoReply": {
-      "description": "Bật AI tự động trả lời để trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
-      "label": "AI tự động trả lời"
-    },
-    "connect": {
-      "description": "Trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
-      "label": "Google Gemini"
-    },
-    "title": "Google Gemini"
-  },
-  "general": {
-    "title": "Chung"
-  },
-  "googleSheets": {
-    "delete": {
-      "dialog_title": "Xóa bảng tính"
-    },
-    "spreadsheet": "Bảng tính",
-    "name": "Tên bảng tính",
-    "link": "Liên kết bảng tính",
-    "add": {
-      "title": "Thêm bảng tính"
-    },
-    "confirmDeleteDesc": "Bạn có chắc chắn muốn xóa Google Sheets này?",
-    "update": {
-      "dialog_title": "Cập nhật bảng tính"
-    },
-    "deleted": "Đã xóa Google Sheets thành công",
-    "length": "Độ dài Google Sheets",
-    "setting": {
-      "description": "Mô tả Google Sheets",
-      "label": "Google Sheets"
-    },
-    "header": "Tiêu đề cột",
-    "title": "Google Sheets"
-  },
-  "inboxTeam": {
-    "updateAction": {
-      "heading": {
-        "label": "Đổi tên nhóm hộp thư"
-      }
-    }
-  },
-  "integration": {
-    "disconnectConfirm": "Bạn có chắc chắn muốn ngắt kết nối?",
-    "disconnectDescription": "Hành động này không thể hoàn tác."
-  },
-  "integrations": {
-    "gemini": {
-      "apiKey": "Khóa API Gemini",
-      "button": {
-        "connect": "Kết nối"
-      }
-    },
-    "googleSheets": {
-      "button": {
-        "connect": "Kết nối"
-      }
-    },
-    "openAI": {
-      "apiKey": "Khóa API OpenAI",
-      "button": {
-        "connect": "Kết nối"
-      },
-      "maxTokens": "Token tối đa",
-      "temperature": "Nhiệt độ"
-    },
-    "title": "Tích hợp"
-  },
-  "messages": {
-    "selectedCount": "Đã chọn {count}",
-    "deleteMultipleItems": "Bạn có chắc chắn muốn xóa {count} {feature}?",
-    "moveFeature": "Di chuyển {feature}",
-    "poweredBy": "Được cung cấp bởi {name}",
-    "noGiphyApiKey": "Không tìm thấy khóa API GIPHY. Vui lòng thêm khóa API GIPHY trong cài đặt tổ chức.",
-    "actionCompleted": "Hành động hoàn tất thành công",
-    "actionFailed": "Hành động thất bại. Vui lòng thử lại.",
-    "archivedSuccess": "Đã lưu trữ {feature} thành công",
-    "connectedSuccess": "{feature} đã được kết nối thành công",
-    "connectFailed": "Không thể kết nối {feature}",
-    "connectSuccess": "Đã kết nối {feature} thành công",
-    "success": "Thành công",
-    "failed": "Thất bại",
-    "copiedToClipboard": "Đã sao chép vào bộ nhớ tạm",
-    "createdFailed": "Tạo {feature} thất bại",
-    "createdSuccess": "{feature} đã được tạo thành công",
-    "createFeature": "Tạo {feature}",
-    "deleteComingSoon": "Chức năng xóa sẽ sớm có",
-    "deletedSuccess": "{feature} đã được xóa thành công",
-    "deleteFileComingSoon": "Chức năng xóa tệp sẽ sớm có",
-    "disabledSuccess": "Đã tắt {feature} thành công",
-    "disconnectedSuccess": "Đã ngắt kết nối {feature} thành công",
-    "downloadComingSoon": "Chức năng tải xuống sẽ sớm có",
-    "enabledSuccessfully": "Đã bật {feature} thành công",
-    "failedToCopy": "Sao chép thất bại",
-    "failedToPreviewImage": "Không thể xem trước hình ảnh",
-    "inboxTeamCreated": "Đã tạo nhóm hộp thư thành công",
-    "loadingData": "Đang tải dữ liệu...",
-    "magicLinkSent": "Chúng tôi đã gửi URL xác minh đến email của bạn",
-    "needToAddSettings": "Bạn cần thêm cài đặt để sử dụng tích hợp này",
-    "noChatbotsFound": "Không tìm thấy chatbot nào",
-    "noDataAvailable": "Không có dữ liệu",
-    "pleaseWait": "Vui lòng đợi...",
-    "processingRequest": "Đang xử lý yêu cầu của bạn...",
-    "savedSuccessfully": "Đã lưu thành công",
-    "signedInSuccessfully": "Đăng nhập thành công",
-    "unarchivedSuccess": "Đã bỏ lưu trữ {feature} thành công",
-    "unknownError": "Lỗi không xác định",
-    "updatedSuccess": "{feature} đã được cập nhật thành công",
-    "updateFileComingSoon": "Chức năng cập nhật tệp sẽ sớm có",
-    "uploadFailed": "Tải lên thất bại",
-    "videoError": "Lỗi video",
-    "viewFileComingSoon": "Chức năng xem tệp sẽ sớm có",
-    "noItemsFound": "Không tìm thấy mục nào",
-    "editFeature": "Chỉnh sửa {feature}",
-    "deleteFeature": "Xóa {feature}",
-    "deleteFeatureDescription": "Bạn có chắc chắn muốn xóa {feature} này?\nHành động này không thể hoàn tác.\nĐiều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi.",
-    "deleteConfirmation": "Bạn có thực sự chắc chắn?\nHành động này không thể hoàn tác.\nĐiều này sẽ xóa vĩnh viễn {feature} khỏi máy chủ của chúng tôi.",
-    "addFeature": "Thêm {feature}",
-    "signOutConfirmation": "Bạn có chắc chắn muốn đăng xuất?",
-    "unableToConnectFeature": "Không thể kết nối {feature}. Vui lòng gửi nhật ký cho nhóm phát triển.",
-    "copyInvitationUrlSuccess": "Sao chép liên kết bên dưới và gửi cho người mà bạn muốn thêm làm quản trị viên.",
-    "noAIIntegrationFound": "Không tìm thấy tích hợp AI. Vui lòng kết nối tích hợp AI để sử dụng AI agents.",
-    "resendFeature": "Gửi lại {feature}",
-    "resendFeatureDescription": "Gửi lại {feature} cho các liên hệ chưa nhận được.",
-    "resendSuccess": "Gửi lại thành công",
-    "duplicateTitle": "Nhân bản {feature}",
-    "duplicateDescription": "Bạn có chắc chắn muốn nhân bản {feature}?\nHành động này không thể hoàn tác.",
-    "duplicateSuccess": "Đã nhân bản {feature} thành công",
-    "changeDefault": "Thay đổi mặc định",
-    "changeDefaultDescription": "Bạn có chắc chắn muốn thay đổi AI agent mặc định?",
-    "unsetDefaultDescription": "Bạn có chắc chắn muốn bỏ đặt AI agent mặc định?"
-  },
-  "messenger": {
-    "description": "Tích hợp này cho phép bạn tạo bot Messenger.",
-    "selectFacebookPage": "Chọn trang Facebook",
-    "title": "Facebook Messenger"
-  },
-  "omnichannel": {
-    "title": "Đa kênh"
-  },
-  "openAI": {
-    "connect": {
-      "description": "Trả lời người dùng một cách tự nhiên với AI được hỗ trợ bởi dữ liệu kinh doanh của bạn.",
-      "title": "OpenAI"
-    },
-    "setting": {
-      "description": "Mô tả tích hợp OpenAI",
-      "label": "Tích hợp OpenAI"
-    },
-    "title": "OpenAI"
-  },
-  "settings": {
-    "agents": {
-      "description": "Mô tả AI Agents",
-      "title": "AI Agents"
-    },
-    "aiTriggers": {
-      "description": "Mô tả AI Triggers",
-      "title": "AI Triggers"
-    },
-    "automatedResponses": {
-      "title": "Phản hồi tự động"
-    },
-    "openAI": {
-      "description": "Mô tả tích hợp OpenAI",
-      "title": "Tích hợp OpenAI"
-    }
-  },
-  "signIn": {
-    "acceptTermsAndPolicy": "Bằng cách nhấn tiếp tục, bạn đồng ý với",
-    "and": "và",
-    "email": "Email",
-    "password": "Mật khẩu",
-    "privacyPolicy": "Chính sách bảo mật",
-    "termsOfService": "Điều khoản dịch vụ",
-    "title": "Đăng nhập vào {name}",
-    "checkYourEmail": "Kiểm tra email của bạn",
-    "magicLinkSent": "Chúng tôi đã gửi URL xác minh đến email của bạn",
-    "magicLinkSentDescription": "Nhấp vào liên kết trong email của bạn để tiếp tục.",
-    "backToSignIn": "Quay lại đăng nhập",
-    "didNotReceiveEmail": "Không nhận được email? Kiểm tra thư mục spam của bạn.",
-    "trySigningInAgain": "Bạn cũng có thể thử đăng nhập lại bằng email khác."
-  },
-  "tags": {
-    "heading": {
-      "title": "Thẻ"
-    }
-  },
-  "teams": {
-    "create": {
-      "title": "Tạo nhóm hộp thư"
-    }
-  },
-  "texts": {
-    "or": "hoặc"
-  },
-  "theme": {
-    "dark": "Tối",
-    "light": "Sáng",
-    "system": "Hệ thống"
-  },
-  "validation": {
-    "invalidEmail": "Vui lòng nhập địa chỉ email hợp lệ",
-    "invalidFormat": "Định dạng không hợp lệ",
-    "invalidNumber": "Vui lòng nhập số hợp lệ",
-    "invalidPhoneNumber": "Vui lòng nhập số điện thoại hợp lệ",
-    "invalidUrl": "Vui lòng nhập URL hợp lệ",
-    "maxLength": "Độ dài tối đa là {max} ký tự",
-    "maxSize": "Kích thước tệp vượt quá giới hạn tối đa",
-    "maxValue": "Giá trị tối đa là {max}",
-    "minLength": "Độ dài tối thiểu là {min} ký tự",
-    "minOneContactRequired": "Cần ít nhất một liên hệ",
-    "minOneSequenceRequired": "Cần ít nhất một chuỗi chăm sóc",
-    "minValue": "Giá trị tối thiểu là {min}",
-    "passwordMismatch": "Mật khẩu không khớp",
-    "required": "Trường này là bắt buộc"
-  },
-  "webchat": {
-    "description": "Cho phép khách hàng của bạn nhận phản hồi tự động ngay lập tức từ doanh nghiệp của bạn trực tiếp từ trang web của bạn",
-    "title": "Web Chat"
-  },
-  "whatsapp": {
-    "category": {
-      "makerting": {
-        "description": "Mô tả danh mục Marketing",
-        "label": "Marketing"
-      },
-      "utility": {
-        "description": "Mô tả danh mục Tiện ích",
-        "label": "Tiện ích"
-      }
-    },
-    "commands": {
-      "description": "Đây là những từ khóa đặc biệt cho bot WhatsApp biết phải làm gì",
-      "label": "Lệnh"
-    },
-    "connectExisting": "Kết nối tài khoản WhatsApp Business hiện có",
-    "conversationStarters": {
-      "description": "Câu mở đầu cuộc trò chuyện được sử dụng để bắt đầu cuộc trò chuyện với người dùng.",
-      "label": "Câu mở đầu cuộc trò chuyện"
-    },
-    "description": "Mô tả WhatsApp",
-    "hideHeader": {
-      "label": "Hiển thị tiêu đề"
-    },
-    "icebreakers": {
-      "description": "Đây là những câu hỏi phổ biến mà mọi người có thể dễ dàng hỏi bạn.",
-      "label": "Câu mở đầu"
-    },
-    "manualConnect": "Kết nối thủ công bằng token truy cập System User.",
-    "marketingMessageLite": "Tin nhắn tiếp thị Lite",
-    "messageTemplate": {
-      "carouselImage": {
-        "label": "Hình ảnh carousel"
-      },
-      "carouselVideo": {
-        "label": "Video carousel"
-      },
-      "document": {
-        "label": "Tài liệu"
-      },
-      "image": {
-        "label": "Hình ảnh"
-      },
-      "label": "Mẫu tin nhắn",
-      "location": {
-        "label": "Vị trí"
-      },
-      "product": {
-        "label": "Sản phẩm"
-      },
-      "text": {
-        "label": "Văn bản"
-      },
-      "video": {
-        "label": "Video"
-      },
-      "viewCatalog": {
-        "label": "Xem danh mục"
-      },
-      "viewProduct": {
-        "label": "Xem sản phẩm"
-      }
-    },
-    "sampleBodyCardContent": {
-      "label": "Nội dung thẻ mẫu"
-    },
-    "sampleBodyContent": {
-      "label": "Nội dung mẫu"
-    },
-    "sampleHeaderContent": {
-      "label": "Nội dung tiêu đề mẫu"
-    },
-    "showFooter": {
-      "label": "Hiển thị chân trang"
-    },
-    "tabs": {
-      "automation": "Tự động hóa",
-      "ecommerce": "Thương mại điện tử",
-      "flows": "Luồng",
-      "messageTemplates": "Mẫu tin nhắn",
-      "profile": "Hồ sơ",
-      "usefulLinks": "Liên kết hữu ích"
-    },
-    "templateFooter": {
-      "label": "Chân trang mẫu"
-    },
-    "templateHeader": {
-      "label": "Tiêu đề mẫu"
-    },
-    "title": "WhatsApp",
-    "transferPhoneNumber": "Chuyển số điện thoại từ nhà cung cấp WhatsApp khác"
-  },
-  "zalo": {
-    "description": "Tích hợp này cho phép bạn tạo bot Zalo.",
-    "title": "Zalo"
-  },
-  "invitation": {
-    "title": "Lời mời",
-    "chatbotInvitationDescription1": "Tham gia {chatbotName} trên {organizationName}",
-    "chatbotInvitationDescription2": "{userName} đã mời bạn tham gia {chatbotName} trên {organizationName}.",
-    "organizationInvitationDescription1": "Tham gia {organizationName}",
-    "organizationInvitationDescription2": "{userName} đã mời bạn tham gia {organizationName}."
-  },
-  "inboxTeams": {
-    "title": "Nhóm hộp thư"
-  },
-  "errorLog": {
-    "heading": {
-      "title": "Nhật ký lỗi"
     }
   }
 }

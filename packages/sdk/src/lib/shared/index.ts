@@ -1,4 +1,5 @@
 import type { ContextQueue } from "./context"
+import type { IncomingConversation, IncomingMessage } from "./message"
 
 export * from "./context"
 export * from "./message"
@@ -19,3 +20,11 @@ export const HandleRequestType = {
   webhook: "webhook",
   generateAuthUrl: "generate-auth-url",
 } as const
+
+export type ReceivedMessageResult = {
+  message: IncomingMessage
+  conversation: IncomingConversation
+  postbackAction: string | null
+  quickReplyAction: string | null
+  ref: string | null
+}

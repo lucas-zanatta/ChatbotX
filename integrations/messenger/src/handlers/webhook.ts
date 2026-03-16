@@ -5,7 +5,7 @@ import { MessengerWebhookException } from "../exception"
 import {
   MESSENGER_MESSAGE_METADATA,
   type MessengerConfig,
-  type MessengerWebhookEvent,
+  messengerWebhookEventSchema,
 } from "../schemas"
 
 const verifyWebhookSignature = (
@@ -58,7 +58,7 @@ const handleWebhookEvent = async (
       throw new MessengerWebhookException("Invalid webhook signature")
     }
 
-    const webhookData = JSON.parse(body) as MessengerWebhookEvent
+    const webhookData = messengerWebhookEventSchema.parse(JSON.parse(body))
     if (webhookData.object !== "page") {
       throw new MessengerWebhookException(
         `Unsupported webhook object type: ${webhookData.object}`,
@@ -66,17 +66,23 @@ const handleWebhookEvent = async (
       )
     }
 
-    if (webhookData.entry[0].messaging[0].read) {
-      await queue?.add("readMessage", {
-        type: "readMessage",
+    if (webhookData.entry[0].messaging[0]?.read) {
+      await queue?.add("contactMarkAsRead", {
+        type: "contactMarkAsRead",
         data: {
           integrationType: "messenger",
+          integrationIdentifier: webhookData.entry[0].id,
+          sourceConversationId: webhookData.entry[0].messaging[0].sender.id,
           payload: webhookData,
         },
       })
       return
     }
 
+    // Skip if this message is not a message
+    if (!webhookData.entry[0].messaging[0].message) {
+      return
+    }
     if (
       webhookData.entry[0].messaging[0].message?.is_echo === true &&
       webhookData.entry[0].messaging[0].message?.metadata ===
@@ -86,10 +92,17 @@ const handleWebhookEvent = async (
       return
     }
 
+    // Calculate integration identifier
+    const integrationIdentifier = webhookData.entry[0].messaging[0].message
+      ?.is_echo
+      ? webhookData.entry[0].messaging[0].sender.id
+      : webhookData.entry[0].messaging[0].recipient.id
+
     await queue?.add("incomingMessage", {
       type: "incomingMessage",
       data: {
         integrationType: "messenger",
+        integrationIdentifier,
         payload: webhookData,
       },
     })

@@ -1,26 +1,27 @@
 import {
-  type AttachmentEntity,
   ContentType,
   type Context,
-  type ConversationEntity,
-  type MessageEntity,
+  type IncomingAttachment,
+  type IncomingConversation,
+  type IncomingMessage,
   MessageType,
+  type ReceivedMessageResult,
 } from "@aha.chat/sdk"
 
 import { getMessageAttachmentEntity } from "./apis/page"
 import { MessengerException } from "./exception"
 import { logger } from "./lib/logger"
-import type {
-  MessengerAuthValue,
-  MessengerMessage,
-  MessengerMessagingEvent,
-  MessengerWebhookEvent,
+import {
+  type MessengerAuthValue,
+  type MessengerMessage,
+  type MessengerMessagingEvent,
+  messengerWebhookEventSchema,
 } from "./schemas"
 
 const getMessageAttachments = async (
   ctx: Context<MessengerAuthValue>,
   message: MessengerMessage,
-): Promise<AttachmentEntity[]> => {
+): Promise<IncomingAttachment[]> => {
   if (!message.attachments) {
     return []
   }
@@ -38,24 +39,30 @@ const getMessageAttachments = async (
     const attachmentResults = await Promise.allSettled(attachmentPromises)
     return attachmentResults
       .filter(
-        (result): result is PromiseFulfilledResult<AttachmentEntity> =>
+        (result): result is PromiseFulfilledResult<IncomingAttachment> =>
           result.status === "fulfilled" && result.value !== null,
       )
       .map((result) => result.value)
-  } catch (_error) {
-    logger.error("Error getting message attachments", _error)
+  } catch (error) {
+    logger.error(error, "Error getting message attachments")
     return []
   }
 }
 
-export const parseIncomingMessage = async ({
+export const receiveMessage = async ({
   ctx,
   data,
 }: {
   ctx: Context<MessengerAuthValue>
-  data: MessengerWebhookEvent
-}) => {
-  const entry = data.entry[0]
+  data: {
+    integrationType: string
+    integrationIdentifier: string
+    payload: unknown
+  }
+}): Promise<ReceivedMessageResult> => {
+  const validatedData = messengerWebhookEventSchema.parse(data.payload)
+
+  const entry = validatedData.entry[0]
 
   if (!entry.messaging[0]) {
     throw new MessengerException("No messaging found")
@@ -66,101 +73,72 @@ export const parseIncomingMessage = async ({
     throw new MessengerException("No message found")
   }
 
-  const sourceId = entry.id
   const { message, postbackAction, quickReplyAction } = await getMessageEntity(
     ctx,
     messaging,
   )
 
-  const conversation: ConversationEntity = {
+  const sourceId =
+    message.messageType === MessageType.outgoing
+      ? messaging.recipient.id
+      : messaging.sender.id
+  const conversation: IncomingConversation = {
     sourceId,
     conversationAttributes: {},
     contact: {
-      sourceId: messaging.message?.is_echo
-        ? messaging.recipient.id
-        : messaging.sender.id,
+      sourceId,
     },
   }
 
-  return Promise.resolve({
+  return {
     message,
     conversation,
     postbackAction,
     quickReplyAction,
-  })
+    ref: null,
+  }
 }
 
 const getMessageEntity = async (
   ctx: Context<MessengerAuthValue>,
   messaging: MessengerMessagingEvent,
-): Promise<{
-  message: MessageEntity
-  postbackAction: { flowVersionId: string; buttonId: string } | null
-  quickReplyAction: { flowVersionId: string; buttonId: string } | null
-}> => {
-  let message: MessageEntity | null = null
-  let postbackAction: { flowVersionId: string; buttonId: string } | null = null
-  let quickReplyAction: { flowVersionId: string; buttonId: string } | null =
-    null
+): Promise<Omit<ReceivedMessageResult, "conversation">> => {
+  let message: IncomingMessage | null = null
+  let postbackAction: string | null = null
+  let quickReplyAction: string | null = null
+  let ref: string | null = null
+
   if (messaging.message) {
     message = {
       sourceId: messaging.message.mid,
-      messageType: messaging.message.is_echo
-        ? MessageType.outgoing
-        : MessageType.incoming,
+      messageType:
+        messaging.sender.id === ctx.auth.metadata.pageId
+          ? MessageType.outgoing
+          : MessageType.incoming,
       content: messaging.message.text,
       contentType: ContentType.text,
       attachments: await getMessageAttachments(ctx, messaging.message),
     }
-
-    // calculate quick reply action
-    const quickReplyPayload: string[] = (
-      messaging.message.quick_reply?.payload ?? ""
-    ).split("_")
-    if (quickReplyPayload.length === 2) {
-      quickReplyAction = {
-        flowVersionId: quickReplyPayload[0],
-        buttonId: quickReplyPayload[1],
-      }
-    }
+    quickReplyAction = messaging.message.quick_reply?.payload ?? null
   }
+
   if (messaging.postback) {
     message = {
       sourceId: messaging.postback.mid,
       messageType: MessageType.incoming,
       content: messaging.postback.title,
       contentType: ContentType.text,
-      attachments: [],
     }
+    postbackAction = messaging.postback.payload
+  }
 
-    // calculate postback action
-    const postbackPayload: string[] = messaging.postback.payload.split("_")
-    if (postbackPayload.length === 2) {
-      postbackAction = {
-        flowVersionId: postbackPayload[0],
-        buttonId: postbackPayload[1],
-      }
-    }
+  if (messaging.referral) {
+    ref = messaging.referral.ref
   }
 
   if (message) {
-    return { message, postbackAction, quickReplyAction }
+    return { message, postbackAction, quickReplyAction, ref }
   }
 
   throw new MessengerException("No message found")
-}
-
-const _getPostbackAction = (
-  messaging: MessengerMessagingEvent,
-): { flowVersionId: string; buttonId: string } | null => {
-  if (messaging.postback) {
-    const postbackPayload: string[] = messaging.postback.payload.split("_")
-    if (postbackPayload.length === 2) {
-      return {
-        flowVersionId: postbackPayload[0],
-        buttonId: postbackPayload[1],
-      }
-    }
-  }
-  return null
 }

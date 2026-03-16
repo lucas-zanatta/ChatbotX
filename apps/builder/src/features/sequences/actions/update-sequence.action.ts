@@ -1,6 +1,13 @@
 "use server"
 
-import { Prisma, prisma } from "@aha.chat/database"
+import {
+  and,
+  db,
+  eq,
+  findOrFail,
+  isDatabaseError,
+} from "@aha.chat/database/client"
+import { sequenceModel } from "@aha.chat/database/schema"
 import { getTranslations } from "next-intl/server"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -27,25 +34,27 @@ export const updateSequenceAction = chatbotActionClient
     }) => {
       const t = await getTranslations()
 
-      const sequence = await prisma.sequence.findFirstOrThrow({
-        where: {
+      await findOrFail(
+        sequenceModel,
+        {
           id,
           chatbotId,
         },
-      })
+        "Sequence not found",
+      )
 
       try {
-        await prisma.sequence.update({
-          where: {
-            id: sequence.id,
-          },
-          data: parsedInput,
-        })
+        await db
+          .update(sequenceModel)
+          .set(parsedInput)
+          .where(
+            and(
+              eq(sequenceModel.id, id),
+              eq(sequenceModel.chatbotId, chatbotId),
+            ),
+          )
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
+        if (isDatabaseError(error) && error.cause.code === "23505") {
           return returnValidationErrors(updateSequenceSchema, {
             _errors: [t("sequences.validation.exception")],
             name: {

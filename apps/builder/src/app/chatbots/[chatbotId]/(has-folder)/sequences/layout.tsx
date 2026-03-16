@@ -1,4 +1,4 @@
-import { FolderType } from "@aha.chat/database/types"
+import { FolderType } from "@aha.chat/database/enums"
 import { Separator } from "@aha.chat/ui/components/ui/separator"
 import { type ReactNode, Suspense } from "react"
 import { FlowStoreProvider } from "@/features/flows/provider/flow-store-context"

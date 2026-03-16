@@ -1,6 +1,8 @@
 "use server"
 
-import { prisma } from "@aha.chat/database"
+import { and, db, eq, findOrFail, inArray } from "@aha.chat/database/client"
+import { tagModel } from "@aha.chat/database/schema"
+import type { TagModel } from "@aha.chat/database/types"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
@@ -21,15 +23,41 @@ export const deleteTagAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: BulkUpdateIdsRequest
     }) => {
-      await prisma.tag.deleteMany({
-        where: {
-          id: {
-            in: parsedInput.ids,
-          },
-          chatbotId,
-        },
-      })
-
-      revalidateCacheTags(`chatbots:${chatbotId}#tags`)
+      await deleteTags({ chatbotId, ids: parsedInput.ids })
     },
   )
+
+export const deleteTags = async ({
+  chatbotId,
+  ids,
+}: {
+  chatbotId: string
+  ids: string[]
+}) => {
+  await db
+    .delete(tagModel)
+    .where(and(eq(tagModel.chatbotId, chatbotId), inArray(tagModel.id, ids)))
+
+  revalidateCacheTags(`chatbots:${chatbotId}#tags`)
+}
+
+export const deleteTag = async ({
+  chatbotId,
+  id,
+}: {
+  chatbotId: string
+  id: string
+}) => {
+  const tag = await findOrFail<TagModel>(
+    tagModel,
+    {
+      chatbotId,
+      id,
+    },
+    "Tag not found",
+  )
+
+  await db.delete(tagModel).where(eq(tagModel.id, tag.id))
+
+  revalidateCacheTags(`chatbots:${chatbotId}#tags`)
+}
