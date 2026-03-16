@@ -51,7 +51,7 @@ export default function SettingsChannelsPage({
     <Accordion className="w-full" collapsible type="single">
       {integrationItems.map((integration) => (
         <AccordionItem
-          className="transition-all hover:data-[state=open]:rounded-none"
+          className="transition-all hover:rounded-lg hover:data-[state=open]:rounded-none"
           key={integration.value}
           value={integration.value}
         >

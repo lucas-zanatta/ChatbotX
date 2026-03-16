@@ -7,7 +7,7 @@ import {
   customFieldModel,
 } from "@aha.chat/database/schema"
 import {
-  type CustomFieldModel,
+  type FieldModel,
   type FillableContactKeys,
   fillableContactKeys,
 } from "@aha.chat/database/types"
@@ -37,7 +37,7 @@ export const deleteContactCustomFieldAction = chatbotActionClient
       await deleteContactCustomFields({
         chatbotId,
         contactIds: parsedInput.ids,
-        customFieldId: parsedInput.customFieldId,
+        fieldId: parsedInput.customFieldId,
       })
     },
   )
@@ -45,11 +45,11 @@ export const deleteContactCustomFieldAction = chatbotActionClient
 export const deleteContactCustomFields = async ({
   chatbotId,
   contactIds,
-  customFieldId,
+  fieldId,
 }: {
   chatbotId: string
   contactIds: string[]
-  customFieldId: string
+  fieldId: string
 }) => {
   const contacts = await db.query.contactModel.findMany({
     where: {
@@ -66,12 +66,12 @@ export const deleteContactCustomFields = async ({
     return
   }
 
-  if (isCuid(customFieldId)) {
-    const customField = await findOrFail<CustomFieldModel>(
+  if (isCuid(fieldId)) {
+    const customField = await findOrFail<FieldModel>(
       customFieldModel,
       {
         chatbotId,
-        id: customFieldId,
+        id: fieldId,
       },
       "Custom field not found",
     )
@@ -87,13 +87,11 @@ export const deleteContactCustomFields = async ({
         ),
       )
     })
-  } else if (
-    fillableContactKeys.includes(customFieldId as FillableContactKeys)
-  ) {
+  } else if (fillableContactKeys.includes(fieldId as FillableContactKeys)) {
     await db
       .update(contactModel)
       .set({
-        [customFieldId]: "",
+        [fieldId]: "",
       })
       .where(
         and(

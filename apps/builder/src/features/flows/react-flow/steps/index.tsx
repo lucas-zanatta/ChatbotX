@@ -50,11 +50,13 @@ import startAnotherNodeStep from "./start-another-node"
 import { sendExternalFlowStep } from "./start-external-flow"
 import { sendExternalNodeStep } from "./start-external-node"
 import { subscribeBroadcastStep } from "./subscribe-broadcast"
+import { subscribeSequenceStep } from "./subscribe-schedule"
 import typingStep from "./typing"
 import { unarchiveConversationStep } from "./unarchive-conversation"
 import { unassignConversationStep } from "./unassign-conversation"
 import { unfollowConversationStep } from "./unfollow-conversation"
 import { unsubscribeBroadcastStep } from "./unsubscribe-broadcast"
+import { unsubscribeSequenceStep } from "./unsubscribe-sequence"
 
 // biome-ignore lint/suspicious/noExplicitAny: wip
 export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
@@ -105,6 +107,8 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [StepType.landingPage]: undefined,
   [StepType.subscribeBroadcast]: subscribeBroadcastStep,
   [StepType.unsubscribeBroadcast]: unsubscribeBroadcastStep,
+  [StepType.subscribeSequence]: subscribeSequenceStep,
+  [StepType.unsubscribeSequence]: unsubscribeSequenceStep,
   [StepType.chooseChannel]: chooseChannelStep,
   [StepType.filterContact]: undefined,
   [StepType.addNotes]: addNotesStep,

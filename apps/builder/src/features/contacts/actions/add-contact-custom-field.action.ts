@@ -5,9 +5,8 @@ import {
   contactCustomFieldModel,
   customFieldModel,
 } from "@aha.chat/database/schema"
-import type { CustomFieldModel } from "@aha.chat/database/types"
+import type { FieldModel } from "@aha.chat/database/types"
 import { FieldOperationType } from "@aha.chat/flow-config"
-import { emitCustomFieldChanged } from "@chatbotx/events"
 import { createId } from "@paralleldrive/cuid2"
 import {
   type ChatbotIdRequestParams,
@@ -60,7 +59,7 @@ export const addContactCustomFields = async ({
     return
   }
 
-  const customField = await findOrFail<CustomFieldModel>(
+  const customField = await findOrFail<FieldModel>(
     customFieldModel,
     {
       chatbotId,
@@ -121,22 +120,6 @@ export const addContactCustomFields = async ({
     )
   })
 
-  // Emit custom field changed events for all contacts
-  for (const contact of contacts) {
-    try {
-      await emitCustomFieldChanged(
-        chatbotId,
-        contact.id,
-        customField.id,
-        customField.name,
-        null,
-        parsedInput.value,
-      )
-    } catch (error) {
-      console.error("Failed to emit customFieldChanged event:", error)
-    }
-  }
-
   revalidateCacheTags(`chatbots:${chatbotId}#contacts`)
 }
 
@@ -151,22 +134,6 @@ export const setContactCustomFieldValue = async ({
   customFieldId: string
   value: string
 }) => {
-  // Get custom field info for event emission
-  const customField = await db.query.customFieldModel.findFirst({
-    where: {
-      id: customFieldId,
-      chatbotId,
-    },
-    columns: {
-      id: true,
-      name: true,
-    },
-  })
-
-  if (!customField) {
-    throw new Error("Custom field not found")
-  }
-
   const contactCustomField = await db.query.contactCustomFieldModel.findFirst({
     where: {
       contactId,
@@ -188,20 +155,6 @@ export const setContactCustomFieldValue = async ({
       value,
       id: createId(),
     })
-  }
-
-  // Emit custom field changed event
-  try {
-    await emitCustomFieldChanged(
-      chatbotId,
-      contactId,
-      customField.id,
-      customField.name,
-      null,
-      value,
-    )
-  } catch (error) {
-    console.error("Failed to emit customFieldChanged event:", error)
   }
 
   revalidateCacheTags(`chatbots:${chatbotId}#contacts`)
