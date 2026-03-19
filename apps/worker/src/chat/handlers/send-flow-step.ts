@@ -41,14 +41,11 @@ import type {
 import { contactTrackingService } from "@chatbotx.io/analytics"
 import { createId } from "@paralleldrive/cuid2"
 import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
-import {
-  replaceWhatsappTemplateVariables,
-  validateWhatsappTemplate,
-} from "../../integration/handlers/wa-template-handler"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
 import { sendFlowStepToExternal, sendMessageToExternal } from "./send-message"
+import { processWhatsappTemplate } from "./send-whatsapp-template"
 
 const convertButtonsToTemplate = (props: {
   flowId: string
@@ -117,6 +114,27 @@ export async function sendFlowStep({
     return
   }
 
+  if (step.stepType === StepType.sendWaTemplateMessage) {
+    try {
+      await processWhatsappTemplate({
+        conversation,
+        templateId: step.template.id,
+        templateName: step.template.name,
+        templateLanguage: step.template.languageCode,
+        templateParams: step.template.params,
+        flowId,
+        flowVersionId,
+      })
+    } catch (error) {
+      logger.error(
+        error,
+        `sendFlowStep WhatsApp template error for conversationId: ${conversationId}`,
+      )
+    }
+
+    return
+  }
+
   try {
     const message = await db.transaction(async (tx) => {
       const messageData: typeof messageModel.$inferInsert = {
@@ -129,31 +147,6 @@ export async function sendFlowStep({
         senderType: "bot",
         sourceId: null,
         content: step.stepType === StepType.sendText ? step.message : null,
-      }
-
-      if (step.stepType === StepType.sendWaTemplateMessage) {
-        const isValid = await validateWhatsappTemplate(
-          step.template,
-          conversation.inboxId,
-        )
-        if (!isValid) {
-          return ""
-        }
-
-        const templateParams = await replaceWhatsappTemplateVariables(
-          step.template.params,
-          conversationId,
-        )
-
-        messageData.content = `Template: ${step.template.name}`
-        messageData.contentAttributes = {
-          type: "whatsapp_template",
-          templateName: step.template.name,
-          templateLanguage: step.template.languageCode,
-          templateId: step.template.id,
-          params: templateParams,
-        }
-        step.template.params = templateParams
       }
 
       if ("buttons" in step && step.buttons.length > 0) {

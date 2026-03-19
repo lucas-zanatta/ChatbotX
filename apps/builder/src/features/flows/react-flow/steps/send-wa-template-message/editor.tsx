@@ -1,5 +1,6 @@
 "use client"
 
+import type { TemplateComponent } from "@aha.chat/flow-config"
 import {
   Select,
   SelectContent,
@@ -15,20 +16,6 @@ import { TiptapEditorField } from "@/components/tiptap/tiptap-editor-field"
 import { getTemplatesForFlow } from "@/features/integration-whatsapp/message-templates/actions/get-templates-for-flow"
 import { useFlowAction } from "../../stores/flow-action-store-provider"
 import { BaseStepEditor } from "../base/editor"
-
-type TemplateComponent = {
-  type: string
-  format?: string
-  text?: string
-  example?: unknown
-  url?: string
-  buttons?: Array<{
-    type: string
-    text: string
-    url?: string
-    example?: string[]
-  }>
-}
 
 type Template = {
   id: string

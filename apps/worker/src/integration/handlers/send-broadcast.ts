@@ -1,7 +1,12 @@
-import { db, eq, findOrFail } from "@aha.chat/database/client"
-import { broadcastModel } from "@aha.chat/database/schema"
+import { and, db, eq, findOrFail, inArray } from "@aha.chat/database/client"
+import { broadcastModel, conversationModel } from "@aha.chat/database/schema"
 import type { BroadcastModel } from "@aha.chat/database/types"
-import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
+import {
+  ChatJobAction,
+  chatQueue,
+  IntegrationJobAction,
+  integrationQueue,
+} from "@aha.chat/worker-config"
 
 export const sendBroadcast = async (broadcastId: string) => {
   async function updateBroadcastStatus(
@@ -36,20 +41,53 @@ export const sendBroadcast = async (broadcastId: string) => {
     return
   }
 
-  const conversations = await db.query.conversationModel.findMany({
-    where: {
-      contactId: {
-        in: contactsOnBroadcasts.map((cb) => cb.contactId),
+  let validInboxIds: string[] | undefined
+  if (broadcast.templateId) {
+    const template = await db.query.whatsappMessageTemplateModel.findFirst({
+      where: { id: broadcast.templateId },
+      columns: {
+        integrationWhatsappId: true,
       },
-    },
-    columns: {
-      id: true,
-    },
-  })
+    })
+
+    if (template?.integrationWhatsappId) {
+      const integration = await db.query.integrationWhatsappModel.findFirst({
+        where: { id: template.integrationWhatsappId },
+        columns: {
+          inboxId: true,
+        },
+      })
+
+      validInboxIds = integration?.inboxId ? [integration.inboxId] : undefined
+    } else {
+      await updateBroadcastStatus(broadcastId, "sent")
+      return
+    }
+  }
+
+  const whereConditions = [
+    inArray(
+      conversationModel.contactId,
+      contactsOnBroadcasts.map((cb) => cb.contactId),
+    ),
+  ]
+
+  if (validInboxIds && validInboxIds.length > 0) {
+    whereConditions.push(inArray(conversationModel.inboxId, validInboxIds))
+  }
+
+  const conversations = await db
+    .select({ id: conversationModel.id })
+    .from(conversationModel)
+    .where(and(...whereConditions))
 
   try {
     await Promise.allSettled(
       conversations.map(async (cvst) => {
+        console.log("cvst", {
+          cvst,
+          broadcast,
+        })
         if (broadcast.flowId) {
           await integrationQueue.add(IntegrationJobAction.sendFlow, {
             type: IntegrationJobAction.sendFlow,
@@ -61,7 +99,14 @@ export const sendBroadcast = async (broadcastId: string) => {
         }
 
         if (broadcast.templateId) {
-          // TODO: Send template message
+          await chatQueue.add(ChatJobAction.sendWhatsappTemplateMessage, {
+            type: ChatJobAction.sendWhatsappTemplateMessage,
+            data: {
+              conversationId: cvst.id,
+              templateId: broadcast.templateId,
+              broadcastId: broadcast.id,
+            },
+          })
         }
       }),
     )

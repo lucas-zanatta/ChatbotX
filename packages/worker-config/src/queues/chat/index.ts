@@ -24,6 +24,7 @@ export const ChatJobAction = {
   sendExternalMessage: "sendExternalMessage",
   sendFlowMessage: "sendFlowMessage",
   sendChatMessage: "sendChatMessage",
+  sendWhatsappTemplateMessage: "sendWhatsappTemplateMessage",
   sendTyping: "sendTyping",
   notifyExportResult: "notifyExportResult",
 } as const
@@ -74,6 +75,15 @@ export type ChatJobSendChatMessage = {
       }
 }
 
+export type ChatJobSendWhatsappTemplateMessage = {
+  type: typeof ChatJobAction.sendWhatsappTemplateMessage
+  data: {
+    conversationId: string
+    templateId: string
+    broadcastId: string
+  }
+}
+
 export type ChatJobSendTyping = {
   type: typeof ChatJobAction.sendTyping
   data: {
@@ -96,6 +106,7 @@ export type ChatJobData =
   | ChatJobSendExternalMessage
   | ChatJobSendFlowStep
   | ChatJobSendChatMessage
+  | ChatJobSendWhatsappTemplateMessage
   | ChatJobSendTyping
   | ChatJobNotifyExportResult
 
