@@ -6,7 +6,7 @@ import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 export const sendBroadcast = async (broadcastId: string) => {
   async function updateBroadcastStatus(
     broadcastId: string,
-    status: "sent" | "failed",
+    status: "sent" | "scheduled",
   ) {
     return await db
       .update(broadcastModel)
@@ -50,13 +50,19 @@ export const sendBroadcast = async (broadcastId: string) => {
   try {
     await Promise.allSettled(
       conversations.map(async (cvst) => {
-        await integrationQueue.add(IntegrationJobAction.sendFlow, {
-          type: IntegrationJobAction.sendFlow,
-          data: {
-            flowId: broadcast.flowId,
-            conversationId: cvst.id,
-          },
-        })
+        if (broadcast.flowId) {
+          await integrationQueue.add(IntegrationJobAction.sendFlow, {
+            type: IntegrationJobAction.sendFlow,
+            data: {
+              flowId: broadcast.flowId,
+              conversationId: cvst.id,
+            },
+          })
+        }
+
+        if (broadcast.templateId) {
+          // TODO: Send template message
+        }
       }),
     )
 
@@ -64,6 +70,6 @@ export const sendBroadcast = async (broadcastId: string) => {
   } catch (error) {
     console.error("Error sending broadcast", error)
 
-    await updateBroadcastStatus(broadcastId, "failed")
+    await updateBroadcastStatus(broadcastId, "scheduled")
   }
 }

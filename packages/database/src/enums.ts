@@ -8,6 +8,8 @@ export const BroadcastSubaction = {
   messengerAccountUpdate: "BSM04",
   messengerConfirmedEventUpdate: "BSM05",
   messengerPostPurchaseUpdate: "BSM06",
+  whatsappTemplateMessage: "BSW01",
+  whatsappWithin24Hours: "BSW02",
 } as const
 export type BroadcastSubaction =
   (typeof BroadcastSubaction)[keyof typeof BroadcastSubaction]
@@ -77,6 +79,13 @@ export const BroadcastInboxType = {
 } as const
 export type BroadcastInboxType =
   (typeof BroadcastInboxType)[keyof typeof BroadcastInboxType]
+
+export const BroadcastFlowType = {
+  flow: "flow",
+  template: "template",
+} as const
+export type BroadcastFlowType =
+  (typeof BroadcastFlowType)[keyof typeof BroadcastFlowType]
 
 export const InboxStatus = {
   connected: "connected",
@@ -202,3 +211,10 @@ export const CustomFieldType = {
 
 export type CustomFieldType =
   (typeof CustomFieldType)[keyof typeof CustomFieldType]
+
+export const TemplateType = {
+  flow: "flow",
+  template: "template",
+} as const
+
+export type TemplateType = (typeof TemplateType)[keyof typeof TemplateType]

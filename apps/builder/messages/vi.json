@@ -364,7 +364,26 @@
       "title": "Tất cả liên hệ",
       "description": "Gửi luồng đến tất cả liên hệ."
     },
-    "details": "Chi tiết phát sóng"
+    "details": "Chi tiết phát sóng",
+    "whatsappTemplateMessage": {
+      "title": "Tin nhắn mẫu WhatsApp",
+      "description": "Gửi tin nhắn mẫu WhatsApp đến các liên hệ của bạn"
+    },
+    "whatsappWithin24Hours": {
+      "title": "Liên hệ hoạt động trong 24 giờ",
+      "description": "Có thể chứa khuyến mãi và sẽ chỉ được gửi cho người dùng đã nhắn tin cho bot của bạn trong vòng 24 giờ qua."
+    },
+    "flowType": {
+      "title": "Loại luồng",
+      "flow": {
+        "title": "Luồng",
+        "description": "Gửi luồng đến các liên hệ của bạn"
+      },
+      "template": {
+        "title": "Template",
+        "description": "Gửi template đến các liên hệ của bạn"
+      }
+    }
   },
   "condition": {
     "add": "Thêm điều kiện",
@@ -1317,6 +1336,12 @@
     },
     "customRange": {
       "label": "Khoảng tùy chỉnh"
+    },
+    "templateId": {
+      "label": "WhatsApp Template"
+    },
+    "whatsappChannel": {
+      "label": "Kênh WhatsApp"
     }
   },
   "flows": {

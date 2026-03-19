@@ -6,6 +6,8 @@ import contactsAPIs from "@/features/contacts/api"
 import conversationsAPI from "@/features/conversations/api"
 import customFieldsAPI from "@/features/custom-fields/api"
 import flowsAPI from "@/features/flows/api"
+import { integrationWhatsappAPIs } from "@/features/integration-whatsapp/api"
+import { whatsappMessageTemplateAPIs } from "@/features/integration-whatsapp/message-templates/api"
 import tagsAPI from "@/features/tags/api"
 import { chatbotAuthMiddleware } from "@/middlewares/auth"
 import { authorizedAPI } from "@/orpc"
@@ -23,4 +25,6 @@ export const router = {
     // @ts-expect-error
     .use(chatbotAuthMiddleware, (input) => input.chatbotId)
     .router(analyticsRoutes),
+  integrationWhatsappAPIs,
+  whatsappMessageTemplateAPIs,
 }

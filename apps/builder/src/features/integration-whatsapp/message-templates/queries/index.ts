@@ -1,34 +1,38 @@
 import { db, findOrFail } from "@aha.chat/database/client"
 import { integrationWhatsappModel } from "@aha.chat/database/schema"
 import type { IntegrationWhatsappModel } from "@aha.chat/database/types"
-import type { ListMessageTemplatesRequest } from "@/features/integration-whatsapp/message-templates/schemas/get-message-templates-schema"
+import type { ListMessageTemplatesRequest } from "@/features/integration-whatsapp/message-templates/schemas/query"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import type { MessageTemplate, MessageTemplateWithComponents } from "../type"
+import type { MessageTemplateWithComponents } from "../type"
 
 export const getMessageTemplates = async (
   input: ListMessageTemplatesRequest,
-): Promise<MessageTemplate[]> => {
+) => {
   await assertCurrentUserCanAccessChatbot(input.chatbotId)
 
-  const integrationWhatsapp = await findOrFail<IntegrationWhatsappModel>(
-    integrationWhatsappModel,
-    {
-      chatbotId: input.chatbotId,
-      id: input.id,
-    },
-    "Whatsapp integration not found",
-  )
+  if (input.id) {
+    const integrationWhatsapp = await findOrFail<IntegrationWhatsappModel>(
+      integrationWhatsappModel,
+      {
+        chatbotId: input.chatbotId,
+        id: input.id,
+      },
+      "Whatsapp integration not found",
+    )
+
+    return await db.query.whatsappMessageTemplateModel.findMany({
+      where: {
+        integrationWhatsappId: integrationWhatsapp.id,
+      },
+      orderBy: { createdAt: "asc" },
+    })
+  }
 
   return await db.query.whatsappMessageTemplateModel.findMany({
     where: {
-      integrationWhatsappId: integrationWhatsapp.id,
-    },
-    columns: {
-      id: true,
-      name: true,
-      language: true,
-      category: true,
-      status: true,
+      integrationWhatsapp: {
+        chatbotId: input.chatbotId,
+      },
     },
     orderBy: { createdAt: "asc" },
   })

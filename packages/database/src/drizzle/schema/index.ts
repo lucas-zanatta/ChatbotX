@@ -397,13 +397,12 @@ export const broadcastModel = pgTable(
         onUpdate: "cascade",
         name: "Broadcast_chatbotId_fkey",
       }),
-    flowId: text()
-      .notNull()
-      .references(() => flowModel.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-        name: "Broadcast_flowId_fkey",
-      }),
+    flowId: text().references(() => flowModel.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+      name: "Broadcast_flowId_fkey",
+    }),
+    templateId: text(),
     status: broadcastStatus().notNull(),
     schedulesType: broadcastSchedulesType().notNull(),
     schedulesAt: timestamp(timestampConfig).notNull(),

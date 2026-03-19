@@ -44,6 +44,24 @@ export const createBroadcastAction = chatbotActionClient
         })
       }
 
+      if (parsedInput.inboxType === "whatsapp" && parsedInput.templateId) {
+        const template = await db.query.whatsappMessageTemplateModel.findFirst({
+          where: {
+            integrationWhatsapp: {
+              chatbotId,
+            },
+          },
+        })
+        if (!template) {
+          return returnValidationErrors(createBroadcastRequest, {
+            _errors: ["Validation Exception"],
+            templateId: {
+              _errors: ["Template not found"],
+            },
+          })
+        }
+      }
+
       const data: BroadcastModel = {
         ...parsedInput,
         name: flow.name,
