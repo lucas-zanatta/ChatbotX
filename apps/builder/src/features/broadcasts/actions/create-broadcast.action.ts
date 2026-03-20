@@ -5,7 +5,6 @@ import {
   broadcastModel,
   contactsOnBroadcastsModel,
 } from "@aha.chat/database/schema"
-import type { BroadcastModel } from "@aha.chat/database/types"
 import { createId } from "@paralleldrive/cuid2"
 import { returnValidationErrors } from "next-safe-action"
 import {
@@ -71,7 +70,7 @@ export const createBroadcastAction = chatbotActionClient
         broadcastName = template.name
       }
 
-      const data: BroadcastModel = {
+      const data: typeof broadcastModel.$inferInsert = {
         ...parsedInput,
         name: broadcastName,
         chatbotId,
