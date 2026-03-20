@@ -18,12 +18,14 @@ export const FlowStoreContext = createContext<FlowStoreApi | undefined>(
 
 export type FlowStoreProviderProps = {
   chatbotId: string
+  filter?: { startType?: string }
   children: ReactNode
   autoInitialize?: boolean
 }
 
 export const FlowStoreProvider = ({
   chatbotId,
+  filter,
   autoInitialize = true,
   children,
 }: FlowStoreProviderProps) => {
@@ -31,6 +33,7 @@ export const FlowStoreProvider = ({
   if (!storeRef.current) {
     storeRef.current = createFlowStore({
       chatbotId,
+      filter,
     })
   }
 
@@ -39,6 +42,12 @@ export const FlowStoreProvider = ({
       storeRef.current.getState().initialize()
     }
   }, [autoInitialize])
+
+  useEffect(() => {
+    if (storeRef.current && filter) {
+      storeRef.current.getState().getAllActiveFlows(filter)
+    }
+  }, [filter])
 
   return (
     <FlowStoreContext.Provider value={storeRef.current}>

@@ -1,2 +1,3 @@
-ALTER TABLE "Broadcast" ADD COLUMN "templateId" text;
+ALTER TABLE "Broadcast" ADD COLUMN IF NOT EXISTS "templateId" text;
 ALTER TABLE "Broadcast" ALTER COLUMN "flowId" DROP NOT NULL;
+ALTER TABLE "Broadcast" ADD COLUMN IF NOT EXISTS "templateData" jsonb NOT NULL DEFAULT '{}';

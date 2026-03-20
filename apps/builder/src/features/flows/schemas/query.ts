@@ -31,6 +31,7 @@ export const listFlowsRequest = basePaginationRequest.extend({
   name: z.string().nullish(),
   folderId: z.string().nullish(),
   active: z.boolean().nullish(),
+  startType: z.string().nullish(),
 })
 export type ListFlowsRequest = z.infer<typeof listFlowsRequest>
 

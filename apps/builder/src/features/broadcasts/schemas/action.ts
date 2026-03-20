@@ -3,6 +3,7 @@ import {
   BroadcastSubaction,
 } from "@aha.chat/database/enums"
 import { broadcastSchedulesType } from "@aha.chat/database/schema"
+import { waTemplateParamsSchema } from "@aha.chat/flow-config"
 import { z } from "zod"
 import { contactFilterRequest } from "@/features/contacts/schemas/query"
 
@@ -12,6 +13,7 @@ export const createBroadcastRequest = z
     flowId: z.cuid2().optional(),
     templateId: z.cuid2().optional(),
     integrationWhatsappId: z.cuid2().optional(),
+    templateData: waTemplateParamsSchema.optional(),
     subaction: z.enum(BroadcastSubaction),
     schedulesType: z.enum(broadcastSchedulesType.enumValues),
     schedulesAt: z

@@ -173,7 +173,7 @@ export async function processWhatsappTemplate(
 export async function sendWhatsappTemplateMessage(
   data: ChatJobSendWhatsappTemplateMessage["data"],
 ) {
-  const { conversationId, templateId, broadcastId } = data
+  const { conversationId, templateId, broadcastId, templateData } = data
 
   try {
     const conversation = await db.query.conversationModel.findFirst({
@@ -192,9 +192,10 @@ export async function sendWhatsappTemplateMessage(
       throw new Error(`WhatsApp template not found: ${templateId}`)
     }
 
-    const templateParams = extractTemplateParams(
-      (template.components as TemplateComponent[]) || [],
-    )
+    // Use templateData from job if provided, otherwise extract from template components
+    const templateParams =
+      templateData ??
+      extractTemplateParams((template.components as TemplateComponent[]) || [])
 
     const result = await processWhatsappTemplate({
       conversation,

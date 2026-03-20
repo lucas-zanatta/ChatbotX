@@ -9,6 +9,7 @@ import type {
   SendTextStepSchema,
   SendVideoStepSchema,
   SendWaTemplateMessageStepSchema,
+  WaTemplateParams,
 } from "@aha.chat/flow-config"
 import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
@@ -81,6 +82,7 @@ export type ChatJobSendWhatsappTemplateMessage = {
     conversationId: string
     templateId: string
     broadcastId: string
+    templateData?: WaTemplateParams
   }
 }
 

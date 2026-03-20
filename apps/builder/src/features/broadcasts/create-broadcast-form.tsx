@@ -10,6 +10,12 @@ import {
   type InboxType,
   Omnichannel,
 } from "@aha.chat/database/types"
+import {
+  extractTemplateParams,
+  StepType,
+  type TemplateComponent,
+  type WaTemplateParams,
+} from "@aha.chat/flow-config"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import { DateTimePickerField } from "@aha.chat/ui/components/form/date-picker-field"
 import { SelectField } from "@aha.chat/ui/components/form/select-field"
@@ -38,10 +44,13 @@ import {
   useFlowStore,
 } from "../flows/provider/flow-store-context"
 import { InboxIcon } from "../inboxes/components/inbox-icon"
+import { TemplateParamsForm } from "../integration-whatsapp/message-templates/components/template-params-form"
+import { TemplatePreview } from "../integration-whatsapp/message-templates/components/template-preview"
 import {
   TemplateStoreProvider,
   useTemplateStore,
 } from "../integration-whatsapp/message-templates/provider/template-store-context"
+import type { MessageTemplateWithComponents } from "../integration-whatsapp/message-templates/type"
 import {
   IntegrationStoreProvider,
   useIntegrationStore,
@@ -187,8 +196,15 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
     name: "inboxType",
   })
 
+  const flowFilter = useMemo(() => {
+    if (watchedSubAction === BroadcastSubaction.whatsappTemplateMessage) {
+      return { startType: StepType.sendWaTemplateMessage }
+    }
+    return undefined
+  }, [watchedSubAction])
+
   return (
-    <FlowStoreProvider chatbotId={chatbotId}>
+    <FlowStoreProvider chatbotId={chatbotId} filter={flowFilter}>
       <IntegrationStoreProvider chatbotId={chatbotId}>
         <TemplateStoreProvider chatbotId={chatbotId}>
           <div className="flex h-svh flex-col items-center justify-center">
@@ -476,6 +492,13 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
     control,
     name: "integrationWhatsappId",
   })
+  const watchedTemplateId = useWatch({ control, name: "templateId" })
+  const watchedTemplateData = useWatch({ control, name: "templateData" }) as
+    | WaTemplateParams
+    | undefined
+
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<MessageTemplateWithComponents | null>(null)
 
   const { integrations } = useIntegrationStore((state) => state)
   const { templates, setIntegrationWhatsappId } = useTemplateStore(
@@ -525,6 +548,24 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
       setIntegrationWhatsappId(watchedIntegrationWhatsappId)
     }
   }, [watchedIntegrationWhatsappId, setIntegrationWhatsappId])
+
+  useEffect(() => {
+    if (watchedTemplateId && templates.length > 0) {
+      const template = templates.find((t) => t.id === watchedTemplateId) as
+        | MessageTemplateWithComponents
+        | undefined
+      if (template) {
+        setSelectedTemplate(template)
+        const initialParams = extractTemplateParams(
+          template.components as TemplateComponent[],
+        )
+        setValue("templateData", initialParams)
+      } else {
+        setSelectedTemplate(null)
+        setValue("templateData", undefined)
+      }
+    }
+  }, [watchedTemplateId, templates, setValue])
 
   return (
     <Card className="mt-10 w-xl max-w-3xl">
@@ -595,6 +636,30 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
               }))}
               required={true}
             />
+
+            {selectedTemplate && (
+              <div className="space-y-4">
+                <TemplateParamsForm
+                  components={
+                    selectedTemplate.components as TemplateComponent[]
+                  }
+                  parentName="templateData"
+                />
+                <div>
+                  <div className="mb-2 font-medium text-xs">
+                    {t("flows.fields.preview")}
+                  </div>
+                  <TemplatePreview
+                    bodyParams={watchedTemplateData?.body || []}
+                    buttonParams={watchedTemplateData?.button || []}
+                    components={
+                      selectedTemplate.components as TemplateComponent[]
+                    }
+                    headerParams={watchedTemplateData?.header || []}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
 

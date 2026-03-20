@@ -12,6 +12,7 @@ export const whatsappMessageTemplateResouce = createSelectSchema(
   language: true,
   category: true,
   status: true,
+  components: true,
 })
 
 export type WhatsappMessageTemplateResource = z.infer<

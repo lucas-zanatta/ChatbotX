@@ -218,3 +218,9 @@ export const TemplateType = {
 } as const
 
 export type TemplateType = (typeof TemplateType)[keyof typeof TemplateType]
+
+export const FlowStartType = {
+  whatsappTemplate: "whatsapp-template",
+} as const
+
+export type FlowStartType = (typeof FlowStartType)[keyof typeof FlowStartType]

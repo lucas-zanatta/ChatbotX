@@ -403,6 +403,7 @@ export const broadcastModel = pgTable(
       name: "Broadcast_flowId_fkey",
     }),
     templateId: text(),
+    templateData: jsonb(),
     status: broadcastStatus().notNull(),
     schedulesType: broadcastSchedulesType().notNull(),
     schedulesAt: timestamp(timestampConfig).notNull(),

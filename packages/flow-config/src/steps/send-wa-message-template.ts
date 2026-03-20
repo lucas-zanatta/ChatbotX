@@ -54,6 +54,10 @@ export function extractTemplateParams(
 ): WaTemplateParams {
   const params: WaTemplateParams = {}
 
+  if (!components || components.length === 0) {
+    return params
+  }
+
   for (const component of components) {
     if (component.type === "HEADER") {
       if (component.format === "TEXT" && component.text) {

@@ -1,6 +1,7 @@
 import { and, db, eq, findOrFail, inArray } from "@aha.chat/database/client"
 import { broadcastModel, conversationModel } from "@aha.chat/database/schema"
 import type { BroadcastModel } from "@aha.chat/database/types"
+import type { WaTemplateParams } from "@aha.chat/flow-config"
 import {
   ChatJobAction,
   chatQueue,
@@ -84,10 +85,6 @@ export const sendBroadcast = async (broadcastId: string) => {
   try {
     await Promise.allSettled(
       conversations.map(async (cvst) => {
-        console.log("cvst", {
-          cvst,
-          broadcast,
-        })
         if (broadcast.flowId) {
           await integrationQueue.add(IntegrationJobAction.sendFlow, {
             type: IntegrationJobAction.sendFlow,
@@ -105,6 +102,9 @@ export const sendBroadcast = async (broadcastId: string) => {
               conversationId: cvst.id,
               templateId: broadcast.templateId,
               broadcastId: broadcast.id,
+              templateData: broadcast.templateData as
+                | WaTemplateParams
+                | undefined,
             },
           })
         }
