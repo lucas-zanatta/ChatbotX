@@ -29,27 +29,55 @@ export const createBroadcastAction = chatbotActionClient
       bindArgsParsedInputs: ChatbotIdRequestParams
       parsedInput: CreateBroadcastRequest
     }) => {
-      const flow = await db.query.flowModel.findFirst({
-        where: {
-          chatbotId,
-          id: parsedInput.flowId,
-        },
-      })
-      if (!flow) {
-        return returnValidationErrors(createBroadcastRequest, {
-          _errors: ["Validation Exception"],
-          flowId: {
-            _errors: ["Flow not found"],
+      let broadcastName = "Broadcast"
+
+      // Validate flow if flowId is provided
+      if (parsedInput.flowId) {
+        const flow = await db.query.flowModel.findFirst({
+          where: {
+            chatbotId,
+            id: parsedInput.flowId,
           },
         })
+        if (!flow) {
+          return returnValidationErrors(createBroadcastRequest, {
+            _errors: ["Validation Exception"],
+            flowId: {
+              _errors: ["Flow not found"],
+            },
+          })
+        }
+        broadcastName = flow.name
+      }
+
+      // Validate template if templateId is provided
+      if (parsedInput.templateId) {
+        const template = await db.query.whatsappMessageTemplateModel.findFirst({
+          where: {
+            id: parsedInput.templateId,
+            integrationWhatsapp: {
+              chatbotId,
+            },
+          },
+        })
+        if (!template) {
+          return returnValidationErrors(createBroadcastRequest, {
+            _errors: ["Validation Exception"],
+            templateId: {
+              _errors: ["Template not found"],
+            },
+          })
+        }
+        broadcastName = template.name
       }
 
       const data: BroadcastModel = {
         ...parsedInput,
-        name: flow.name,
+        name: broadcastName,
         chatbotId,
         status: "scheduled",
         schedulesAt: new Date(parsedInput.schedulesAt ?? new Date()),
+        templateData: parsedInput.templateData ?? null,
         id: createId(),
       }
 

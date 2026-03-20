@@ -4,6 +4,7 @@ import { flowModel } from "@aha.chat/database/schema"
 import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import { notFoundException } from "@/lib/errors/exception"
+import { filterFlowsByStartStepType } from "../actions/filter-flow-action"
 import type {
   FindFlowParams,
   ListFlowsRequest,
@@ -37,13 +38,13 @@ export async function listFlows(
           ilike: `%${input.name.toLowerCase()}%`,
         }
       : undefined,
-    active: input.active !== null ? input.active : undefined,
+    active: input.active === null ? undefined : input.active,
   }
 
   const pagination = parsePagination(input)
   const orderBy = parseOrderByAsObject(flowModel, input)
 
-  const [data, total] = await Promise.all([
+  let [data, total] = await Promise.all([
     db.query.flowModel.findMany({
       where,
       orderBy,
@@ -63,6 +64,11 @@ export async function listFlows(
     }),
     db.$count(flowModel, relationsFilterToSQL(flowModel, where)),
   ])
+
+  if (input.startType) {
+    data = filterFlowsByStartStepType(data, input.startType)
+    total = data.length
+  }
 
   const pageCount = pagination?.limit ? Math.ceil(total / pagination.limit) : 1
 

@@ -5,6 +5,8 @@ import { conversationModel } from "@aha.chat/database/schema"
 import type { UserModel } from "@aha.chat/database/types"
 import { IntegrationJobAction, integrationQueue } from "@aha.chat/worker-config"
 import { emitConversationAssigned } from "@chatbotx/events"
+import { conversationTrackingService } from "@chatbotx.io/analytics"
+import { createId } from "@paralleldrive/cuid2"
 import { returnValidationErrors } from "next-safe-action"
 import {
   type ChatbotIdRequestParams,
@@ -39,7 +41,7 @@ export const assignConversationAction = chatbotActionClient
       }
 
       if (parsedInput.assignedId?.startsWith("u_")) {
-        const userId = parsedInput.assignedId.substring(2)
+        const userId = parsedInput.assignedId.slice(2)
         const chatbotMember = await db.query.chatbotMemberModel.findFirst({
           where: {
             chatbotId,
@@ -55,7 +57,7 @@ export const assignConversationAction = chatbotActionClient
         }
         updatedData.assignedUserId = chatbotMember.userId
       } else if (parsedInput.assignedId?.startsWith("t_")) {
-        const inboxteamId = parsedInput.assignedId.substring(2)
+        const inboxteamId = parsedInput.assignedId.slice(2)
         const inboxTeam = await db.query.inboxTeamModel.findFirst({
           where: {
             chatbotId,
@@ -79,7 +81,7 @@ export const assignConversationAction = chatbotActionClient
             in: parsedInput.contactIds,
           },
         },
-        columns: { id: true, contactId: true },
+        columns: { id: true, contactId: true, inboxType: true },
       })
       const conversationIds = conversations.map((c) => c.id)
       if (conversationIds.length === 0) {
@@ -111,6 +113,53 @@ export const assignConversationAction = chatbotActionClient
           )
         } catch (error) {
           console.error("Failed to emit conversationAssigned event:", error)
+        }
+      }
+
+      const toAssignee =
+        updatedData.assignedUserId || updatedData.assignedInboxTeamId
+      if (toAssignee) {
+        for (const conv of conversations) {
+          await conversationTrackingService.trackEvent(
+            {
+              chatbotId,
+              conversationId: conv.id,
+              eventType: "conversation_assigned",
+              eventId: createId(),
+              toAssignee,
+              occurredAt: new Date(),
+              channel: conv.inboxType,
+              metadata: {
+                triggerContext: {
+                  triggerSource: "api",
+                  triggerHandler: "assignConversation",
+                  triggerType: "conversation_assigned",
+                },
+              },
+            },
+            { skipSpooler: true },
+          )
+        }
+      } else {
+        for (const conv of conversations) {
+          await conversationTrackingService.trackEvent(
+            {
+              chatbotId,
+              conversationId: conv.id,
+              eventType: "conversation_unassigned",
+              eventId: createId(),
+              occurredAt: new Date(),
+              channel: conv.inboxType,
+              metadata: {
+                triggerContext: {
+                  triggerSource: "api",
+                  triggerHandler: "assignConversation",
+                  triggerType: "conversation_unassigned",
+                },
+              },
+            },
+            { skipSpooler: true },
+          )
         }
       }
 

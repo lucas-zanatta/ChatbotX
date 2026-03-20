@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  BroadcastFlowType,
   type BroadcastInboxType,
   BroadcastSubaction,
 } from "@aha.chat/database/enums"
@@ -9,6 +10,12 @@ import {
   type InboxType,
   Omnichannel,
 } from "@aha.chat/database/types"
+import {
+  extractTemplateParams,
+  StepType,
+  type TemplateComponent,
+  type WaTemplateParams,
+} from "@aha.chat/flow-config"
 import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import { DateTimePickerField } from "@aha.chat/ui/components/form/date-picker-field"
 import { SelectField } from "@aha.chat/ui/components/form/select-field"
@@ -37,6 +44,17 @@ import {
   useFlowStore,
 } from "../flows/provider/flow-store-context"
 import { InboxIcon } from "../inboxes/components/inbox-icon"
+import { TemplateParamsForm } from "../integration-whatsapp/message-templates/components/template-params-form"
+import { TemplatePreview } from "../integration-whatsapp/message-templates/components/template-preview"
+import {
+  TemplateStoreProvider,
+  useTemplateStore,
+} from "../integration-whatsapp/message-templates/provider/template-store-context"
+import type { MessageTemplateWithComponents } from "../integration-whatsapp/message-templates/type"
+import {
+  IntegrationStoreProvider,
+  useIntegrationStore,
+} from "../integration-whatsapp/provider/integration-store-context"
 
 type BroadcastConfig = {
   value: BroadcastInboxType
@@ -100,9 +118,14 @@ const getConfigs = (t: ReturnType<typeof useTranslations>) =>
       description: "",
       subactions: [
         {
-          value: BroadcastSubaction.allContacts,
-          name: t("broadcasts.allContacts.title"),
-          description: t("broadcasts.allContacts.description"),
+          value: BroadcastSubaction.whatsappTemplateMessage,
+          name: t("broadcasts.whatsappTemplateMessage.title"),
+          description: t("broadcasts.whatsappTemplateMessage.description"),
+        },
+        {
+          value: BroadcastSubaction.whatsappWithin24Hours,
+          name: t("broadcasts.whatsappWithin24Hours.title"),
+          description: t("broadcasts.whatsappWithin24Hours.description"),
         },
       ],
     },
@@ -173,26 +196,42 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
     name: "inboxType",
   })
 
+  const flowFilter = useMemo(() => {
+    if (watchedSubAction === BroadcastSubaction.whatsappTemplateMessage) {
+      return { startType: StepType.sendWaTemplateMessage }
+    }
+    return undefined
+  }, [watchedSubAction])
+
   return (
-    <FlowStoreProvider chatbotId={chatbotId}>
-      <div className="flex h-svh flex-col items-center justify-center">
-        <Form {...form}>
-          <form className="flex-1 space-y-4" onSubmit={handleSubmitWithAction}>
-            {!watchedInboxType && <CreateBroadcastChooseChannel />}
+    <FlowStoreProvider chatbotId={chatbotId} filter={flowFilter}>
+      <IntegrationStoreProvider chatbotId={chatbotId}>
+        <TemplateStoreProvider chatbotId={chatbotId}>
+          <div className="flex h-svh flex-col items-center justify-center">
+            <Form {...form}>
+              <form
+                className="flex-1 space-y-4"
+                onSubmit={handleSubmitWithAction}
+              >
+                {!watchedInboxType && <CreateBroadcastChooseChannel />}
 
-            {watchedInboxType && !watchedSubAction && (
-              <CreateBroadcastChooseSubaction inboxType={watchedInboxType} />
-            )}
+                {watchedInboxType && !watchedSubAction && (
+                  <CreateBroadcastChooseSubaction
+                    inboxType={watchedInboxType}
+                  />
+                )}
 
-            {watchedInboxType && watchedSubAction && (
-              <CreateBroadcastChooseFlow
-                inboxType={watchedInboxType}
-                subaction={watchedSubAction}
-              />
-            )}
-          </form>
-        </Form>
-      </div>
+                {watchedInboxType && watchedSubAction && (
+                  <CreateBroadcastChooseFlow
+                    inboxType={watchedInboxType}
+                    subaction={watchedSubAction}
+                  />
+                )}
+              </form>
+            </Form>
+          </div>
+        </TemplateStoreProvider>
+      </IntegrationStoreProvider>
     </FlowStoreProvider>
   )
 }
@@ -209,7 +248,7 @@ function CreateBroadcastChooseChannel() {
   const handleChooseChannel = useCallback(
     (inboxType: InboxType) => {
       setValue("inboxType", inboxType)
-      if (inboxType !== "messenger") {
+      if (inboxType !== "messenger" && inboxType !== "whatsapp") {
         setValue("subaction", BroadcastSubaction.allContacts)
       } else {
         setValue("subaction", null)
@@ -302,6 +341,7 @@ function CreateBroadcastChooseSubaction({
               )}
             </div>
             <Button
+              className="ml-auto"
               onClick={() => handleChooseSubaction(subaction.value)}
               type="button"
               variant="secondary"
@@ -318,6 +358,94 @@ function CreateBroadcastChooseSubaction({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function BroadcastFlowTypeSelector({
+  subaction,
+}: {
+  subaction: BroadcastSubaction | null
+}) {
+  const t = useTranslations()
+  const { setValue } = useFormContext()
+  const flowTypes: Array<{
+    value: BroadcastFlowType
+    label: string
+    description: string
+  }> = [
+    {
+      value: BroadcastFlowType.flow,
+      label: t("broadcasts.flowType.flow.title"),
+      description: t("broadcasts.flowType.flow.description"),
+    },
+    {
+      value: BroadcastFlowType.template,
+      label: t("broadcasts.flowType.template.title"),
+      description: t("broadcasts.flowType.template.description"),
+    },
+  ]
+
+  const [selectedType, setSelectedType] = useState<BroadcastFlowType>(
+    BroadcastFlowType.flow,
+  )
+
+  const handleTypeChange = useCallback(
+    (type: BroadcastFlowType) => {
+      setSelectedType(type)
+      setValue("templateType", type)
+
+      if (type === BroadcastFlowType.flow) {
+        setValue("templateId", undefined)
+      } else {
+        setValue("flowId", undefined)
+      }
+    },
+    [setValue],
+  )
+
+  if (subaction !== BroadcastSubaction.whatsappTemplateMessage) {
+    return null
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {flowTypes.map((flowType) => (
+        // biome-ignore lint/a11y/useSemanticElements: complex styling requires div
+        <div
+          className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
+            selectedType === flowType.value
+              ? "border-primary bg-primary/5"
+              : "border-gray-200 hover:border-gray-300"
+          }`}
+          key={flowType.value}
+          onClick={() => handleTypeChange(flowType.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              handleTypeChange(flowType.value)
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div
+            className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+              selectedType === flowType.value
+                ? "border-primary bg-primary"
+                : "border-gray-300"
+            }`}
+          >
+            {selectedType === flowType.value && (
+              <div className="h-2 w-2 rounded-full bg-white" />
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="font-medium text-sm">{flowType.label}</div>
+            <div className="text-gray-500 text-xs">{flowType.description}</div>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -358,7 +486,24 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
   })
 
   const { control, setValue, formState } = useFormContext()
+  const watchedTemplateType = useWatch({ control, name: "templateType" })
   const watchedSchedulesType = useWatch({ control, name: "schedulesType" })
+  const watchedIntegrationWhatsappId = useWatch({
+    control,
+    name: "integrationWhatsappId",
+  })
+  const watchedTemplateId = useWatch({ control, name: "templateId" })
+  const watchedTemplateData = useWatch({ control, name: "templateData" }) as
+    | WaTemplateParams
+    | undefined
+
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<MessageTemplateWithComponents | null>(null)
+
+  const { integrations } = useIntegrationStore((state) => state)
+  const { templates, setIntegrationWhatsappId } = useTemplateStore(
+    (state) => state,
+  )
 
   const handleCancel = useCallback(() => {
     router.push(`/chatbots/${chatbotId}/broadcasts`)
@@ -398,6 +543,30 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
     }
   }, [props.inboxType, props.subaction, t])
 
+  useEffect(() => {
+    if (watchedIntegrationWhatsappId) {
+      setIntegrationWhatsappId(watchedIntegrationWhatsappId)
+    }
+  }, [watchedIntegrationWhatsappId, setIntegrationWhatsappId])
+
+  useEffect(() => {
+    if (watchedTemplateId && templates.length > 0) {
+      const template = templates.find((t) => t.id === watchedTemplateId) as
+        | MessageTemplateWithComponents
+        | undefined
+      if (template) {
+        setSelectedTemplate(template)
+        const initialParams = extractTemplateParams(
+          template.components as TemplateComponent[],
+        )
+        setValue("templateData", initialParams)
+      } else {
+        setSelectedTemplate(null)
+        setValue("templateData", undefined)
+      }
+    }
+  }, [watchedTemplateId, templates, setValue])
+
   return (
     <Card className="mt-10 w-xl max-w-3xl">
       <CardHeader>
@@ -431,15 +600,68 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
           </CardContent>
         </Card>
 
-        <ComboboxField
-          label={t("fields.flowId.label")}
-          name="flowId"
-          options={flows.map((flow) => ({
-            label: flow.name,
-            value: flow.id,
-          }))}
-          required={true}
-        />
+        <BroadcastFlowTypeSelector subaction={props.subaction} />
+
+        {(!watchedTemplateType ||
+          watchedTemplateType === BroadcastFlowType.flow) && (
+          <ComboboxField
+            label={t("fields.flowId.label")}
+            name="flowId"
+            options={flows.map((flow) => ({
+              label: flow.name,
+              value: flow.id,
+            }))}
+            required={true}
+          />
+        )}
+
+        {watchedTemplateType === BroadcastFlowType.template && (
+          <>
+            <ComboboxField
+              label={t("fields.whatsappChannel.label")}
+              name="integrationWhatsappId"
+              options={integrations.map((integration) => ({
+                label: integration.name,
+                value: integration.id,
+              }))}
+              required={true}
+            />
+
+            <ComboboxField
+              label={t("fields.templateId.label")}
+              name="templateId"
+              options={templates.map((template) => ({
+                label: `${template.name} (${template.language})`,
+                value: template.id,
+              }))}
+              required={true}
+            />
+
+            {selectedTemplate && (
+              <div className="space-y-4">
+                <TemplateParamsForm
+                  components={
+                    selectedTemplate.components as TemplateComponent[]
+                  }
+                  parentName="templateData"
+                />
+                <div>
+                  <div className="mb-2 font-medium text-xs">
+                    {t("flows.fields.preview")}
+                  </div>
+                  <TemplatePreview
+                    bodyParams={watchedTemplateData?.body || []}
+                    buttonParams={watchedTemplateData?.button || []}
+                    components={
+                      selectedTemplate.components as TemplateComponent[]
+                    }
+                    headerParams={watchedTemplateData?.header || []}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         <SelectField
           defaultValue="now"

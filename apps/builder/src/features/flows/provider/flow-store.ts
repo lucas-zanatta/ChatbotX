@@ -9,12 +9,17 @@ export type FlowState = {
   initialized: boolean
 
   chatbotId: string
+  filter?: { startType?: string }
   flows: ListFlowsResponse["data"]
+}
+
+type GetAllActiveFlowsFilter = {
+  startType?: string
 }
 
 export type FlowActions = {
   initialize: () => Promise<void>
-  getAllActiveFlows: () => Promise<void>
+  getAllActiveFlows: (filter?: GetAllActiveFlowsFilter) => Promise<void>
 }
 
 export type FlowStore = FlowState & FlowActions
@@ -26,6 +31,7 @@ export const createFlowStore = (props: Partial<FlowState>) =>
     initialized: false,
 
     chatbotId: "",
+    filter: {},
     flows: [],
     ...props,
 
@@ -37,7 +43,7 @@ export const createFlowStore = (props: Partial<FlowState>) =>
       }
 
       try {
-        await get().getAllActiveFlows()
+        await get().getAllActiveFlows(get().filter || {})
       } catch (error: unknown) {
         set({
           error:
@@ -50,7 +56,7 @@ export const createFlowStore = (props: Partial<FlowState>) =>
       }
     },
 
-    getAllActiveFlows: async () => {
+    getAllActiveFlows: async (filter: GetAllActiveFlowsFilter = {}) => {
       const { chatbotId, loading } = get()
 
       if (loading || !chatbotId) {
@@ -64,6 +70,11 @@ export const createFlowStore = (props: Partial<FlowState>) =>
           perPage: maxPerPageString,
           active: "true",
         })
+
+        if (filter.startType) {
+          searchParams.set("startType", filter.startType)
+        }
+
         const { data } = await ky
           .get<ListFlowsResponse>(
             `/api/chatbots/${chatbotId}/flows?${searchParams.toString()}`,

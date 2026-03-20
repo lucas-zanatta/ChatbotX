@@ -38,15 +38,14 @@ import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
 } from "@aha.chat/worker-config"
+import { contactTrackingService } from "@chatbotx.io/analytics"
 import { createId } from "@paralleldrive/cuid2"
-import {
-  replaceWhatsappTemplateVariables,
-  validateWhatsappTemplate,
-} from "../../integration/handlers/wa-template-handler"
+import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
 import { sendFlowStepToExternal, sendMessageToExternal } from "./send-message"
+import { processWhatsappTemplate } from "./send-whatsapp-template"
 
 const convertButtonsToTemplate = (props: {
   flowId: string
@@ -105,12 +104,34 @@ export async function sendFlowStep({
   flowId,
   flowVersionId,
   step,
+  trackingContext,
 }: ChatJobSendFlowStep["data"]) {
   const conversation = await db.query.conversationModel.findFirst({
     where: { id: conversationId },
     with: { contact: true },
   })
   if (!conversation) {
+    return
+  }
+
+  if (step.stepType === StepType.sendWaTemplateMessage) {
+    try {
+      await processWhatsappTemplate({
+        conversation,
+        templateId: step.template.id,
+        templateName: step.template.name,
+        templateLanguage: step.template.languageCode,
+        templateParams: step.template.params,
+        flowId,
+        flowVersionId,
+      })
+    } catch (error) {
+      logger.error(
+        error,
+        `sendFlowStep WhatsApp template error for conversationId: ${conversationId}`,
+      )
+    }
+
     return
   }
 
@@ -126,31 +147,6 @@ export async function sendFlowStep({
         senderType: "bot",
         sourceId: null,
         content: step.stepType === StepType.sendText ? step.message : null,
-      }
-
-      if (step.stepType === StepType.sendWaTemplateMessage) {
-        const isValid = await validateWhatsappTemplate(
-          step.template,
-          conversation.inboxId,
-        )
-        if (!isValid) {
-          return ""
-        }
-
-        const templateParams = await replaceWhatsappTemplateVariables(
-          step.template.params,
-          conversationId,
-        )
-
-        messageData.content = `Template: ${step.template.name}`
-        messageData.contentAttributes = {
-          type: "whatsapp_template",
-          templateName: step.template.name,
-          templateLanguage: step.template.languageCode,
-          templateId: step.template.id,
-          params: templateParams,
-        }
-        step.template.params = templateParams
       }
 
       if ("buttons" in step && step.buttons.length > 0) {
@@ -251,18 +247,98 @@ export async function sendFlowStep({
     }
 
     await Promise.all(promises)
+
+    if (conversation.contact?.sourceId) {
+      const inbox = await db.query.inboxModel.findFirst({
+        where: { id: conversation.inboxId },
+        columns: { inboxType: true },
+      })
+      contactTrackingService
+        .trackEvent({
+          chatbotId: conversation.chatbotId,
+          contactId: conversation.contact.sourceId,
+          eventType: "contact_message_out",
+          senderType: "bot",
+          occurredAt: new Date(),
+          source: conversation.contact.source ?? undefined,
+          sourceId: conversation.contact.sourceId,
+          channel: inbox?.inboxType ?? undefined,
+          metadata: {
+            triggerContext: {
+              triggerSource: "worker",
+              triggerHandler: "sendFlowStep",
+              triggerType: "bot_message_out_flow",
+            },
+          },
+        })
+        .catch((error) => {
+          logger.error(
+            error,
+            "[sendFlowStep] Failed to track contact_message_out",
+          )
+        })
+    }
+
+    if (trackingContext) {
+      await trackBotResponse({
+        ...trackingContext,
+        hasResponse: true,
+        routeType: "FLOW",
+        result: "SUCCESS",
+        metadata: {
+          flowId,
+        },
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "sendFlowStep",
+          triggerType: trackingContext.triggerType,
+        },
+      })
+    }
   } catch (error) {
     logger.error(
       error,
       `sendFlowStep error for conversationId: ${conversationId}`,
     )
+
+    if (trackingContext) {
+      await trackBotResponse({
+        ...trackingContext,
+        hasResponse: false,
+        routeType: "FLOW",
+        result: "FALLBACK",
+        metadata: {
+          flowId,
+          fallbackReason: "HANDLER_ERROR_TO_FALLBACK",
+        },
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "sendFlowStep",
+          triggerType: `${trackingContext.triggerType}_failed`,
+        },
+      })
+    }
   }
 }
 
 export const sendChatMessage = async (
   props: ChatJobSendChatMessage["data"],
 ) => {
-  const { conversation, text, url } = props
+  const { text, url, trackingContext } = props
+
+  const conversationId =
+    "conversation" in props ? props.conversation.id : props.conversationId
+  const conversation =
+    "conversation" in props
+      ? props.conversation
+      : await db.query.conversationModel.findFirst({
+          where: { id: props.conversationId },
+        })
+
+  if (!conversation) {
+    logger.error(`Conversation not found for conversationId: ${conversationId}`)
+    return
+  }
 
   try {
     const message = await db.transaction(async (tx) => {
@@ -317,9 +393,7 @@ export const sendChatMessage = async (
 
     const contact = await findOrFail<ContactModel>(
       contactModel,
-      {
-        where: { id: conversation.contactId },
-      },
+      { id: conversation.contactId },
       `Contact not found for conversationId: ${conversation.id}`,
     )
 
@@ -372,11 +446,75 @@ export const sendChatMessage = async (
     }
 
     await Promise.all(promises)
+
+    if (contact.sourceId) {
+      contactTrackingService
+        .trackEvent({
+          chatbotId: conversation.chatbotId,
+          contactId: contact.sourceId,
+          eventType: "contact_message_out",
+          senderType: "bot",
+          occurredAt: new Date(),
+          source: contact.source ?? undefined,
+          sourceId: contact.sourceId,
+          channel: inbox.inboxType,
+          metadata: {
+            triggerContext: {
+              triggerSource: "worker",
+              triggerHandler: "sendChatMessage",
+              triggerType: "bot_message_out_chat",
+            },
+          },
+        })
+        .catch((error) => {
+          logger.error(
+            error,
+            "[sendChatMessage] Failed to track contact_message_out",
+          )
+        })
+    }
+
+    if (trackingContext) {
+      await trackBotResponse({
+        ...trackingContext,
+        hasResponse: true,
+        routeType:
+          trackingContext.responseType === "AUTOMATED_RESPONSE"
+            ? "FLOW"
+            : "AGENT",
+        result: "SUCCESS",
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "sendChatMessage",
+          triggerType: trackingContext.triggerType,
+        },
+      })
+    }
   } catch (error) {
     logger.error(
       error,
       `sendChatMessage error for conversationId: ${conversation.id}`,
     )
+
+    if (trackingContext) {
+      await trackBotResponse({
+        ...trackingContext,
+        hasResponse: false,
+        routeType:
+          trackingContext.responseType === "AUTOMATED_RESPONSE"
+            ? "FLOW"
+            : "AGENT",
+        result: "FALLBACK",
+        metadata: {
+          fallbackReason: "HANDLER_ERROR_TO_FALLBACK",
+        },
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "sendChatMessage",
+          triggerType: `${trackingContext.triggerType}_failed`,
+        },
+      })
+    }
   }
 }
 

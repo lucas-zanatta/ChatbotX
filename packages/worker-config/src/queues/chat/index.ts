@@ -9,6 +9,7 @@ import type {
   SendTextStepSchema,
   SendVideoStepSchema,
   SendWaTemplateMessageStepSchema,
+  WaTemplateParams,
 } from "@aha.chat/flow-config"
 import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
@@ -18,11 +19,13 @@ import {
   getRedisConnection,
 } from "../../lib/connection"
 import { queueName } from "../../lib/types"
+import type { BotResponseTrackingContext } from "../types"
 
 export const ChatJobAction = {
   sendExternalMessage: "sendExternalMessage",
   sendFlowMessage: "sendFlowMessage",
   sendChatMessage: "sendChatMessage",
+  sendWhatsappTemplateMessage: "sendWhatsappTemplateMessage",
   sendTyping: "sendTyping",
   notifyExportResult: "notifyExportResult",
 } as const
@@ -52,15 +55,34 @@ export type ChatJobSendFlowStep = {
       | SendCarouselStepSchema
       | SendQuickReplyStepSchema
       | SendWaTemplateMessageStepSchema
+    trackingContext?: BotResponseTrackingContext
   }
 }
 
 export type ChatJobSendChatMessage = {
   type: typeof ChatJobAction.sendChatMessage
+  data:
+    | {
+        conversation: OutgoingConversation
+        text?: string
+        url?: string
+        trackingContext?: BotResponseTrackingContext
+      }
+    | {
+        conversationId: string
+        text?: string
+        url?: string
+        trackingContext?: BotResponseTrackingContext
+      }
+}
+
+export type ChatJobSendWhatsappTemplateMessage = {
+  type: typeof ChatJobAction.sendWhatsappTemplateMessage
   data: {
-    conversation: OutgoingConversation
-    text?: string
-    url?: string
+    conversationId: string
+    templateId: string
+    broadcastId: string
+    templateData?: WaTemplateParams
   }
 }
 
@@ -86,13 +108,14 @@ export type ChatJobData =
   | ChatJobSendExternalMessage
   | ChatJobSendFlowStep
   | ChatJobSendChatMessage
+  | ChatJobSendWhatsappTemplateMessage
   | ChatJobSendTyping
   | ChatJobNotifyExportResult
 
 export const chatQueue =
-  process.env.NEXT_PHASE !== "phase-production-build"
-    ? new Queue<ChatJobData>(queueName.chat, {
+  process.env.NEXT_PHASE === "phase-production-build"
+    ? fakeQueue
+    : new Queue<ChatJobData>(queueName.chat, {
         connection: getRedisConnection(),
         defaultJobOptions,
       })
-    : fakeQueue

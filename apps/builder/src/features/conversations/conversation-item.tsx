@@ -145,20 +145,20 @@ export default function ConversationItem({
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <div className="truncate text-left font-medium">
+          <div className="truncate text-left font-medium dark:text-gray-200">
             {contactFullName}
           </div>
           <div
             className={cn(
               "w-full truncate text-left text-sm",
               !(
-                conversation.agentLastSeenAt && conversation.contactLastSeenAt
+                conversation.agentLastReadAt && conversation.contactLastReadAt
               ) ||
-                (conversation.agentLastSeenAt &&
-                  conversation.contactLastSeenAt &&
+                (conversation.agentLastReadAt &&
+                  conversation.contactLastReadAt &&
                   isAfter(
-                    conversation.agentLastSeenAt,
-                    conversation.contactLastSeenAt,
+                    conversation.agentLastReadAt,
+                    conversation.contactLastReadAt,
                   ))
                 ? "text-gray-500"
                 : "font-semibold",

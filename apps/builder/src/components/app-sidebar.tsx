@@ -15,6 +15,7 @@ import {
   RadioIcon,
   SlidersHorizontalIcon,
   UsersIcon,
+  WebhookIcon,
   WorkflowIcon,
   WrenchIcon,
 } from "lucide-react"
@@ -51,7 +52,6 @@ export function AppSidebar({
         title: t("fields.analytics.label"),
         url: `/chatbots/${chatbotId}/dashboard`,
         icon: ChartPieIcon,
-        isActive: true,
       },
       {
         title: t("fields.inbox.label"),
@@ -69,7 +69,7 @@ export function AppSidebar({
         icon: UsersIcon,
       },
       {
-        title: t("aiHub.title"),
+        title: t("aiAgent.title"),
         url: `/chatbots/${chatbotId}/ai-agents`,
         icon: BrainIcon,
       },
@@ -92,7 +92,7 @@ export function AppSidebar({
       {
         title: t("webhooks.title"),
         url: `/chatbots/${chatbotId}/webhooks`,
-        icon: UsersIcon,
+        icon: WebhookIcon,
       },
       {
         title: t("tools.title"),

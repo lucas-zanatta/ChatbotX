@@ -35,6 +35,8 @@ import {
   emitConversationTransferredToHuman,
   emitConversationUnassigned,
 } from "@chatbotx/events"
+import { conversationTrackingService } from "@chatbotx.io/analytics"
+import { createId } from "@paralleldrive/cuid2"
 import { subHours } from "date-fns"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
@@ -91,7 +93,7 @@ export async function stepAssignConversation({
   let assignedTo: string | null = null
 
   if (step.assignedId.startsWith("u_")) {
-    const userId = step.assignedId.substring(2)
+    const userId = step.assignedId.slice(2)
     const chatbotMember = await db.query.chatbotMemberModel.findFirst({
       where: {
         userId,
@@ -108,7 +110,7 @@ export async function stepAssignConversation({
       assignedTo = userId
     }
   } else if (step.assignedId.startsWith("t_")) {
-    const inboxTeamId = step.assignedId.substring(2)
+    const inboxTeamId = step.assignedId.slice(2)
     const inboxTeam = await db.query.inboxTeamModel.findFirst({
       where: {
         id: inboxTeamId,
@@ -153,9 +155,9 @@ export async function stepAutoAssignConversation({
   const inboxTeamIds: string[] = []
   for (const id of step.assignedIds) {
     if (id.startsWith("u_")) {
-      userIds.push(id.substring(2))
+      userIds.push(id.slice(2))
     } else if (id.startsWith("t_")) {
-      inboxTeamIds.push(id.substring(2))
+      inboxTeamIds.push(id.slice(2))
     }
   }
 
@@ -321,6 +323,27 @@ export async function stepUnassignConversation({
   } catch (error) {
     console.error("Failed to emit conversationUnassigned event:", error)
   }
+
+  conversationTrackingService
+    .trackEvent({
+      eventId: createId(),
+      chatbotId: conversation.chatbotId,
+      conversationId: conversation.id,
+      eventType: "conversation_unassigned",
+      fromAssignee:
+        conversation.assignedUserId || conversation.assignedInboxTeamId || "",
+      occurredAt: new Date(),
+      metadata: {
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "stepUnassignConversation",
+          triggerType: "flow_action",
+        },
+      },
+    })
+    .catch((error) => {
+      console.error("[stepUnassignConversation] Failed to track", error)
+    })
 }
 
 export async function stepFollowConversation({

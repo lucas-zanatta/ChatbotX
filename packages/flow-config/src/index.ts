@@ -83,6 +83,7 @@ export * from "./steps/unarchive-conversation"
 export * from "./steps/unassign-conversation"
 export * from "./steps/unfollow-conversation"
 export * from "./steps/unsubscribe-broadcast"
+export * from "./steps/wa-template-utils"
 export * from "./steps/wait"
 
 export * from "./util"
