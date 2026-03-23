@@ -18,7 +18,7 @@ export const FlowStoreContext = createContext<FlowStoreApi | undefined>(
 
 export type FlowStoreProviderProps = {
   chatbotId: string
-  filter?: { startType?: string }
+  filter?: { startType?: string; integrationWhatsappId?: string }
   children: ReactNode
   autoInitialize?: boolean
 }
@@ -43,11 +43,12 @@ export const FlowStoreProvider = ({
     }
   }, [autoInitialize])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: project preference
   useEffect(() => {
     if (storeRef.current && filter) {
       storeRef.current.getState().getAllActiveFlows(filter)
     }
-  }, [filter])
+  }, [filter?.startType, filter?.integrationWhatsappId])
 
   return (
     <FlowStoreContext.Provider value={storeRef.current}>

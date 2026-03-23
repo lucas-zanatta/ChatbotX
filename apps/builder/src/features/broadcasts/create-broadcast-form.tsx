@@ -195,13 +195,20 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
     control: form.control,
     name: "inboxType",
   })
+  const watchedIntegrationWhatsappId = useWatch({
+    control: form.control,
+    name: "integrationWhatsappId",
+  })
 
   const flowFilter = useMemo(() => {
     if (watchedSubAction === BroadcastSubaction.whatsappTemplateMessage) {
-      return { startType: StepType.sendWaTemplateMessage }
+      return {
+        startType: StepType.sendWaTemplateMessage,
+        integrationWhatsappId: watchedIntegrationWhatsappId,
+      }
     }
     return undefined
-  }, [watchedSubAction])
+  }, [watchedSubAction, watchedIntegrationWhatsappId])
 
   return (
     <FlowStoreProvider chatbotId={chatbotId} filter={flowFilter}>
@@ -604,20 +611,34 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
 
         {(!watchedTemplateType ||
           watchedTemplateType === BroadcastFlowType.flow) && (
-          <ComboboxField
-            label={t("fields.flowId.label")}
-            name="flowId"
-            options={flows.map((flow) => ({
-              label: flow.name,
-              value: flow.id,
-            }))}
-            required={true}
-          />
+          <>
+            <ComboboxField
+              key="integrationWhatsappId"
+              label={t("fields.whatsappChannel.label")}
+              name="integrationWhatsappId"
+              options={integrations.map((integration) => ({
+                label: integration.name,
+                value: integration.id,
+              }))}
+              required={true}
+            />
+            <ComboboxField
+              key="flowId"
+              label={t("fields.flowId.label")}
+              name="flowId"
+              options={flows.map((flow) => ({
+                label: flow.name,
+                value: flow.id,
+              }))}
+              required={true}
+            />
+          </>
         )}
 
         {watchedTemplateType === BroadcastFlowType.template && (
           <>
             <ComboboxField
+              key="integrationWhatsappId"
               label={t("fields.whatsappChannel.label")}
               name="integrationWhatsappId"
               options={integrations.map((integration) => ({
@@ -628,6 +649,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
             />
 
             <ComboboxField
+              key="templateId"
               label={t("fields.templateId.label")}
               name="templateId"
               options={templates.map((template) => ({

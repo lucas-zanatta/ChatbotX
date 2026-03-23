@@ -32,6 +32,7 @@ export const listFlowsRequest = basePaginationRequest.extend({
   folderId: z.string().nullish(),
   active: z.boolean().nullish(),
   startType: z.string().nullish(),
+  integrationWhatsappId: z.string().nullish(),
 })
 export type ListFlowsRequest = z.infer<typeof listFlowsRequest>
 

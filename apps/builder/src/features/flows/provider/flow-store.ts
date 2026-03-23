@@ -9,12 +9,13 @@ export type FlowState = {
   initialized: boolean
 
   chatbotId: string
-  filter?: { startType?: string }
+  filter?: { startType?: string; integrationWhatsappId?: string }
   flows: ListFlowsResponse["data"]
 }
 
 type GetAllActiveFlowsFilter = {
   startType?: string
+  integrationWhatsappId?: string
 }
 
 export type FlowActions = {
@@ -73,6 +74,13 @@ export const createFlowStore = (props: Partial<FlowState>) =>
 
         if (filter.startType) {
           searchParams.set("startType", filter.startType)
+        }
+
+        if (filter.integrationWhatsappId) {
+          searchParams.set(
+            "integrationWhatsappId",
+            filter.integrationWhatsappId,
+          )
         }
 
         const { data } = await ky

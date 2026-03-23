@@ -402,8 +402,16 @@ export const broadcastModel = pgTable(
       onUpdate: "cascade",
       name: "Broadcast_flowId_fkey",
     }),
+    integrationWhatsappId: text().references(
+      () => integrationWhatsappModel.id,
+      {
+        onDelete: "set null",
+        onUpdate: "cascade",
+        name: "Broadcast_integrationWhatsappId_fkey",
+      },
+    ),
     templateId: text(),
-    templateData: jsonb().default(sql`'{}'::jsonb`),
+    templateData: jsonb().notNull().default("{}"),
     status: broadcastStatus().notNull(),
     schedulesType: broadcastSchedulesType().notNull(),
     schedulesAt: timestamp(timestampConfig).notNull(),

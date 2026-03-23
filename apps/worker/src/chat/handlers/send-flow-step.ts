@@ -108,13 +108,17 @@ export async function sendFlowStep({
 }: ChatJobSendFlowStep["data"]) {
   const conversation = await db.query.conversationModel.findFirst({
     where: { id: conversationId },
-    with: { contact: true },
+    with: { contact: true, inbox: { columns: { inboxType: true } } },
   })
   if (!conversation) {
     return
   }
 
   if (step.stepType === StepType.sendWaTemplateMessage) {
+    if (conversation.inbox?.inboxType !== "whatsapp") {
+      return
+    }
+
     try {
       await processWhatsappTemplate({
         conversation,
@@ -124,6 +128,7 @@ export async function sendFlowStep({
         templateParams: step.template.params,
         flowId,
         flowVersionId,
+        trackingContext,
       })
     } catch (error) {
       logger.error(

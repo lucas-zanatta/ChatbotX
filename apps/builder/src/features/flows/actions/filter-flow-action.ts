@@ -20,3 +20,41 @@ export function filterFlowsByStartStepType<T extends FlowWithVersions>(
     flow.flowVersions.some((version) => hasStartNode(version.nodes, stepType)),
   )
 }
+
+export function filterFlowsByTemplateIds<T extends FlowWithVersions>(
+  flows: T[],
+  templateIds: string[],
+): T[] {
+  if (!Array.isArray(flows) || templateIds.length === 0) {
+    return []
+  }
+
+  return flows.filter((flow) =>
+    flow.flowVersions.some((version) => {
+      if (!Array.isArray(version.nodes)) {
+        return false
+      }
+
+      return version.nodes.some((node) => {
+        const steps = node?.data?.details?.steps
+        if (!Array.isArray(steps)) {
+          return false
+        }
+
+        return steps.some((step) => {
+          if (step?.stepType !== "WA_TM01") {
+            return false
+          }
+
+          const stepWithTemplate = step as unknown as {
+            template?: { id?: string }
+          }
+          const templateId = stepWithTemplate?.template?.id
+          return (
+            typeof templateId === "string" && templateIds.includes(templateId)
+          )
+        })
+      })
+    }),
+  )
+}

@@ -49,13 +49,13 @@ export const createBroadcastAction = chatbotActionClient
         broadcastName = flow.name
       }
 
-      // Validate template if templateId is provided
       if (parsedInput.templateId) {
         const template = await db.query.whatsappMessageTemplateModel.findFirst({
           where: {
             id: parsedInput.templateId,
             integrationWhatsapp: {
               chatbotId,
+              id: parsedInput.integrationWhatsappId,
             },
           },
         })
@@ -70,23 +70,39 @@ export const createBroadcastAction = chatbotActionClient
         broadcastName = template.name
       }
 
+      let inboxId: string | undefined
+      if (parsedInput.integrationWhatsappId) {
+        const integrationWhatsapp =
+          await db.query.integrationWhatsappModel.findFirst({
+            where: {
+              chatbotId,
+              id: parsedInput.integrationWhatsappId,
+            },
+          })
+        if (integrationWhatsapp) {
+          inboxId = integrationWhatsapp.inboxId
+        }
+      }
+
       const data: typeof broadcastModel.$inferInsert = {
         ...parsedInput,
         name: broadcastName,
         chatbotId,
         status: "scheduled",
         schedulesAt: new Date(parsedInput.schedulesAt ?? new Date()),
-        templateData: parsedInput.templateData ?? null,
+        templateData: parsedInput.templateData ?? "{}",
         id: createId(),
       }
 
-      // Calculate contacts to send broadcast
       const contacts = await db.query.contactModel.findMany({
-        columns: {
-          id: true,
-        },
+        columns: { id: true },
         where: {
           chatbotId,
+          ...(inboxId && {
+            conversation: {
+              inboxId,
+            },
+          }),
         },
       })
 

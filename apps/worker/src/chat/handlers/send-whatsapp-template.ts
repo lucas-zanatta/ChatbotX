@@ -11,7 +11,10 @@ import {
   broadcastToChatbotParty,
   RealtimeEventType,
 } from "@aha.chat/partysocket-config"
-import type { ChatJobSendWhatsappTemplateMessage } from "@aha.chat/worker-config"
+import type {
+  BotResponseTrackingContext,
+  ChatJobSendWhatsappTemplateMessage,
+} from "@aha.chat/worker-config"
 import { createId } from "@paralleldrive/cuid2"
 import {
   replaceWhatsappTemplateVariables,
@@ -29,6 +32,7 @@ export interface ProcessWhatsappTemplateParams {
   templateLanguage: string
   templateName: string
   templateParams?: WaTemplateParams
+  trackingContext?: BotResponseTrackingContext
 }
 
 export interface ProcessWhatsappTemplateResult {
@@ -49,6 +53,7 @@ export async function processWhatsappTemplate(
     broadcastId,
     flowId,
     flowVersionId,
+    trackingContext,
   } = params
 
   const isValid = await validateWhatsappTemplate(
@@ -91,6 +96,9 @@ export async function processWhatsappTemplate(
       templateId,
       params: replacedParams,
       ...(broadcastId && { broadcastId }),
+      ...(flowId && { flowId }),
+      ...(flowVersionId && { flowVersionId }),
+      ...(trackingContext && { trackingContext }),
     },
   }
 

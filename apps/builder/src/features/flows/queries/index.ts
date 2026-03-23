@@ -4,7 +4,7 @@ import { flowModel } from "@aha.chat/database/schema"
 import { parseOrderByAsObject, parsePagination } from "@aha.chat/database/utils"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import { notFoundException } from "@/lib/errors/exception"
-import { filterFlowsByStartStepType } from "../actions/filter-flow-action"
+import { filterFlowsByTemplateIds } from "../actions/filter-flow-action"
 import type {
   FindFlowParams,
   ListFlowsRequest,
@@ -65,9 +65,19 @@ export async function listFlows(
     db.$count(flowModel, relationsFilterToSQL(flowModel, where)),
   ])
 
-  if (input.startType) {
-    data = filterFlowsByStartStepType(data, input.startType)
-    total = data.length
+  if (input.startType === "WA_TM01") {
+    if (input.integrationWhatsappId) {
+      const templates = await db.query.whatsappMessageTemplateModel.findMany({
+        where: { integrationWhatsappId: input.integrationWhatsappId },
+        columns: { id: true },
+      })
+      const templateIds = templates.map((t) => t.id)
+      data = filterFlowsByTemplateIds(data, templateIds)
+      total = data.length
+    } else {
+      data = []
+      total = 0
+    }
   }
 
   const pageCount = pagination?.limit ? Math.ceil(total / pagination.limit) : 1
