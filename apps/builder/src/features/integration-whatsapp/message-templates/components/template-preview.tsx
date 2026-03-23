@@ -115,7 +115,8 @@ export function TemplatePreview({
                 return (
                   <div
                     className="rounded border bg-gray-300 px-2 py-1 text-center text-blue-600 text-xs"
-                    key={`button-${btnIdx}-${button.text}`}
+                    // biome-ignore lint/suspicious/noArrayIndexKey: safe index
+                    key={`button-${component.type}-${btnIdx}-${button.text}`}
                   >
                     {button.text} {url && `→ ${url}`}
                   </div>
