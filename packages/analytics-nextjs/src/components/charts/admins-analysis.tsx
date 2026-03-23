@@ -34,8 +34,8 @@ export function AdminsAnalysis() {
       },
       messagesSent: 150,
       contacts: 75,
-      responseTime: 30,
-      firstResponseTime: 20,
+      // responseTime: 30,
+      // firstResponseTime: 20,
       assignedConversations: 10,
     },
     {
@@ -45,8 +45,8 @@ export function AdminsAnalysis() {
       },
       messagesSent: 200,
       contacts: 100,
-      responseTime: 25,
-      firstResponseTime: 15,
+      // responseTime: 25,
+      // firstResponseTime: 15,
       assignedConversations: 20,
     },
     {
@@ -56,8 +56,8 @@ export function AdminsAnalysis() {
       },
       messagesSent: 180,
       contacts: 90,
-      responseTime: 28,
-      firstResponseTime: 18,
+      // responseTime: 28,
+      // firstResponseTime: 18,
       assignedConversations: 15,
     },
   ] as unknown as AdminsAnalysisData[]
@@ -96,30 +96,30 @@ export function AdminsAnalysis() {
         enableSorting: true,
         enableHiding: false,
       },
-      {
-        id: "responseTime",
-        accessorKey: "responseTime",
-        header: ({ column }) => (
-          <DataTableColumnHeader
-            column={column}
-            title="Avg. Response Time (mins)"
-          />
-        ),
-        enableSorting: true,
-        enableHiding: false,
-      },
-      {
-        id: "firstResponseTime",
-        accessorKey: "firstResponseTime",
-        header: ({ column }) => (
-          <DataTableColumnHeader
-            column={column}
-            title="Avg. First Response Time (mins)"
-          />
-        ),
-        enableSorting: true,
-        enableHiding: false,
-      },
+      // {
+      //   id: "responseTime",
+      //   accessorKey: "responseTime",
+      //   header: ({ column }) => (
+      //     <DataTableColumnHeader
+      //       column={column}
+      //       title="Avg. Response Time (mins)"
+      //     />
+      //   ),
+      //   enableSorting: true,
+      //   enableHiding: false,
+      // },
+      // {
+      //   id: "firstResponseTime",
+      //   accessorKey: "firstResponseTime",
+      //   header: ({ column }) => (
+      //     <DataTableColumnHeader
+      //       column={column}
+      //       title="Avg. First Response Time (mins)"
+      //     />
+      //   ),
+      //   enableSorting: true,
+      //   enableHiding: false,
+      // },
       {
         id: "assignedConversations",
         accessorKey: "assignedConversations",

@@ -1,3 +1,4 @@
+import { db } from "@aha.chat/database/client"
 import {
   fillContactStatsMonthlySeries,
   fillDailyContactStats,
@@ -565,25 +566,41 @@ export class ContactStatsRepository extends BaseRepository {
   }
 
   async getContactsCount(props: TimeRangeQuery): Promise<number> {
-    const timeFilter = this.buildHourlyTimestampFilter(props)
-
-    const sql = `
-      SELECT
-        countMerge(event_count_state) as count
-      FROM contact_stats_hourly
-      WHERE chatbot_id = {chatbotId:String}
-        AND ${timeFilter.sql}
-    `
-
-    const result = await this.query<{
-      count: string
-    }>(sql, {
-      chatbotId: props.chatbotId,
-      ...timeFilter.params,
+    const inboxes = await db.query.inboxModel.findMany({
+      where: { chatbotId: props.chatbotId },
+      with: {
+        contactStats: true,
+      },
     })
 
-    return result[0]?.count ? Number(result[0].count) : 0
+    const total = inboxes.reduce(
+      (sum, inbox) => sum + (inbox.contactStats?.totalContacts ?? 0),
+      0,
+    )
+
+    return total
   }
+
+  // async getContactsCount(props: TimeRangeQuery): Promise<number> {
+  //   const timeFilter = this.buildHourlyTimestampFilter(props)
+
+  //   const sql = `
+  //     SELECT
+  //       countMerge(event_count_state) as count
+  //     FROM contact_stats_hourly
+  //     WHERE chatbot_id = {chatbotId:String}
+  //       AND ${timeFilter.sql}
+  //   `
+
+  //   const result = await this.query<{
+  //     count: string
+  //   }>(sql, {
+  //     chatbotId: props.chatbotId,
+  //     ...timeFilter.params,
+  //   })
+
+  //   return result[0]?.count ? Number(result[0].count) : 0
+  // }
 
   async getContactsByDimension(
     props: TimeRangeQuery & {

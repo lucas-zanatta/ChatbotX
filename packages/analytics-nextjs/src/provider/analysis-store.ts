@@ -3,11 +3,15 @@ import type {
   BotMessageStats,
   ContactCountsSchema,
   ContactsByDimension,
+  ConversationArchivedStats,
+  ConversationFollowUpStats,
   ConversationHandoffStats,
   GetBotMessagesAIProvidersResponseSchema,
   GetContactCountsResponseSchema,
   GetContactsByDimensionStatsResponseSchema,
   GetContactsCountResponseSchema,
+  GetConversationArchivedResponse,
+  GetConversationFollowUpsResponse,
   GetConversationHandoffsResponse,
   GetMessagesBySenderStatsResponseSchema,
   GetMessagesStatsResponseSchema,
@@ -38,6 +42,8 @@ export type AnalysisState = {
   contactsByCountry: ContactsByDimension[]
   contactsBySource: ContactsByDimension[]
   conversationHandoffs: ConversationHandoffStats[]
+  conversationFollowUps: ConversationFollowUpStats[]
+  conversationArchived: ConversationArchivedStats[]
   botMessagesWithResponse: BotMessageStats[]
   botMessagesNoResponse: BotMessageStats[]
 }
@@ -60,6 +66,8 @@ export type AnalysisActions = {
   getContactsByCountry: () => Promise<void>
   getContactsBySource: () => Promise<void>
   getConversationHandoffs: () => Promise<void>
+  getConversationFollowUps: () => Promise<void>
+  getConversationArchived: () => Promise<void>
   getBotMessagesWithResponse: () => Promise<void>
   getBotMessagesNoResponse: () => Promise<void>
 }
@@ -90,6 +98,8 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     contactsByCountry: [],
     contactsBySource: [],
     conversationHandoffs: [],
+    conversationFollowUps: [],
+    conversationArchived: [],
     botMessagesWithResponse: [],
     botMessagesNoResponse: [],
 
@@ -126,6 +136,8 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getContactsByCountry,
         getContactsBySource,
         getConversationHandoffs,
+        getConversationFollowUps,
+        getConversationArchived,
         getBotMessagesWithResponse,
         getBotMessagesNoResponse,
       } = get()
@@ -144,6 +156,8 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getContactsByCountry(),
         getContactsBySource(),
         getConversationHandoffs(),
+        getConversationFollowUps(),
+        getConversationArchived(),
         getBotMessagesWithResponse(),
         getBotMessagesNoResponse(),
       ])
@@ -400,6 +414,46 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         set({ conversationHandoffs: result.data })
       } catch (error: unknown) {
         get().handleError("getConversationHandoffs", error)
+      }
+    },
+
+    getConversationFollowUps: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/conversation-followups", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetConversationFollowUpsResponse>()
+
+        set({ conversationFollowUps: result.data })
+      } catch (error: unknown) {
+        get().handleError("getConversationFollowUps", error)
+      }
+    },
+
+    getConversationArchived: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/conversation-archived", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetConversationArchivedResponse>()
+
+        set({ conversationArchived: result.data })
+      } catch (error: unknown) {
+        get().handleError("getConversationArchived", error)
       }
     },
 
