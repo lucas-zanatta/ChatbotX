@@ -1,4 +1,9 @@
-import type { ConversationHandoffStats, TimeRangeQuery } from "../schemas"
+import type {
+  ConversationArchivedStats,
+  ConversationFollowUpStats,
+  ConversationHandoffStats,
+  TimeRangeQuery,
+} from "../schemas"
 import { BaseRepository } from "./base.repository"
 
 export class ConversationStatsRepository extends BaseRepository {
@@ -45,6 +50,92 @@ export class ConversationStatsRepository extends BaseRepository {
       chatbotId: row.chatbot_id,
       timestamp: new Date(row.day),
       direction: row.direction,
+      count: Number(row.count),
+    }))
+  }
+
+  async getFollowUpsByDay(
+    props: TimeRangeQuery,
+  ): Promise<ConversationFollowUpStats[]> {
+    const { chatbotId } = props
+
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+    const dayGroup = this.buildDayGroupFromHourly(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        day_group as day,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          ${dayGroup} as day_group,
+          countMerge(followup_count_state) as count
+        FROM conversation_followups_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, day_group
+      )
+      GROUP BY chatbot_id, day_group
+      ORDER BY day ASC
+    `
+
+    const result = await this.query<{
+      chatbot_id: string
+      day: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    return result.map((row) => ({
+      chatbotId: row.chatbot_id,
+      timestamp: new Date(row.day),
+      count: Number(row.count),
+    }))
+  }
+
+  async getArchivedByDay(
+    props: TimeRangeQuery,
+  ): Promise<ConversationArchivedStats[]> {
+    const { chatbotId } = props
+
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+    const dayGroup = this.buildDayGroupFromHourly(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        day_group as day,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          ${dayGroup} as day_group,
+          countMerge(archived_count_state) as count
+        FROM conversation_archived_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, day_group
+      )
+      GROUP BY chatbot_id, day_group
+      ORDER BY day ASC
+    `
+
+    const result = await this.query<{
+      chatbot_id: string
+      day: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    return result.map((row) => ({
+      chatbotId: row.chatbot_id,
+      timestamp: new Date(row.day),
       count: Number(row.count),
     }))
   }
