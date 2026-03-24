@@ -180,6 +180,27 @@ export async function stepAssignConversation({
     } catch (error) {
       console.error("Failed to emit conversationAssigned event:", error)
     }
+
+    conversationTrackingService
+      .trackEvent({
+        eventId: createId(),
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        eventType: "conversation_assigned",
+        channel: conversation.inboxType,
+        occurredAt: new Date(),
+        toAssignee: assignedTo,
+        metadata: {
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "stepAssignConversation",
+            triggerType: "flow_action",
+          },
+        },
+      })
+      .catch((error) => {
+        console.error("[stepAssignConversation] Failed to track", error)
+      })
   }
 }
 
@@ -240,7 +261,7 @@ export async function stepAutoAssignConversation({
     requiredUsers = await db.query.chatbotMemberModel.findMany({
       where: {
         chatbotId: conversation.chatbotId,
-        id: {
+        userId: {
           in: userIds,
         },
       },
@@ -340,6 +361,44 @@ export async function stepAutoAssignConversation({
       assignedInboxTeamId: allocation[smallestKey].assignedInboxTeamId,
     })
     .where(eq(conversationModel.id, conversation.id))
+
+  // Emit conversation assigned event
+  const assignedTo =
+    allocation[smallestKey].assignedUserId ||
+    allocation[smallestKey].assignedInboxTeamId
+  if (assignedTo) {
+    try {
+      await emitConversationAssigned(
+        conversation.chatbotId,
+        conversation.contactId,
+        conversation.id,
+        assignedTo,
+      )
+    } catch (error) {
+      console.error("Failed to emit conversationAssigned event:", error)
+    }
+
+    conversationTrackingService
+      .trackEvent({
+        eventId: createId(),
+        chatbotId: conversation.chatbotId,
+        conversationId: conversation.id,
+        eventType: "conversation_assigned",
+        channel: conversation.inboxType,
+        occurredAt: new Date(),
+        toAssignee: assignedTo,
+        metadata: {
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "stepAutoAssignConversation",
+            triggerType: "flow_action",
+          },
+        },
+      })
+      .catch((error) => {
+        console.error("[stepAutoAssignConversation] Failed to track", error)
+      })
+  }
 }
 
 export async function stepUnassignConversation({

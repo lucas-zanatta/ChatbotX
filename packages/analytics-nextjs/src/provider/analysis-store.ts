@@ -4,6 +4,8 @@ import type {
   ContactCountsSchema,
   ContactsByDimension,
   ConversationArchivedStats,
+  ConversationAssignedByAdminStats,
+  ConversationAssignedStats,
   ConversationFollowUpStats,
   ConversationHandoffStats,
   GetBotMessagesAIProvidersResponseSchema,
@@ -11,11 +13,15 @@ import type {
   GetContactsByDimensionStatsResponseSchema,
   GetContactsCountResponseSchema,
   GetConversationArchivedResponse,
+  GetConversationAssignedByAdminResponse,
+  GetConversationAssignedResponse,
   GetConversationFollowUpsResponse,
   GetConversationHandoffsResponse,
   GetMessagesBySenderStatsResponseSchema,
   GetMessagesStatsResponseSchema,
+  GetUniqueConversationsByAdminResponse,
   MessagesBySenderStats,
+  UniqueConversationsByAdminStats,
 } from "@chatbotx.io/analytics"
 import { endOfToday, startOfToday, subDays } from "date-fns"
 import ky, { HTTPError } from "ky"
@@ -44,6 +50,9 @@ export type AnalysisState = {
   conversationHandoffs: ConversationHandoffStats[]
   conversationFollowUps: ConversationFollowUpStats[]
   conversationArchived: ConversationArchivedStats[]
+  conversationAssigned: ConversationAssignedStats[]
+  conversationAssignedByAdmin: ConversationAssignedByAdminStats[]
+  uniqueConversationsByAdmin: UniqueConversationsByAdminStats[]
   botMessagesWithResponse: BotMessageStats[]
   botMessagesNoResponse: BotMessageStats[]
 }
@@ -68,6 +77,9 @@ export type AnalysisActions = {
   getConversationHandoffs: () => Promise<void>
   getConversationFollowUps: () => Promise<void>
   getConversationArchived: () => Promise<void>
+  getConversationAssigned: () => Promise<void>
+  getConversationAssignedByAdmin: () => Promise<void>
+  getUniqueConversationsByAdmin: () => Promise<void>
   getBotMessagesWithResponse: () => Promise<void>
   getBotMessagesNoResponse: () => Promise<void>
 }
@@ -100,6 +112,9 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     conversationHandoffs: [],
     conversationFollowUps: [],
     conversationArchived: [],
+    conversationAssigned: [],
+    conversationAssignedByAdmin: [],
+    uniqueConversationsByAdmin: [],
     botMessagesWithResponse: [],
     botMessagesNoResponse: [],
 
@@ -138,6 +153,9 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getConversationHandoffs,
         getConversationFollowUps,
         getConversationArchived,
+        getConversationAssigned,
+        getConversationAssignedByAdmin,
+        getUniqueConversationsByAdmin,
         getBotMessagesWithResponse,
         getBotMessagesNoResponse,
       } = get()
@@ -158,6 +176,9 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getConversationHandoffs(),
         getConversationFollowUps(),
         getConversationArchived(),
+        getConversationAssigned(),
+        getConversationAssignedByAdmin(),
+        getUniqueConversationsByAdmin(),
         getBotMessagesWithResponse(),
         getBotMessagesNoResponse(),
       ])
@@ -454,6 +475,66 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         set({ conversationArchived: result.data })
       } catch (error: unknown) {
         get().handleError("getConversationArchived", error)
+      }
+    },
+
+    getConversationAssigned: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/conversation-assigned", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetConversationAssignedResponse>()
+
+        set({ conversationAssigned: result.data })
+      } catch (error: unknown) {
+        get().handleError("getConversationAssigned", error)
+      }
+    },
+
+    getConversationAssignedByAdmin: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/conversation-assigned-by-admin", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetConversationAssignedByAdminResponse>()
+
+        set({ conversationAssignedByAdmin: result.data })
+      } catch (error: unknown) {
+        get().handleError("getConversationAssignedByAdmin", error)
+      }
+    },
+
+    getUniqueConversationsByAdmin: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/unique-conversations-by-admin", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetUniqueConversationsByAdminResponse>()
+
+        set({ uniqueConversationsByAdmin: result.data })
+      } catch (error: unknown) {
+        get().handleError("getUniqueConversationsByAdmin", error)
       }
     },
 

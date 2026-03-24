@@ -1,8 +1,11 @@
 import { conversationAnalyticsService } from "@chatbotx.io/analytics"
 import {
   getConversationArchivedResponseSchema,
+  getConversationAssignedByAdminResponseSchema,
+  getConversationAssignedResponseSchema,
   getConversationFollowUpsResponseSchema,
   getConversationHandoffsResponseSchema,
+  getUniqueConversationsByAdminResponseSchema,
   timeRangeQuerySchema,
 } from "@chatbotx.io/analytics/schemas"
 import { os } from "@orpc/server"
@@ -45,6 +48,46 @@ export const analyticsConversationRoutes = os.router({
     .output(getConversationArchivedResponseSchema)
     .handler(async ({ input }) => {
       const data = await conversationAnalyticsService.getArchivedByDay(input)
+      return { data }
+    }),
+  conversationAssignedAnalyticsAPI: os
+    .route({
+      method: "GET",
+      path: "/analytics/conversation-assigned",
+      summary: "Get assigned conversations",
+      tags: ["Analytics"],
+    })
+    .input(timeRangeQuerySchema)
+    .output(getConversationAssignedResponseSchema)
+    .handler(async ({ input }) => {
+      const data = await conversationAnalyticsService.getAssignedByDay(input)
+      return { data }
+    }),
+  conversationAssignedByAdminAnalyticsAPI: os
+    .route({
+      method: "GET",
+      path: "/analytics/conversation-assigned-by-admin",
+      summary: "Get assigned conversations by admin",
+      tags: ["Analytics"],
+    })
+    .input(timeRangeQuerySchema)
+    .output(getConversationAssignedByAdminResponseSchema)
+    .handler(async ({ input }) => {
+      const data = await conversationAnalyticsService.getAssignedByAdmin(input)
+      return { data }
+    }),
+  uniqueConversationsByAdminAnalyticsAPI: os
+    .route({
+      method: "GET",
+      path: "/analytics/unique-conversations-by-admin",
+      summary: "Get unique conversations by admin",
+      tags: ["Analytics"],
+    })
+    .input(timeRangeQuerySchema)
+    .output(getUniqueConversationsByAdminResponseSchema)
+    .handler(async ({ input }) => {
+      const data =
+        await conversationAnalyticsService.getUniqueConversationsByAdmin(input)
       return { data }
     }),
 })

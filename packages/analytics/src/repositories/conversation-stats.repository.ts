@@ -1,8 +1,12 @@
+import { db } from "@aha.chat/database/client"
 import type {
   ConversationArchivedStats,
+  ConversationAssignedByAdminStats,
+  ConversationAssignedStats,
   ConversationFollowUpStats,
   ConversationHandoffStats,
   TimeRangeQuery,
+  UniqueConversationsByAdminStats,
 } from "../schemas"
 import { BaseRepository } from "./base.repository"
 
@@ -137,6 +141,173 @@ export class ConversationStatsRepository extends BaseRepository {
       chatbotId: row.chatbot_id,
       timestamp: new Date(row.day),
       count: Number(row.count),
+    }))
+  }
+
+  async getAssignedByDay(
+    props: TimeRangeQuery,
+  ): Promise<ConversationAssignedStats[]> {
+    const { chatbotId } = props
+
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+    const dayGroup = this.buildDayGroupFromHourly(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        day_group as day,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          ${dayGroup} as day_group,
+          countMerge(assigned_count_state) as count
+        FROM conversation_assigned_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, day_group
+      )
+      GROUP BY chatbot_id, day_group
+      ORDER BY day ASC
+    `
+
+    const result = await this.query<{
+      chatbot_id: string
+      day: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    return result.map((row) => ({
+      chatbotId: row.chatbot_id,
+      timestamp: new Date(row.day),
+      count: Number(row.count),
+    }))
+  }
+
+  async getAssignedByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<ConversationAssignedByAdminStats[]> {
+    const { chatbotId } = props
+
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        to_assignee,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          to_assignee,
+          countMerge(assigned_count_state) as count
+        FROM conversation_assigned_by_admin_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, to_assignee
+      )
+      GROUP BY chatbot_id, to_assignee
+      ORDER BY count DESC
+    `
+
+    const clickhouseResult = await this.query<{
+      chatbot_id: string
+      to_assignee: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    const members = await db.query.chatbotMemberModel.findMany({
+      where: { chatbotId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const assignmentsByUserId = new Map<string, number>()
+    for (const row of clickhouseResult) {
+      assignmentsByUserId.set(row.to_assignee, Number(row.count))
+    }
+
+    return members.map((member) => ({
+      chatbotId,
+      toAssignee: member.userId,
+      count: assignmentsByUserId.get(member.userId) || 0,
+      userName: member.user?.name || undefined,
+      userEmail: member.user?.email || undefined,
+    }))
+  }
+
+  async getUniqueConversationsByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<UniqueConversationsByAdminStats[]> {
+    const { chatbotId } = props
+
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        to_assignee,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          to_assignee,
+          uniqMerge(unique_conversation_state) as count
+        FROM unique_conversations_by_admin_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, to_assignee
+      )
+      GROUP BY chatbot_id, to_assignee
+      ORDER BY count DESC
+    `
+
+    const clickhouseResult = await this.query<{
+      chatbot_id: string
+      to_assignee: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    const members = await db.query.chatbotMemberModel.findMany({
+      where: { chatbotId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const countByUserId = new Map<string, number>()
+    for (const row of clickhouseResult) {
+      countByUserId.set(row.to_assignee, Number(row.count))
+    }
+
+    return members.map((member) => ({
+      chatbotId,
+      toAssignee: member.userId,
+      count: countByUserId.get(member.userId) || 0,
+      userName: member.user?.name || undefined,
+      userEmail: member.user?.email || undefined,
     }))
   }
 }

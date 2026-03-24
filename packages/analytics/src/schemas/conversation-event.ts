@@ -81,3 +81,55 @@ export const getConversationArchivedResponseSchema = z.object({
 export type GetConversationArchivedResponse = z.infer<
   typeof getConversationArchivedResponseSchema
 >
+
+export const conversationAssignedStatsSchema = z.object({
+  chatbotId: z.string(),
+  count: z.number(),
+  timestamp: z.date(),
+})
+export type ConversationAssignedStats = z.infer<
+  typeof conversationAssignedStatsSchema
+>
+
+export const getConversationAssignedResponseSchema = z.object({
+  data: z.array(conversationAssignedStatsSchema),
+})
+export type GetConversationAssignedResponse = z.infer<
+  typeof getConversationAssignedResponseSchema
+>
+
+export const conversationAssignedByAdminStatsSchema = z.object({
+  chatbotId: z.string(),
+  toAssignee: z.string(),
+  count: z.number(),
+  userName: z.string().optional(),
+  userEmail: z.string().optional(),
+})
+export type ConversationAssignedByAdminStats = z.infer<
+  typeof conversationAssignedByAdminStatsSchema
+>
+
+export const getConversationAssignedByAdminResponseSchema = z.object({
+  data: z.array(conversationAssignedByAdminStatsSchema),
+})
+export type GetConversationAssignedByAdminResponse = z.infer<
+  typeof getConversationAssignedByAdminResponseSchema
+>
+
+export const uniqueConversationsByAdminStatsSchema = z.object({
+  chatbotId: z.string(),
+  toAssignee: z.string(),
+  count: z.number(),
+  userName: z.string().optional(),
+  userEmail: z.string().optional(),
+})
+export type UniqueConversationsByAdminStats = z.infer<
+  typeof uniqueConversationsByAdminStatsSchema
+>
+
+export const getUniqueConversationsByAdminResponseSchema = z.object({
+  data: z.array(uniqueConversationsByAdminStatsSchema),
+})
+export type GetUniqueConversationsByAdminResponse = z.infer<
+  typeof getUniqueConversationsByAdminResponseSchema
+>

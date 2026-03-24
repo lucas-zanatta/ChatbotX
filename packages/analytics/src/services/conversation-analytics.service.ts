@@ -1,9 +1,12 @@
 import { conversationStatsRepository } from "../repositories/conversation-stats.repository"
 import type {
   ConversationArchivedStats,
+  ConversationAssignedByAdminStats,
+  ConversationAssignedStats,
   ConversationFollowUpStats,
   ConversationHandoffStats,
   TimeRangeQuery,
+  UniqueConversationsByAdminStats,
 } from "../schemas"
 
 export class ConversationAnalyticsService {
@@ -21,6 +24,24 @@ export class ConversationAnalyticsService {
     props: TimeRangeQuery,
   ): Promise<ConversationArchivedStats[]> {
     return conversationStatsRepository.getArchivedByDay(props)
+  }
+
+  getAssignedByDay(
+    props: TimeRangeQuery,
+  ): Promise<ConversationAssignedStats[]> {
+    return conversationStatsRepository.getAssignedByDay(props)
+  }
+
+  getAssignedByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<ConversationAssignedByAdminStats[]> {
+    return conversationStatsRepository.getAssignedByAdmin(props)
+  }
+
+  getUniqueConversationsByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<UniqueConversationsByAdminStats[]> {
+    return conversationStatsRepository.getUniqueConversationsByAdmin(props)
   }
 }
 
