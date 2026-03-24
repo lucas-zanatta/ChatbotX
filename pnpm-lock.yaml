@@ -298,7 +298,7 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
       zustand:
-        specifier: ^5.0.11
+        specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@aha.chat/typescript-config':
@@ -554,10 +554,10 @@ importers:
         specifier: ^1.14.3
         version: 1.14.3
       mailparser:
-        specifier: ^3.9.3
+        specifier: ^3.9.4
         version: 3.9.4
       mammoth:
-        specifier: ^1.11.0
+        specifier: ^1.12.0
         version: 1.12.0
       mime-types:
         specifier: ^3.0.2
@@ -16293,7 +16293,7 @@ snapshots:
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
 
   '@types/d3-array@3.2.2': {}
 
@@ -16450,7 +16450,7 @@ snapshots:
 
   '@types/mailparser@3.4.6':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
       iconv-lite: 0.6.3
 
   '@types/markdown-it@14.1.2':
@@ -16481,7 +16481,7 @@ snapshots:
 
   '@types/needle@3.3.0':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
 
   '@types/node@24.10.13':
     dependencies:
@@ -16493,20 +16493,20 @@ snapshots:
 
   '@types/nodemailer@7.0.11':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
 
   '@types/parse-json@4.0.2': {}
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
   '@types/probe-image-size@7.2.5':
     dependencies:
       '@types/needle': 3.3.0
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -16542,7 +16542,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -17659,7 +17659,7 @@ snapshots:
   engine.io@6.6.6:
     dependencies:
       '@types/cors': 2.8.19
-      '@types/node': 24.12.0
+      '@types/node': 24.10.13
       '@types/ws': 8.18.1
       accepts: 1.3.8
       base64id: 2.0.0
