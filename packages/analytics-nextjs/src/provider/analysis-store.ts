@@ -20,12 +20,15 @@ import type {
   GetMessagesBySenderStatsResponseSchema,
   GetMessagesStatsResponseSchema,
   GetUniqueConversationsByAdminResponse,
+  HumanAgentStats,
+  MessagesByAdminStats,
   MessagesBySenderStats,
   UniqueConversationsByAdminStats,
 } from "@chatbotx.io/analytics"
 import { endOfToday, startOfToday, subDays } from "date-fns"
 import ky, { HTTPError } from "ky"
 import { createStore } from "zustand/vanilla"
+import type { GetHumanAgentStatsResponseSchema } from "../../../analytics/src/schemas/contact-stats"
 
 export type AnalysisState = {
   loading: boolean
@@ -53,8 +56,10 @@ export type AnalysisState = {
   conversationAssigned: ConversationAssignedStats[]
   conversationAssignedByAdmin: ConversationAssignedByAdminStats[]
   uniqueConversationsByAdmin: UniqueConversationsByAdminStats[]
+  messagesByAdmin: MessagesByAdminStats[]
   botMessagesWithResponse: BotMessageStats[]
   botMessagesNoResponse: BotMessageStats[]
+  humanAgentStats: HumanAgentStats[]
 }
 
 export type AnalysisActions = {
@@ -80,8 +85,10 @@ export type AnalysisActions = {
   getConversationAssigned: () => Promise<void>
   getConversationAssignedByAdmin: () => Promise<void>
   getUniqueConversationsByAdmin: () => Promise<void>
+  getMessagesByAdmin: () => Promise<void>
   getBotMessagesWithResponse: () => Promise<void>
   getBotMessagesNoResponse: () => Promise<void>
+  getHumanAgentStats: () => Promise<void>
 }
 
 export type AnalysisStore = AnalysisState & AnalysisActions
@@ -115,8 +122,10 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     conversationAssigned: [],
     conversationAssignedByAdmin: [],
     uniqueConversationsByAdmin: [],
+    messagesByAdmin: [],
     botMessagesWithResponse: [],
     botMessagesNoResponse: [],
+    humanAgentStats: [],
 
     initialize: async () => {
       const { loadAnalysisData } = get()
@@ -156,8 +165,10 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getConversationAssigned,
         getConversationAssignedByAdmin,
         getUniqueConversationsByAdmin,
+        getMessagesByAdmin,
         getBotMessagesWithResponse,
         getBotMessagesNoResponse,
+        getHumanAgentStats,
       } = get()
       set({ loading: true, errors: new Map<string, string>() })
 
@@ -179,8 +190,10 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getConversationAssigned(),
         getConversationAssignedByAdmin(),
         getUniqueConversationsByAdmin(),
+        getMessagesByAdmin(),
         getBotMessagesWithResponse(),
         getBotMessagesNoResponse(),
+        getHumanAgentStats(),
       ])
       set({ loading: false })
     },
@@ -538,6 +551,26 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
       }
     },
 
+    getMessagesByAdmin: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/messages-by-admin", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetMessagesByAdminStatsResponseSchema>()
+
+        set({ messagesByAdmin: result.data })
+      } catch (error: unknown) {
+        get().handleError("getMessagesByAdmin", error)
+      }
+    },
+
     getBotMessagesWithResponse: async () => {
       const { defaultSearchParams, from, to } = get()
 
@@ -577,6 +610,26 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         set({ botMessagesNoResponse })
       } catch (error: unknown) {
         get().handleError("getBotMessagesNoResponse", error)
+      }
+    },
+
+    getHumanAgentStats: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const { data: humanAgentStats } = await ky
+          .get("/api/analytics/human-agent-stats", {
+            searchParams: {
+              ...defaultSearchParams,
+              from: from.toISOString(),
+              to: to.toISOString(),
+            },
+          })
+          .json<GetHumanAgentStatsResponseSchema>()
+
+        set({ humanAgentStats })
+      } catch (error: unknown) {
+        get().handleError("getHumanAgentStats", error)
       }
     },
   }))

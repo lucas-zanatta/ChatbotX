@@ -11,10 +11,13 @@ import type {
   ContactEventType,
   ContactStats,
   ContactsByDimension,
+  HumanAgentStats,
   MessagesBySenderStats,
   TimeRangeQuery,
+  UniqueContactsByAdminStats,
 } from "../schemas"
 import { BaseRepository } from "./base.repository"
+import { conversationStatsRepository } from "./conversation-stats.repository"
 
 export class ContactStatsRepository extends BaseRepository {
   async getStatsByMinute(
@@ -787,6 +790,177 @@ export class ContactStatsRepository extends BaseRepository {
       channel: row.channel,
       senderType: row.sender_type,
       count: Number(row.count),
+    }))
+  }
+
+  async getMessagesByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<MessagesByAdminStats[]> {
+    const { chatbotId } = props
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        admin_id,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          admin_id,
+          countMerge(message_count_state) as count
+        FROM messages_by_admin_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, admin_id
+      )
+      GROUP BY chatbot_id, admin_id
+      ORDER BY count DESC
+    `
+
+    const clickhouseResult = await this.query<{
+      chatbot_id: string
+      admin_id: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    const members = await db.query.chatbotMemberModel.findMany({
+      where: { chatbotId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const countByUserId = new Map<string, number>()
+    for (const row of clickhouseResult) {
+      countByUserId.set(row.admin_id, Number(row.count))
+    }
+
+    return members.map((member) => ({
+      chatbotId,
+      adminId: member.userId,
+      count: countByUserId.get(member.userId) || 0,
+      userName: member.user?.name || undefined,
+      userEmail: member.user?.email || undefined,
+    }))
+  }
+
+  async getUniqueContactsByAdmin(
+    props: TimeRangeQuery,
+  ): Promise<UniqueContactsByAdminStats[]> {
+    const { chatbotId } = props
+    const timeFilter = this.buildHourlyTimestampFilter(props)
+
+    const sql = `
+      SELECT
+        chatbot_id,
+        admin_id,
+        sum(count) as count
+      FROM (
+        SELECT
+          chatbot_id,
+          admin_id,
+          uniqMerge(unique_contacts_state) as count
+        FROM contacts_by_admin_hourly
+        WHERE chatbot_id = {chatbotId:String}
+          AND ${timeFilter.sql}
+        GROUP BY chatbot_id, admin_id
+      )
+      GROUP BY chatbot_id, admin_id
+      ORDER BY count DESC
+    `
+
+    const clickhouseResult = await this.query<{
+      chatbot_id: string
+      admin_id: string
+      count: string
+    }>(sql, {
+      chatbotId,
+      ...timeFilter.params,
+    })
+
+    const members = await db.query.chatbotMemberModel.findMany({
+      where: { chatbotId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const countByUserId = new Map<string, number>()
+    for (const row of clickhouseResult) {
+      countByUserId.set(row.admin_id, Number(row.count))
+    }
+
+    return members.map((member) => ({
+      chatbotId,
+      toAssignee: member.userId,
+      count: countByUserId.get(member.userId) || 0,
+      userName: member.user?.name || undefined,
+      userEmail: member.user?.email || undefined,
+    }))
+  }
+
+  async getHumanAgentStats(props: TimeRangeQuery): Promise<HumanAgentStats[]> {
+    const { chatbotId } = props
+
+    const [messagesByAdmin, contactsByAdmin, assignedByAdmin] =
+      await Promise.all([
+        this.getMessagesByAdmin(props),
+        this.getUniqueContactsByAdmin(props),
+        conversationStatsRepository.getAssignedByAdmin(props),
+      ])
+
+    const members = await db.query.chatbotMemberModel.findMany({
+      where: { chatbotId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    const messagesByUserId = new Map<string, number>()
+    for (const stat of messagesByAdmin) {
+      messagesByUserId.set(stat.adminId, stat.count)
+    }
+
+    const contactsByUserId = new Map<string, number>()
+    for (const stat of contactsByAdmin) {
+      contactsByUserId.set(stat.toAssignee, stat.count)
+    }
+
+    const assignedByUserId = new Map<string, number>()
+    for (const stat of assignedByAdmin) {
+      assignedByUserId.set(stat.toAssignee, stat.count)
+    }
+
+    return members.map((member) => ({
+      chatbotId,
+      adminId: member.userId,
+      messagesSent: messagesByUserId.get(member.userId) || 0,
+      uniqueContacts: contactsByUserId.get(member.userId) || 0,
+      assignedConversations: assignedByUserId.get(member.userId) || 0,
+      userName: member.user?.name || undefined,
+      userEmail: member.user?.email || undefined,
     }))
   }
 }

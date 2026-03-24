@@ -70,6 +70,14 @@ export class ContactAnalyticsService {
   ): Promise<MessagesBySenderStats[]> {
     return contactStatsRepository.getMessagesBySender(props)
   }
+
+  getMessagesByAdmin(props: TimeRangeQuery): Promise<MessagesByAdminStats[]> {
+    return contactStatsRepository.getMessagesByAdmin(props)
+  }
+
+  getHumanAgentStats(props: TimeRangeQuery): Promise<HumanAgentStats[]> {
+    return contactStatsRepository.getHumanAgentStats(props)
+  }
 }
 
 export const contactAnalyticsService = new ContactAnalyticsService()

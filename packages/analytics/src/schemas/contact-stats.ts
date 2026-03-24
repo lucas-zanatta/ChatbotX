@@ -42,3 +42,37 @@ export const getMessagesBySenderStatsResponseSchema = z.object({
 export type GetMessagesBySenderStatsResponseSchema = z.infer<
   typeof getMessagesBySenderStatsResponseSchema
 >
+
+export const messagesByAdminStatsSchema = z.object({
+  adminId: z.string(),
+  chatbotId: z.string(),
+  count: z.number(),
+  userEmail: z.string().optional(),
+  userName: z.string().optional(),
+})
+export type MessagesByAdminStats = z.infer<typeof messagesByAdminStatsSchema>
+
+export const getMessagesByAdminStatsResponseSchema = z.object({
+  data: z.array(messagesByAdminStatsSchema),
+})
+export type GetMessagesByAdminStatsResponseSchema = z.infer<
+  typeof getMessagesByAdminStatsResponseSchema
+>
+
+export const humanAgentStatsSchema = z.object({
+  adminId: z.string(),
+  chatbotId: z.string(),
+  assignedConversations: z.number(),
+  messagesSent: z.number(),
+  uniqueContacts: z.number(),
+  userEmail: z.string().optional(),
+  userName: z.string().optional(),
+})
+export type HumanAgentStats = z.infer<typeof humanAgentStatsSchema>
+
+export const getHumanAgentStatsResponseSchema = z.object({
+  data: z.array(humanAgentStatsSchema),
+})
+export type GetHumanAgentStatsResponseSchema = z.infer<
+  typeof getHumanAgentStatsResponseSchema
+>
