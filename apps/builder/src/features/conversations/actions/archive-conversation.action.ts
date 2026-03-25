@@ -39,7 +39,7 @@ export const archiveConversationAction = chatbotActionClient
         columns: {
           id: true,
           contactId: true,
-          inboxType: true,
+          channel: true,
         },
       })
 
@@ -76,7 +76,7 @@ export const archiveConversationAction = chatbotActionClient
             conversationId: conv.id,
             eventType: "conversation_archived",
             eventId: createId(),
-            channel: conv.inboxType,
+            channel: conv.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {

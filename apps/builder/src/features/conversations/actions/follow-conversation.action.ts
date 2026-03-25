@@ -32,7 +32,7 @@ export const followConversationAction = chatbotActionClient
         columns: {
           id: true,
           contactId: true,
-          inboxType: true,
+          channel: true,
         },
       })
 
@@ -69,7 +69,7 @@ export const followConversationAction = chatbotActionClient
           conversationId: conversation.id,
           eventType: "conversation_followed",
           eventId: createId(),
-          channel: conversation.inboxType,
+          channel: conversation.channel,
           occurredAt: new Date(),
           metadata: {
             triggerContext: {

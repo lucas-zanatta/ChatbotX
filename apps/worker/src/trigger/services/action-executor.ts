@@ -222,7 +222,7 @@ export class ActionExecutor {
             chatbotId,
             conversationId: conversation.id,
             eventType: "conversation_transferred_to_human",
-            channel: conversation.inboxType,
+            channel: conversation.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {
@@ -251,7 +251,7 @@ export class ActionExecutor {
             chatbotId,
             conversationId: conversation.id,
             eventType: "conversation_transferred_to_bot",
-            channel: conversation.inboxType,
+            channel: conversation.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {
@@ -285,7 +285,7 @@ export class ActionExecutor {
             chatbotId,
             conversationId: conversation.id,
             eventType: "conversation_transferred_to_human",
-            channel: conversation.inboxType,
+            channel: conversation.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {

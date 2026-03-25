@@ -80,7 +80,7 @@ export async function stepArchiveConversation({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_archived",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {
@@ -111,7 +111,7 @@ export async function stepUnarchiveConversation({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_unarchived",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {
@@ -187,7 +187,7 @@ export async function stepAssignConversation({
         chatbotId: conversation.chatbotId,
         conversationId: conversation.id,
         eventType: "conversation_assigned",
-        channel: conversation.inboxType,
+        channel: conversation.channel,
         occurredAt: new Date(),
         toAssignee: assignedTo,
         metadata: {
@@ -384,7 +384,7 @@ export async function stepAutoAssignConversation({
         chatbotId: conversation.chatbotId,
         conversationId: conversation.id,
         eventType: "conversation_assigned",
-        channel: conversation.inboxType,
+        channel: conversation.channel,
         occurredAt: new Date(),
         toAssignee: assignedTo,
         metadata: {
@@ -461,7 +461,7 @@ export async function stepFollowConversation({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_followed",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {
@@ -492,7 +492,7 @@ export async function stepUnfollowConversation({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_unfollowed",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {
@@ -534,7 +534,7 @@ export async function stepDisableBot({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_transferred_to_human",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {
@@ -576,7 +576,7 @@ export async function stepEnableBot({
       chatbotId: conversation.chatbotId,
       conversationId: conversation.id,
       eventType: "conversation_transferred_to_bot",
-      channel: conversation.inboxType,
+      channel: conversation.channel,
       occurredAt: new Date(),
       metadata: {
         triggerContext: {

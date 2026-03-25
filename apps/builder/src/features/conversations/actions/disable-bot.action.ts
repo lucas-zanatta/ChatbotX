@@ -39,7 +39,7 @@ export const disableBotAction = chatbotActionClient
         columns: {
           id: true,
           contactId: true,
-          inboxType: true,
+          channel: true,
         },
       })
 
@@ -79,7 +79,7 @@ export const disableBotAction = chatbotActionClient
             conversationId: conv.id,
             eventType: "conversation_transferred_to_human",
             eventId: createId(),
-            channel: conv.inboxType,
+            channel: conv.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {

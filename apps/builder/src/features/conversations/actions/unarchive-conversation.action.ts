@@ -33,7 +33,7 @@ export const unarchiveConversationAction = chatbotActionClient
         },
         columns: {
           id: true,
-          inboxType: true,
+          channel: true,
         },
       })
 
@@ -56,7 +56,7 @@ export const unarchiveConversationAction = chatbotActionClient
             conversationId: conv.id,
             eventType: "conversation_unarchived",
             eventId: createId(),
-            channel: conv.inboxType,
+            channel: conv.channel,
             occurredAt: new Date(),
             metadata: {
               triggerContext: {

@@ -26,7 +26,7 @@ export const unfollowConversationAction = chatbotActionClient
         },
         columns: {
           id: true,
-          inboxType: true,
+          channel: true,
         },
       })
 
@@ -52,7 +52,7 @@ export const unfollowConversationAction = chatbotActionClient
           conversationId: conversation.id,
           eventType: "conversation_unfollowed",
           eventId: createId(),
-          channel: conversation.inboxType,
+          channel: conversation.channel,
           occurredAt: new Date(),
           metadata: {
             triggerContext: {
