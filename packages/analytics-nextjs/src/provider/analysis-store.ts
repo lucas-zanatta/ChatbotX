@@ -28,7 +28,10 @@ import type {
 import { endOfToday, startOfToday, subDays } from "date-fns"
 import ky, { HTTPError } from "ky"
 import { createStore } from "zustand/vanilla"
-import type { GetHumanAgentStatsResponseSchema } from "../../../analytics/src/schemas/contact-stats"
+import type {
+  GetHumanAgentStatsResponseSchema,
+  GetMessagesByAdminStatsResponseSchema,
+} from "../../../analytics/src/schemas/contact-stats"
 
 export type AnalysisState = {
   loading: boolean
