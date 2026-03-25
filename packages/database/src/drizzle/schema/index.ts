@@ -15,9 +15,11 @@ import {
   varchar,
   vector,
 } from "drizzle-orm/pg-core"
+import type { OrganizationSettings } from "./organization-settings"
 import { sharedColumns, timestampConfig } from "./shared"
 
 export * from "drizzle-orm/zod"
+export * from "./enterprise"
 
 export const logType = pgEnum("LogType", ["error", "audit"])
 export const customFieldType = pgEnum("CustomFieldType", [
@@ -62,12 +64,6 @@ export const broadcastStatus = pgEnum("BroadcastStatus", ["scheduled", "sent"])
 export const broadcastSchedulesType = pgEnum("BroadcastSchedulesType", [
   "now",
   "future",
-])
-export const inboxType = pgEnum("InboxType", [
-  "webchat",
-  "messenger",
-  "whatsapp",
-  "zalo",
 ])
 export const aiEmbeddingStatus = pgEnum("AIEmbeddingStatus", [
   "pending",
@@ -417,7 +413,7 @@ export const broadcastModel = pgTable(
     schedulesAt: timestamp(timestampConfig).notNull(),
     contactFilter: jsonb(),
     subaction: text().default("BSOO").notNull(),
-    inboxType: text().default("omnichannel").notNull(),
+    channel: text().default("omnichannel").notNull(),
   },
   (table) => [
     index("Broadcast_chatbotId_idx").using(
@@ -428,9 +424,9 @@ export const broadcastModel = pgTable(
       "btree",
       table.flowId.asc().nullsLast().op("text_ops"),
     ),
-    index("Broadcast_inboxType_idx").using(
+    index("Broadcast_channel_idx").using(
       "btree",
-      table.inboxType.asc().nullsLast().op("text_ops"),
+      table.channel.asc().nullsLast().op("text_ops"),
     ),
     index("Broadcast_schedulesAt_idx").using(
       "btree",
@@ -516,8 +512,20 @@ export const contactModel = pgTable(
     firstName: text(),
     lastName: text(),
     gender: gender().notNull(),
-    source: text().notNull(),
+    channel: text().notNull(),
     lastReadAt: timestamp(timestampConfig),
+    source: text(),
+    ref: text(),
+    country: text(),
+    state: text(),
+    city: text(),
+    location: jsonb().$type<{
+      latitude: number
+      longitude: number
+    }>(),
+    locale: text(),
+    timezone: text(),
+    subscribedAt: timestamp(timestampConfig),
     sourceId: text(),
     blockedAt: timestamp(timestampConfig),
     enableBroadcast: boolean().default(false).notNull(),
@@ -639,7 +647,7 @@ export const conversationModel = pgTable(
     ...sharedColumns,
     liveChatEnabled: boolean().default(false).notNull(),
     archivedAt: timestamp(timestampConfig),
-    inboxType: inboxType().notNull().default("webchat"),
+    channel: text().notNull().default("webchat"),
     sourceId: text(),
     conversationAttributes: jsonb().$type<{ [x: string]: unknown }>(),
     contactLastReadAt: timestamp(timestampConfig),
@@ -914,7 +922,8 @@ export const inboxModel = pgTable(
   "Inbox",
   {
     ...sharedColumns,
-    inboxType: inboxType().notNull(),
+    name: text().notNull().default(""),
+    channel: text().notNull(),
     sourceId: text().notNull(),
     chatbotId: text()
       .notNull()
@@ -930,11 +939,10 @@ export const inboxModel = pgTable(
       "btree",
       table.chatbotId.asc().nullsLast().op("text_ops"),
     ),
-    uniqueIndex("Inbox_chatbotId_inboxType_sourceId_key").using(
+    uniqueIndex("Inbox_chatbotId_channel_sourceId_key").using(
       "btree",
-      table.chatbotId.asc().nullsLast().op("text_ops"),
-      table.inboxType.asc().nullsLast().op("enum_ops"),
-      table.sourceId.asc().nullsLast().op("enum_ops"),
+      table.channel.asc().nullsLast().op("text_ops"),
+      table.sourceId.asc().nullsLast().op("text_ops"),
     ),
   ],
 )
@@ -1358,23 +1366,16 @@ export const errorLogModel = pgTable("ErrorLog", {
   }),
 })
 
-export const auditLogModel = pgTable("AuditLog", {
+export const savedReplyModel = pgTable("SavedReply", {
   ...sharedColumns,
-  action: text().notNull(),
-  detail: text().notNull(),
-  chatbotId: text()
-    .notNull()
-    .references(() => chatbotModel.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-      name: "AuditLog_chatbotId_fkey",
-    }),
+  shortcut: text().notNull(),
+  text: text().notNull(),
   userId: text()
     .notNull()
     .references(() => userModel.id, {
-      onDelete: "set null",
+      onDelete: "cascade",
       onUpdate: "cascade",
-      name: "AuditLog_userId_fkey",
+      name: "SavedReply_userId_fkey",
     }),
 })
 
@@ -1447,7 +1448,7 @@ export const organizationModel = pgTable(
     metadata: text(),
     domain: text(),
     supportEmail: text(),
-    settings: jsonb().default({}).notNull(),
+    settings: jsonb().$type<OrganizationSettings>().default({}).notNull(),
     defaultMaxContacts: integer().default(999_999_999).notNull(),
   },
   (table) => [

@@ -1,5 +1,4 @@
-import { createSelectSchema, inboxType } from "@aha.chat/database/schema"
-import { WEBCHAT_SOURCE_PREFIX } from "@aha.chat/database/types"
+import { channelType, WEBCHAT_SOURCE_PREFIX } from "@aha.chat/database/types"
 import { z } from "zod"
 
 const MAX_FILE_SIZE = 5 * 1000 * 1000
@@ -23,6 +22,7 @@ export const createMessageRequest = z
     // }),
     z.object({
       flowId: z.cuid2(),
+      nodeId: z.cuid2().optional(),
     }),
   ])
   .and(
@@ -73,7 +73,7 @@ export type CreateWebchatMessageRequest = z.infer<
 
 export const sendFileMessageRequest = z.object({
   contactId: z.string(),
-  channel: createSelectSchema(inboxType),
+  channel: z.enum(channelType),
   file: z.file().refine((file) => file.size <= MAX_FILE_SIZE, {
     message: "Max image size is 5MB.",
   }),
@@ -81,12 +81,12 @@ export const sendFileMessageRequest = z.object({
 
 export const sendFlowMessageRequest = z.object({
   contactId: z.string(),
-  channel: createSelectSchema(inboxType),
+  channel: z.enum(channelType),
   flowId: z.cuid2(),
 })
 
 export const chatbotTokenCreateMessageRequest = createMessageRequest.and(
   z.object({
-    channel: createSelectSchema(inboxType),
+    channel: z.enum(channelType),
   }),
 )

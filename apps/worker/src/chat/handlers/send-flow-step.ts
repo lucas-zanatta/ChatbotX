@@ -254,9 +254,9 @@ export async function sendFlowStep({
     await Promise.all(promises)
 
     if (conversation.contact?.sourceId) {
-      const inbox = await db.query.inboxModel.findFirst({
+      const _inbox = await db.query.inboxModel.findFirst({
         where: { id: conversation.inboxId },
-        columns: { inboxType: true },
+        columns: { channel: true },
       })
       contactTrackingService
         .trackEvent({
@@ -265,9 +265,9 @@ export async function sendFlowStep({
           eventType: "contact_message_out",
           senderType: "bot",
           occurredAt: new Date(),
-          source: conversation.contact.source ?? undefined,
+          source: conversation.contact.source,
           sourceId: conversation.contact.sourceId,
-          channel: inbox?.inboxType ?? undefined,
+          channel: conversation.channel,
           metadata: {
             triggerContext: {
               triggerSource: "worker",
@@ -403,7 +403,7 @@ export const sendChatMessage = async (
     )
 
     await allIntegrations[
-      inbox.inboxType
+      inbox.channel
     ]?.channels?.channel?.message?.sendMessage?.({
       ctx: {
         chatbot: inbox.chatbot,
@@ -460,9 +460,9 @@ export const sendChatMessage = async (
           eventType: "contact_message_out",
           senderType: "bot",
           occurredAt: new Date(),
-          source: contact.source ?? undefined,
+          source: contact.source,
           sourceId: contact.sourceId,
-          channel: inbox.inboxType,
+          channel: inbox.channel,
           metadata: {
             triggerContext: {
               triggerSource: "worker",
@@ -540,7 +540,7 @@ export const sendTyping = async (
   )
 
   await allIntegrations[
-    inbox.inboxType
+    inbox.channel
   ]?.channels?.channel?.conversation?.sendTyping?.({
     ctx,
     data: { conversation, typing },

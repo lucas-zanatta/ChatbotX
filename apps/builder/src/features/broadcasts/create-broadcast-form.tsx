@@ -1,14 +1,10 @@
 "use client"
 
-import {
-  BroadcastFlowType,
-  type BroadcastInboxType,
-  BroadcastSubaction,
-} from "@aha.chat/database/enums"
+import { BroadcastFlowType, BroadcastSubaction } from "@aha.chat/database/enums"
 import {
   type BroadcastSchedulesType,
-  type InboxType,
-  Omnichannel,
+  type ChannelType,
+  channelType,
 } from "@aha.chat/database/types"
 import {
   extractTemplateParams,
@@ -57,7 +53,7 @@ import {
 } from "../integration-whatsapp/provider/integration-store-context"
 
 type BroadcastConfig = {
-  value: BroadcastInboxType
+  value: ChannelType
   description: string
   subactions: {
     value: BroadcastSubaction
@@ -69,7 +65,7 @@ type BroadcastConfig = {
 const getConfigs = (t: ReturnType<typeof useTranslations>) =>
   [
     {
-      value: Omnichannel,
+      value: channelType.omnichannel,
       description:
         "Send a flow to all contacts. You can send messages or executes actions.",
       subactions: [
@@ -172,7 +168,7 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
       formProps: {
         mode: "onChange",
         defaultValues: {
-          inboxType: undefined,
+          channel: undefined,
           flowId: undefined,
           subaction: BroadcastSubaction.allContacts,
           schedulesType: "now",
@@ -191,9 +187,9 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
     control: form.control,
     name: "subaction",
   })
-  const watchedInboxType = useWatch({
+  const watchedChannel = useWatch({
     control: form.control,
-    name: "inboxType",
+    name: "channel",
   })
   const watchedIntegrationWhatsappId = useWatch({
     control: form.control,
@@ -220,17 +216,15 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
                 className="flex-1 space-y-4"
                 onSubmit={handleSubmitWithAction}
               >
-                {!watchedInboxType && <CreateBroadcastChooseChannel />}
+                {!watchedChannel && <CreateBroadcastChooseChannel />}
 
-                {watchedInboxType && !watchedSubAction && (
-                  <CreateBroadcastChooseSubaction
-                    inboxType={watchedInboxType}
-                  />
+                {watchedChannel && !watchedSubAction && (
+                  <CreateBroadcastChooseSubaction channel={watchedChannel} />
                 )}
 
-                {watchedInboxType && watchedSubAction && (
+                {watchedChannel && watchedSubAction && (
                   <CreateBroadcastChooseFlow
-                    inboxType={watchedInboxType}
+                    channel={watchedChannel}
                     subaction={watchedSubAction}
                   />
                 )}
@@ -239,6 +233,7 @@ export function CreateBroadcastForm({ chatbotId }: CreateBroadcastFormProps) {
           </div>
         </TemplateStoreProvider>
       </IntegrationStoreProvider>
+      =
     </FlowStoreProvider>
   )
 }
@@ -253,12 +248,12 @@ function CreateBroadcastChooseChannel() {
   const configs = useMemo(() => getConfigs(t), [t])
 
   const handleChooseChannel = useCallback(
-    (inboxType: InboxType) => {
-      setValue("inboxType", inboxType)
-      if (inboxType !== "messenger" && inboxType !== "whatsapp") {
-        setValue("subaction", BroadcastSubaction.allContacts)
-      } else {
+    (channel: ChannelType) => {
+      setValue("channel", channel)
+      if (channel === "messenger" || channel === "whatsapp") {
         setValue("subaction", null)
+      } else {
+        setValue("subaction", BroadcastSubaction.allContacts)
       }
     },
     [setValue],
@@ -277,10 +272,10 @@ function CreateBroadcastChooseChannel() {
         {configs.map((config) => (
           <div className="flex w-full items-center gap-2" key={config.value}>
             <div className="flex-1">
-              <InboxIcon inboxType={config.value as InboxType} />
+              <InboxIcon channel={config.value} />
             </div>
             <Button
-              onClick={() => handleChooseChannel(config.value as InboxType)}
+              onClick={() => handleChooseChannel(config.value)}
               type="button"
               variant="secondary"
             >
@@ -299,19 +294,15 @@ function CreateBroadcastChooseChannel() {
   )
 }
 
-function CreateBroadcastChooseSubaction({
-  inboxType,
-}: {
-  inboxType: BroadcastInboxType
-}) {
+function CreateBroadcastChooseSubaction({ channel }: { channel: ChannelType }) {
   const t = useTranslations()
   const { setValue } = useFormContext()
 
   const configs = useMemo(
     () =>
-      getConfigs(t).find((config) => config.value === inboxType)?.subactions ??
+      getConfigs(t).find((config) => config.value === channel)?.subactions ??
       [],
-    [t, inboxType],
+    [t, channel],
   )
 
   const handleChooseSubaction = useCallback(
@@ -323,7 +314,7 @@ function CreateBroadcastChooseSubaction({
 
   const handleBack = useCallback(() => {
     setValue("subaction", null)
-    setValue("inboxType", null)
+    setValue("channel", null)
   }, [setValue])
 
   return (
@@ -457,7 +448,7 @@ function BroadcastFlowTypeSelector({
 }
 
 type CreateBroadcastChooseFlowProps = {
-  inboxType: BroadcastInboxType
+  channel: ChannelType
   subaction: BroadcastSubaction
 }
 
@@ -529,12 +520,12 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: ignore
   const handleRemoveInbox = useCallback(() => {
-    setValue("inboxType", null)
+    setValue("channel", null)
     setValue("subaction", null)
   }, [])
 
   useEffect(() => {
-    if (props.inboxType) {
+    if (props.channel) {
       const subactions: {
         value: BroadcastSubaction
         name: string
@@ -548,7 +539,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
         setSubactionInfo(selectedSubaction)
       }
     }
-  }, [props.inboxType, props.subaction, t])
+  }, [props.channel, props.subaction, t])
 
   useEffect(() => {
     if (watchedIntegrationWhatsappId) {
@@ -584,10 +575,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
         <Card className="flex gap-2 py-3">
           <CardContent className="flex px-3">
             <div className="flex flex-1 flex-col gap-2">
-              <InboxIcon
-                inboxType={props.inboxType}
-                label={subactionInfo.name}
-              />
+              <InboxIcon channel={props.channel} label={subactionInfo.name} />
               {subactionInfo.description && (
                 <span className="text-gray-500 text-sm">
                   {subactionInfo.description}

@@ -10,6 +10,8 @@ const editionRule = z
   .enum(["community", "enterprise", "cloud"])
   .default("community")
 
+const _isCommunity = process.env.NEXT_PUBLIC_EDITION === "community"
+
 const baseEnv = {
   client: {
     NEXT_PUBLIC_BUILDER_URL: z.url(),

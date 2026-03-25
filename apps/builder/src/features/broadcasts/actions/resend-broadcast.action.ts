@@ -29,7 +29,7 @@ export const resendBroadcastAction = chatbotActionClient
         .values({
           chatbotId,
           flowId: broadcast.flowId,
-          inboxType: broadcast.inboxType,
+          channel: broadcast.channel,
           subaction: broadcast.subaction,
           status: "scheduled",
           schedulesType: "now",

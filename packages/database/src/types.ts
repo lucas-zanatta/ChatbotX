@@ -1,6 +1,7 @@
 import z from "zod"
 import type * as schema from "./drizzle/schema"
-import type { logType } from "./drizzle/schema"
+
+export * from "./drizzle/schema/organization-settings"
 
 export const integrationType = {
   webchat: "webchat",
@@ -13,8 +14,17 @@ export const integrationType = {
   chatbotX: "chatbotX",
 } as const
 
+export const channelType = {
+  omnichannel: "omnichannel",
+  webchat: "webchat",
+  messenger: "messenger",
+  whatsapp: "whatsapp",
+  zalo: "zalo",
+} as const
+export type ChannelType = (typeof channelType)[keyof typeof channelType]
+
 export type IntegrationWebchatModel =
-  typeof schema.integrationWebchatModel.$inferInsert
+  typeof schema.integrationWebchatModel.$inferSelect
 export type UserModel = typeof schema.userModel.$inferSelect
 export type AIAgentModel = typeof schema.aiAgentModel.$inferSelect
 export type AIFunctionModel = typeof schema.aiFunctionModel.$inferSelect
@@ -65,10 +75,9 @@ export type TriggerModel = typeof schema.triggerModel.$inferSelect
 export type WebhookModel = typeof schema.webhookModel.$inferSelect
 export type ConditionModel = typeof schema.conditionModel.$inferSelect
 
+export type PlanModel = typeof schema.planModel.$inferSelect
 export type FolderType = (typeof schema.folderType.enumValues)[number]
-export type LogType = (typeof logType.enumValues)[number]
 export type IntegrationType = keyof typeof integrationType
-export type InboxType = (typeof schema.inboxType.enumValues)[number]
 export type BroadcastSchedulesType =
   (typeof schema.broadcastSchedulesType.enumValues)[number]
 export type FileType = (typeof schema.fileType.enumValues)[number]
@@ -85,20 +94,14 @@ export type AIEmbeddingStatus =
 export type CustomFieldModel = typeof schema.customFieldModel.$inferSelect
 export type BotFieldModel = typeof schema.botFieldModel.$inferSelect
 export type ReflinkModel = typeof schema.reflinkModel.$inferSelect
+export type OrganizationMember =
+  typeof schema.organizationMemberModel.$inferSelect
+
+export * from "./drizzle/schema/organization-settings"
 
 export const Omnichannel = "omnichannel"
 
 export const WEBCHAT_SOURCE_PREFIX = "cw:"
-
-// export const integrationType = pgEnum("IntegrationType", [
-//   "webchat",
-//   "googleSheets",
-//   "messenger",
-//   "openai",
-//   "gemini",
-//   "whatsapp",
-//   "zalo",
-// ])
 
 export const ReplyType = {
   Message: "R01",
@@ -148,51 +151,6 @@ export const AIMessageRole = {
   developer: "developer",
 } as const
 export type AIMessageRole = (typeof AIMessageRole)[keyof typeof AIMessageRole]
-
-export const organizationSettingsSchema = z.object({
-  whatsapp: z
-    .object({
-      clientId: z.string(),
-      clientSecret: z.string(),
-      verifyToken: z.string(),
-      version: z.string(),
-      configId: z.string(),
-      systemUserId: z.string(),
-      systemUserToken: z.string(),
-      businessId: z.string().optional(),
-      businessName: z.string(),
-    })
-    .optional(),
-  googleSheets: z
-    .object({
-      clientId: z.string(),
-      clientSecret: z.string(),
-      verifyToken: z.string(),
-    })
-    .optional(),
-  messenger: z
-    .object({
-      clientId: z.string(),
-      clientSecret: z.string(),
-      verifyToken: z.string(),
-      version: z.string(),
-    })
-    .optional(),
-  zalo: z
-    .object({
-      clientId: z.string(),
-      clientSecret: z.string(),
-      verifyToken: z.string(),
-      version: z.string(),
-    })
-    .optional(),
-  giphy: z
-    .object({
-      apiKey: z.string(),
-    })
-    .optional(),
-})
-export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>
 
 export type AIAgentProvider = {
   provider: "openai" | "gemini"

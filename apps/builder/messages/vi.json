@@ -78,6 +78,8 @@
     "filter": "Lọc",
     "selectFile": "Chọn tệp",
     "insertLink": "Chèn liên kết",
+    "addNew": "Thêm mới",
+    "send": "Gửi",
     "loginWithMagicLink": "Đăng nhập bằng Magic Link",
     "manage": "Quản lý",
     "markEmailVerified": "Đánh dấu email đã xác minh",
@@ -331,7 +333,7 @@
     "update": {
       "title": "Cập nhật phát sóng"
     },
-    "inboxType": {
+    "channel": {
       "messenger": "Messenger",
       "whatsapp": "WhatsApp",
       "zalo": "Zalo OA"
@@ -546,6 +548,10 @@
     },
     "chooseTime": {
       "label": "Chọn thời gian"
+    },
+    "marketingFeatures": {
+      "label": "Tính năng marketing",
+      "placeholder": "Nhập tính năng và nhấn Enter"
     },
     "notificationType": {
       "label": "Loại thông báo",
@@ -812,12 +818,17 @@
         "label": "{aiName}: Tạo văn bản"
       },
       "label": "Luồng",
+      "placeholder": "Chọn luồng",
       "sendMessage": {
         "label": "Gửi tin nhắn"
       }
     },
     "flowToSend": {
       "label": "Luồng để gửi"
+    },
+    "steps": {
+      "label": "Bước",
+      "placeholder": "Chọn bước"
     },
     "folder": {
       "label": "Thư mục"
@@ -1342,6 +1353,15 @@
     },
     "whatsappChannel": {
       "label": "Kênh WhatsApp"
+    },
+    "messages": {
+      "label": "Tin nhắn"
+    },
+    "shortcut": {
+      "label": "Phím tắt"
+    },
+    "savedReplies": {
+      "label": "Phản hồi đã lưu"
     }
   },
   "flows": {
@@ -1501,11 +1521,21 @@
     "deleted": "Google Sheets đã được xóa thành công",
     "length": "Số lượng Google Sheets",
     "setting": {
-      "description": "Mô tả Google Sheets",
-      "label": "Google Sheets"
+      "description": "Cấu hình dịch vụ Google (Sheets, SSO và nhiều hơn nữa)",
+      "label": "Google"
     },
     "header": "Tiêu đề cột",
-    "title": "Google Sheets"
+    "title": "Google"
+  },
+  "giphySettings": {
+    "title": "GIPHY",
+    "description": "Cấu hình khóa API GIPHY để bật gửi GIF.",
+    "label": "GIPHY"
+  },
+  "stripeSettings": {
+    "title": "Stripe",
+    "description": "Cấu hình khóa Stripe cho thanh toán và hóa đơn.",
+    "label": "Stripe"
   },
   "inboxTeam": {
     "updateAction": {

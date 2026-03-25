@@ -1,15 +1,13 @@
-import {
-  BroadcastInboxType,
-  BroadcastSubaction,
-} from "@aha.chat/database/enums"
+import { BroadcastSubaction } from "@aha.chat/database/enums"
 import { broadcastSchedulesType } from "@aha.chat/database/schema"
+import { channelType } from "@aha.chat/database/types"
 import { waTemplateParamsSchema } from "@aha.chat/flow-config"
 import { z } from "zod"
 import { contactFilterRequest } from "@/features/contacts/schemas/query"
 
 export const createBroadcastRequest = z
   .object({
-    inboxType: z.enum(BroadcastInboxType),
+    channel: z.enum(channelType),
     flowId: z.cuid2().optional(),
     templateId: z.cuid2().optional(),
     integrationWhatsappId: z.cuid2().optional(),
