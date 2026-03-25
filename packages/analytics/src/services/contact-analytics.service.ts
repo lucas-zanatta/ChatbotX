@@ -7,6 +7,10 @@ import type {
   MessagesBySenderStats,
   TimeRangeQuery,
 } from "../schemas"
+import type {
+  HumanAgentStats,
+  MessagesByAdminStats,
+} from "../schemas/contact-stats"
 
 export class ContactAnalyticsService {
   getStatsByMinute(

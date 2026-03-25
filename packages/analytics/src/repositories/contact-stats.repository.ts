@@ -12,6 +12,7 @@ import type {
   ContactStats,
   ContactsByDimension,
   HumanAgentStats,
+  MessagesByAdminStats,
   MessagesBySenderStats,
   TimeRangeQuery,
   UniqueContactsByAdminStats,

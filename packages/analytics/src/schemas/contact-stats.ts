@@ -59,6 +59,17 @@ export type GetMessagesByAdminStatsResponseSchema = z.infer<
   typeof getMessagesByAdminStatsResponseSchema
 >
 
+export const uniqueContactsByAdminStatsSchema = z.object({
+  chatbotId: z.string(),
+  toAssignee: z.string(),
+  count: z.number(),
+  userName: z.string().optional(),
+  userEmail: z.string().optional(),
+})
+export type UniqueContactsByAdminStats = z.infer<
+  typeof uniqueContactsByAdminStatsSchema
+>
+
 export const humanAgentStatsSchema = z.object({
   adminId: z.string(),
   chatbotId: z.string(),
