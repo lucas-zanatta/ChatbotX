@@ -78,6 +78,7 @@ export const analyticsStatusEnum = pgEnum("AnalyticsStatus", [
   "ingested",
   "failed",
 ])
+
 export const aiTriggerToIntegrationOpenAIModel = pgTable(
   "_AITriggerToIntegrationOpenAI",
   {
