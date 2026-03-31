@@ -136,6 +136,7 @@ export const sendMessage = async (
     }
   } catch (error) {
     logger.error(error, "An error occurred while sending the message")
+    throw error
   }
 }
 
@@ -224,6 +225,7 @@ export const sendFlowStep = async (
     }
   } catch (error) {
     logger.error(error, "An error occurred while sending the message")
+    throw error
   }
 
   return { messageIds }

@@ -525,6 +525,9 @@ importers:
       '@chatbotx.io/clickhouse':
         specifier: workspace:*
         version: link:../../packages/clickhouse
+      '@chatbotx.io/event-bus':
+        specifier: workspace:*
+        version: link:../../packages/event-bus
       '@chatbotx.io/kafka':
         specifier: workspace:*
         version: link:../../packages/kafka
@@ -999,6 +1002,25 @@ importers:
       drizzle-kit:
         specifier: 1.0.0-beta.18-7eb39f0
         version: 1.0.0-beta.18-7eb39f0
+
+  packages/event-bus:
+    dependencies:
+      '@aha.chat/worker-config':
+        specifier: workspace:*
+        version: link:../worker-config
+      '@chatbotx.io/redis':
+        specifier: workspace:*
+        version: link:../redis
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@aha.chat/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: 24.x
+        version: 24.12.0
 
   packages/events:
     dependencies:

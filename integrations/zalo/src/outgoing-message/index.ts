@@ -40,6 +40,7 @@ export const sendOutgoingMessage = async (
     }
   } catch (error) {
     logger.error(error, "An error occurred while sending the message")
+    throw error
   }
 }
 
@@ -151,5 +152,6 @@ export const sendFlowStep = async (props: SendFlowStepProps<ZaloAuthValue>) => {
     }
   } catch (error) {
     logger.error(error, "An error occurred while sending the message")
+    throw error
   }
 }
