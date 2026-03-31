@@ -9,7 +9,7 @@ import type {
   SendVideoStepSchema,
   SendWaTemplateMessageStepSchema,
 } from "@chatbotx.io/flow-config"
-import type { IntegrationJobMetadata } from "@aha.chat/worker-config"
+import type { IntegrationJobMetadata } from "@chatbotx.io/worker-config"
 import type { AuthValue } from "./auth"
 import type {
   Context,

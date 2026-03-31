@@ -4,12 +4,13 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@chatbotx.io/database/types"
-import type { SendFlowStepData } from "@chatbotx.io/sdk"
+import { parseErrorData, type SendFlowStepData } from "@chatbotx.io/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
   IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
+import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
@@ -79,6 +80,23 @@ export async function sendTypingToExternal(data: ChatJobSendTyping["data"]) {
   })
 }
 
+async function updateMessageSourceId(
+  messageId: string | undefined,
+  result: { messageIds?: string[] },
+) {
+  try {
+    const firstMessageId = result?.messageIds?.[0]
+    if (messageId && firstMessageId) {
+      await db
+        .update(messageModel)
+        .set({ sourceId: firstMessageId })
+        .where(eq(messageModel.id, messageId))
+    }
+  } catch (err) {
+    logger.error(err, "Failed to update message sourceId with provider id")
+  }
+}
+
 export async function sendFlowStepToExternal({
   conversation,
   flowId,
@@ -108,31 +126,44 @@ export async function sendFlowStepToExternal({
     return {}
   }
 
-  const result = await intergationDetail.runAction("sendFlowStep", {
-    ctx: {
-      workspace: inbox.workspace,
-      auth,
-    },
-    data: {
-      conversation,
-      flowId,
-      flowVersionId,
-      step,
-      metadata,
-    },
-  })
-
   try {
-    const firstMessageId = result?.messageIds?.[0]
-    if (messageId && firstMessageId) {
-      await db
-        .update(messageModel)
-        .set({ sourceId: firstMessageId })
-        .where(eq(messageModel.id, messageId))
-    }
-  } catch (err) {
-    logger.error(err, "Failed to update message sourceId with provider id")
-  }
+    const result = await intergationDetail.runAction("sendFlowStep", {
+      ctx: {
+        workspace: inbox.workspace,
+        auth,
+      },
+      data: {
+        conversation,
+        flowId,
+        flowVersionId,
+        step,
+        metadata,
+      },
+    })
 
-  return result || {}
+    await updateMessageSourceId(messageId, result)
+    await emit(MessageEventType.SENT, {
+      chatbotId: inbox.chatbotId,
+      contactId: conversation.contactId,
+      messageId: result?.messageIds?.[0],
+      conversationId: conversation.id,
+      metadata,
+      occurredAt: new Date(),
+    })
+
+    return result || {}
+  } catch (err) {
+    await emit(MessageEventType.FAILED, {
+      chatbotId: inbox.chatbotId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: conversation.channel,
+      metadata,
+      occurredAt: new Date(),
+      errorData: parseErrorData(err, conversation.channel),
+    })
+
+    logger.error(err, "Failed to send flow step to external")
+    return {}
+  }
 }

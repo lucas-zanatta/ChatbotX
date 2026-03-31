@@ -1,4 +1,4 @@
-import type { IntegrationJobMetadata } from "@aha.chat/worker-config"
+import type { IntegrationJobMetadata } from "@chatbotx.io/worker-config"
 import type { AuthValue, Oauth2AuthValue } from "./auth"
 import type {
   BaseConfig,
