@@ -19,6 +19,7 @@ import {
   getRedisConnection,
 } from "../../lib/connection"
 import { queueName } from "../../lib/types"
+import type { IntegrationJobMetadata } from "../integration"
 import type { BotResponseTrackingContext } from "../types"
 
 export const ChatJobAction = {
@@ -35,6 +36,7 @@ export type ChatJobSendExternalMessage = {
   data: {
     conversation: OutgoingConversation
     message: OutgoingMessage
+    metadata?: IntegrationJobMetadata
   }
 }
 
@@ -56,6 +58,7 @@ export type ChatJobSendFlowStep = {
       | SendQuickReplyStepSchema
       | SendWaTemplateMessageStepSchema
     trackingContext?: BotResponseTrackingContext
+    metadata?: IntegrationJobMetadata
   }
 }
 
@@ -67,12 +70,14 @@ export type ChatJobSendChatMessage = {
         text?: string
         url?: string
         trackingContext?: BotResponseTrackingContext
+        metadata?: IntegrationJobMetadata
       }
     | {
         conversationId: string
         text?: string
         url?: string
         trackingContext?: BotResponseTrackingContext
+        metadata?: IntegrationJobMetadata
       }
 }
 
@@ -83,6 +88,7 @@ export type ChatJobSendWhatsappTemplateMessage = {
     templateId: string
     broadcastId: string
     templateData?: WaTemplateParams
+    metadata?: IntegrationJobMetadata
   }
 }
 
@@ -91,6 +97,7 @@ export type ChatJobSendTyping = {
   data: {
     conversation: OutgoingConversation
     typing: boolean
+    metadata?: IntegrationJobMetadata
   }
 }
 
@@ -101,6 +108,7 @@ export type ChatJobNotifyExportResult = {
     userId: string
     status: "pending" | "completed" | "failed"
     outputPath: string
+    metadata?: IntegrationJobMetadata
   }
 }
 
