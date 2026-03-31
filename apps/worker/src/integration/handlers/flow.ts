@@ -16,6 +16,7 @@ import { initVariables, SdkException, type Variables } from "@chatbotx.io/sdk"
 import {
   type BotResponseTrackingContext,
   IntegrationJobAction,
+  type IntegrationJobMetadata,
   type IntegrationJobRunFlowNode,
   type IntegrationJobSendFlowPostback,
   type IntegrationJobSendFlowQuickReply,
@@ -36,6 +37,7 @@ export type ExecuteMultipleStepsProps = {
   }
   steps: BaseStepSchema[]
   trackingContext?: BotResponseTrackingContext
+  metadata?: IntegrationJobMetadata
 }
 
 export type ExecuteStepProps<T> = Omit<ExecuteMultipleStepsProps, "steps"> & {
@@ -59,6 +61,7 @@ type ExecuteStepsAndQuickRepliesProps = {
     variables: Variables
   }
   trackingContext?: BotResponseTrackingContext
+  metadata?: IntegrationJobMetadata
 }
 
 export const seekConnectedNode = (
@@ -77,7 +80,7 @@ export const runFlowNode = async (props: IntegrationJobRunFlowNode) => {
     return
   }
 
-  const { trackingContext } = props.data
+  const { trackingContext, metadata } = props.data
   const { conversation, flowVersion, useLatestFlowVersion } =
     await findConversationAndFlowVersion({
       conversationId: props.data.conversationId,
@@ -111,6 +114,7 @@ export const runFlowNode = async (props: IntegrationJobRunFlowNode) => {
       variables: initVariables(),
     },
     trackingContext,
+    metadata,
   })
 }
 
@@ -243,6 +247,7 @@ async function* executeMultipleStepsGenerator(
               flowId: props.flowVersion.flowId,
               flowVersionId: props.flowVersion.id,
               nodeId: connectedNodeId,
+              metadata: props.metadata,
             },
           })
         }
