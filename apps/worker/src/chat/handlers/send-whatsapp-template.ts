@@ -8,18 +8,17 @@ import {
   type TemplateComponent,
   type WaTemplateParams,
 } from "@chatbotx.io/flow-config"
-import type { MessageTemplateEntity } from "@aha.chat/sdk"
 import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
 } from "@chatbotx.io/partysocket-config"
+import type { MessageTemplateEntity } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import type {
   BotResponseTrackingContext,
   ChatJobSendWhatsappTemplateMessage,
   IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
-import { createId } from "@paralleldrive/cuid2"
 import {
   replaceWhatsappTemplateVariables,
   validateWhatsappTemplate,

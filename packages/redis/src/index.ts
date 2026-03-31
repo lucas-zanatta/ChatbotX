@@ -6,6 +6,8 @@ export { distributedLockFactory } from "./distributed-lock"
 
 import { distributedStoreFactory } from "./distributed-store"
 
+export type * from "ioredis"
+
 export { cacheConnections } from "./connections/cache-connection"
 export const distributedLock = distributedLockFactory(cacheConnections.create)
 export const distributedStore = distributedStoreFactory(

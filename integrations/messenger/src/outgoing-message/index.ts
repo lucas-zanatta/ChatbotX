@@ -51,6 +51,7 @@ export const sendMessage = async (
     }
   } catch (error) {
     logger.error(error, "An error occurred while sending the message")
+    throw error
   }
 }
 
