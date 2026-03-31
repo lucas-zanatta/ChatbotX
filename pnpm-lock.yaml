@@ -1270,6 +1270,9 @@ importers:
       '@aha.chat/logger':
         specifier: workspace:*
         version: link:../logger
+      '@aha.chat/worker-config':
+        specifier: workspace:*
+        version: link:../worker-config
       '@types/node':
         specifier: 24.x
         version: 24.12.0

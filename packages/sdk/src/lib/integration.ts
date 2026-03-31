@@ -1,3 +1,4 @@
+import type { IntegrationJobMetadata } from "@aha.chat/worker-config"
 import type { AuthValue, Oauth2AuthValue } from "./auth"
 import type {
   BaseConfig,
@@ -19,6 +20,7 @@ type IChannel<IAuth extends AuthValue> = {
           contact: OutgoingContact
           conversation: OutgoingConversation
           message: OutgoingMessage
+          metadata?: IntegrationJobMetadata
         }
       },
       void

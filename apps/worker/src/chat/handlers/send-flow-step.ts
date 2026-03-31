@@ -1,4 +1,4 @@
-import { db, eq, findOrFail } from "@aha.chat/database/client"
+import { db, findOrFail } from "@aha.chat/database/client"
 import {
   attachmentModel,
   contactModel,
@@ -45,7 +45,7 @@ import { logger } from "../../lib/logger"
 import { sendFlowStepToExternal, sendMessageToExternal } from "./send-message"
 import { processWhatsappTemplate } from "./send-whatsapp-template"
 
-const convertButtonsToTemplate = (props: {
+export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
@@ -103,6 +103,7 @@ export async function sendFlowStep({
   flowVersionId,
   step,
   trackingContext,
+  metadata,
 }: ChatJobSendFlowStep["data"]) {
   const conversation = await db.query.conversationModel.findFirst({
     where: { id: conversationId },
@@ -113,20 +114,25 @@ export async function sendFlowStep({
   }
 
   if (step.stepType === StepType.sendWaTemplateMessage) {
-    if (conversation.channel !== "whatsapp") {
+    if (conversation?.inbox?.channel !== "whatsapp") {
       return
     }
 
     try {
       await processWhatsappTemplate({
         conversation,
-        templateId: step.template.id,
-        templateName: step.template.name,
-        templateLanguage: step.template.languageCode,
-        templateParams: step.template.params,
-        flowId,
-        flowVersionId,
+        template: {
+          id: step.template.id,
+          name: step.template.name,
+          language: step.template.language,
+          params: step.template.params,
+        },
+        flow: {
+          id: flowId,
+          buttons: step?.buttons ?? [],
+        },
         trackingContext,
+        metadata,
       })
     } catch (error) {
       logger.error(
@@ -234,17 +240,8 @@ export async function sendFlowStep({
           flowId,
           flowVersionId,
           step: step as SendFlowStepData,
-        }).then(async (result) => {
-          const firstMessageId = result?.messageIds?.[0]
-
-          if (firstMessageId && message && typeof message !== "string") {
-            await db
-              .update(messageModel)
-              .set({
-                sourceId: firstMessageId,
-              })
-              .where(eq(messageModel.id, message.id))
-          }
+          metadata,
+          messageId: message?.id,
         }),
       )
     }
@@ -327,7 +324,7 @@ export async function sendFlowStep({
 export const sendChatMessage = async (
   props: ChatJobSendChatMessage["data"],
 ) => {
-  const { text, url, trackingContext } = props
+  const { text, url, trackingContext, metadata } = props
 
   const conversationId =
     "conversation" in props ? props.conversation.id : props.conversationId
@@ -411,6 +408,7 @@ export const sendChatMessage = async (
         contact,
         conversation,
         message: message as OutgoingMessage,
+        metadata,
       },
     })
 
@@ -423,6 +421,7 @@ export const sendChatMessage = async (
         contact,
         conversation,
         message: message as OutgoingMessage,
+        metadata,
       },
     })
 
@@ -449,6 +448,7 @@ export const sendChatMessage = async (
     }
 
     await Promise.all(promises)
+    console.log(message, metadata)
 
     if (contact.sourceId) {
       contactTrackingService

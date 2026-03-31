@@ -57,7 +57,7 @@ import {
 export async function sendFlowMessage(
   props: ExecuteStepProps<ChatJobSendFlowStep["data"]["step"]>,
 ) {
-  const { conversation, flowVersion, step, trackingContext } = props
+  const { conversation, flowVersion, step, trackingContext, metadata } = props
   await chatQueue.add(ChatJobAction.sendFlowMessage, {
     type: ChatJobAction.sendFlowMessage,
     data: {
@@ -66,6 +66,7 @@ export async function sendFlowMessage(
       flowVersionId: flowVersion.id,
       step,
       trackingContext,
+      metadata,
     },
   })
 }
@@ -80,6 +81,7 @@ async function startAnotherNode(
       flowId: props.flowVersion.flowId,
       flowVersionId: props.flowVersion.id,
       nodeId: props.step.nodeId,
+      metadata: props.metadata,
     },
   })
 }
@@ -87,12 +89,14 @@ async function startAnotherNode(
 async function startExternalFlow({
   conversation,
   step,
+  metadata,
 }: ExecuteStepProps<StartExternalFlowStepSchema>) {
   await integrationQueue.add(IntegrationJobAction.sendFlow, {
     type: IntegrationJobAction.sendFlow,
     data: {
       conversationId: conversation.id,
       flowId: step.flowId,
+      metadata,
     },
   })
 }
@@ -100,6 +104,7 @@ async function startExternalFlow({
 async function startExternalNode({
   conversation,
   step,
+  metadata,
 }: ExecuteStepProps<StartExternalNodeStepSchema>) {
   await integrationQueue.add(IntegrationJobAction.sendFlow, {
     type: IntegrationJobAction.sendFlow,
@@ -107,6 +112,7 @@ async function startExternalNode({
       conversationId: conversation.id,
       flowId: step.flowId,
       nodeId: step.nodeId,
+      metadata,
     },
   })
 }

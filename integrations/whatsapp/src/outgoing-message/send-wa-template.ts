@@ -21,7 +21,7 @@ export function* convertFlowStepWaTemplate(
     type: "template",
     template: {
       name: template.name,
-      language: { code: template.languageCode },
+      language: { code: template.language },
       components,
     },
   }

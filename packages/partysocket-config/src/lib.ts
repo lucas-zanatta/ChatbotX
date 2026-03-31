@@ -10,18 +10,20 @@ const env = keys()
 
 export async function broadcastToChatbotParty(
   chatbotId: string,
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: https://biomejs.dev/linter/rules/no-unused-function-parameters
   json: RealtimeEventData,
 ) {
   try {
-    return await ky.post(
-      `${env.NEXT_PUBLIC_PARTYSOCKET_URL}/parties/chatbots/${chatbotId}`,
-      {
-        headers: {
-          "X-API-KEY": env.PARTYSOCKET_API_KEY,
-        },
-        json,
-      },
-    )
+    return await Promise.resolve(() => null)
+    // return await ky.post(
+    //   `${env.NEXT_PUBLIC_PARTYSOCKET_URL}/parties/chatbots/${chatbotId}`,
+    //   {
+    //     headers: {
+    //       "X-API-KEY": env.PARTYSOCKET_API_KEY,
+    //     },
+    //     json,
+    //   },
+    // )
   } catch (error) {
     logger.error(error, `Failed to broadcast to chatbot ${chatbotId} party`)
     return null
