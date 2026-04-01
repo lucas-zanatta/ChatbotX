@@ -1,18 +1,10 @@
 import url from "node:url"
 import { type HandleRequestProps, SdkException } from "@aha.chat/sdk"
-import type { OnMessageArgs } from "whatsapp-api-js/emitters"
+import type { OnMessageArgs, OnStatusArgs } from "whatsapp-api-js/emitters"
 import { WhatsAppAPI as Middleware } from "whatsapp-api-js/middleware/next"
 import type { GetParams } from "whatsapp-api-js/types"
 import { DEFAULT_API_VERSION } from "../constants"
 import type { WhatsappConfig } from "../schemas"
-
-type StatusEvent = {
-  phoneID: string
-  id: string
-  status: "delivered" | "failed" | "read" | "sent"
-  timestamp: string
-  recipient_id: string
-}
 
 export const webhookHandler = async (
   props: HandleRequestProps<WhatsappConfig>,
@@ -37,7 +29,7 @@ export const webhookHandler = async (
     try {
       const result = await new Promise<
         | { type: "message"; data: OnMessageArgs }
-        | { type: "status"; data: StatusEvent }
+        | { type: "status"; data: OnStatusArgs }
         | null
       >((resolve, reject) => {
         middleware.on.message = (args: OnMessageArgs) => {
@@ -46,9 +38,8 @@ export const webhookHandler = async (
         middleware.on.sent = () => {
           resolve(null)
         }
-        // biome-ignore lint/suspicious/noExplicitAny: whatsapp-api-js library type mismatch
-        middleware.on.status = (args: any) => {
-          resolve({ type: "status", data: args as StatusEvent })
+        middleware.on.status = (args: OnStatusArgs) => {
+          resolve({ type: "status", data: args })
         }
         middleware.handle_post(props.req).then((rs) => {
           if (rs !== 200) {
@@ -87,8 +78,11 @@ export const webhookHandler = async (
           await props.queue?.add("messageStatus", {
             type: "messageStatus",
             data: {
+              integrationIdentifier: result.data.phoneID,
               integrationType: "whatsapp",
               payload: {
+                phoneID: result.data.phoneID,
+                phone: result.data.phone,
                 messageId: statusData.id,
                 status: statusData.status,
                 timestamp: statusData.timestamp,

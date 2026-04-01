@@ -20,8 +20,13 @@ export type ChatbotEntity = {
   id: string
 }
 
+export type InboxEntity = {
+  id: string
+}
+
 export type Context<AO extends AuthValue> = {
   chatbot?: ChatbotEntity
+  inbox?: InboxEntity
   uploader?: ContextUploader
   auth: AO
   queue?: ContextQueue

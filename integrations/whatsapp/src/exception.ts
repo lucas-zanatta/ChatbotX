@@ -1,3 +1,3 @@
-import { SdkException } from "@aha.chat/sdk"
+import { MessengerSdkException } from "@aha.chat/sdk"
 
-export class WhatsappException extends SdkException {}
+export class WhatsappException extends MessengerSdkException {}

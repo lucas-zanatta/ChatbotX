@@ -4,7 +4,7 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@aha.chat/database/types"
-import { parseErrorData, type SendFlowStepData } from "@aha.chat/sdk"
+import { parseSdkError, type SendFlowStepData } from "@aha.chat/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
@@ -126,6 +126,14 @@ export async function sendFlowStepToExternal({
     return {}
   }
 
+  const eventLogData = {
+    chatbotId: inbox.chatbotId,
+    contactId: conversation.contactId,
+    conversationId: conversation.id,
+    channel: inbox.channel,
+    metadata,
+  }
+
   try {
     const result = await intergationDetail.runAction("sendFlowStep", {
       ctx: {
@@ -143,27 +151,19 @@ export async function sendFlowStepToExternal({
 
     await updateMessageSourceId(messageId, result)
     await emit(MessageEventType.SENT, {
-      chatbotId: inbox.chatbotId,
-      contactId: conversation.contactId,
+      ...eventLogData,
       messageId: result?.messageIds?.[0],
-      conversationId: conversation.id,
-      metadata,
       occurredAt: new Date(),
     })
 
     return result || {}
   } catch (err) {
     await emit(MessageEventType.FAILED, {
-      chatbotId: inbox.chatbotId,
-      contactId: conversation.contactId,
-      conversationId: conversation.id,
-      channel: conversation.channel,
-      metadata,
+      ...eventLogData,
+      errorData: await parseSdkError(err),
       occurredAt: new Date(),
-      errorData: parseErrorData(err, conversation.channel),
     })
 
-    logger.error(err, "Failed to send flow step to external")
-    return {}
+    throw err
   }
 }

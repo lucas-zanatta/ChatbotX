@@ -30,7 +30,7 @@ export async function subscribeWebhook({ auth }: { auth: WhatsappAuthValue }) {
       console.error("Failed to subscribe webhook", error)
     }
 
-    throw new WhatsappException("Failed to subscribe webhook")
+    throw new WhatsappException("Failed to subscribe webhook").setOriginError(error)
   }
 }
 
@@ -58,6 +58,6 @@ export async function unsubscribeWebhook({
   } catch (error) {
     console.error("Failed to unsubscribe webhook", error)
 
-    throw new WhatsappException("Failed to unsubscribe webhook")
+    throw new WhatsappException("Failed to unsubscribe webhook").setOriginError(error)
   }
 }

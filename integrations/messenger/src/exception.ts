@@ -1,6 +1,6 @@
-import { SdkException } from "@aha.chat/sdk"
+import { MessengerSdkException } from "@aha.chat/sdk"
 
-export class MessengerException extends SdkException {}
+export class MessengerException extends MessengerSdkException {}
 
 export class MessengerAttachmentException extends MessengerException {
   readonly attachmentUrl?: string
