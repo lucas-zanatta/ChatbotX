@@ -13,6 +13,7 @@ import { uploadMedia, verifyAccessToken } from "./client"
 import { agentMarkAsRead, sendTyping } from "./conversation"
 import { webhookHandler } from "./handlers/webhook"
 import { receiveMessage } from "./incomming-message"
+import { handleMessageStatus } from "./message-status"
 import { sendFlowStep, sendMessage } from "./outgoing-message"
 import type {
   WhatsappActions,
@@ -31,6 +32,7 @@ const config: IntegrationDefinition<
       message: {
         receiveMessage,
         sendMessage,
+        handleMessageStatus,
       },
       conversation: {
         sendTyping,
