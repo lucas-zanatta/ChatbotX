@@ -14,7 +14,9 @@ export function guessFileTypeFromMimeType(mimeType: string) {
   }
 }
 
-export async function parseSdkError(error: Error | SdkException | unknown): Promise<ParsedError> {
+export async function parseSdkError(
+  error: Error | SdkException | unknown,
+): Promise<ParsedError> {
   if (error instanceof SdkException) {
     return await error.getErrorData()
   }

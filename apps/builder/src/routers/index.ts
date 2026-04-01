@@ -2,6 +2,7 @@ import { analyticsRoutes } from "@chatbotx.io/analytics-nextjs/routes"
 import aiAgentsAPI from "@/features/ai-agents/api"
 import { aiMcpServerApi } from "@/features/ai-mcp-servers/api"
 import botFieldsAPIs from "@/features/bot-fields/api"
+import { broadcastAPIs } from "@/features/broadcasts/api"
 import contactsAPIs from "@/features/contacts/api"
 import conversationsAPI from "@/features/conversations/api"
 import customFieldsAPI from "@/features/custom-fields/api"
@@ -17,6 +18,7 @@ import { authorizedAPI } from "@/orpc"
 export const router = {
   aiMcpServerApi,
   aiAgentsAPI,
+  broadcastAPIs,
   conversationsAPI,
   tagsAPI,
   customFieldsAPI,

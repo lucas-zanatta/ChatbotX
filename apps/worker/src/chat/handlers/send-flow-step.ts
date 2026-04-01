@@ -361,7 +361,7 @@ export const sendChatMessage = async (
           sourceId: null,
           content: text,
           contentAttributes: {
-            metadata
+            metadata,
           },
         })
         .returning()
