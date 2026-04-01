@@ -23,6 +23,7 @@ import type { TemplateMessage, WhatsappAuthValue } from "../schemas"
 import { convertFlowStepImage } from "./send-image"
 import { convertFlowStepText } from "./send-text"
 import { convertFlowStepWaTemplate } from "./send-wa-template"
+import { WhatsappException } from "../exception"
 
 export function* convertMessageToWhatsappMessage(
   message: OutgoingMessage,
@@ -198,11 +199,11 @@ export const sendFlowStep = async (
       const serverError = sendResponse as ServerErrorResponse
 
       if (serverError?.error) {
-        logger.error(
-          serverError.error,
-          `Failed to send message of type ${whatsappMessage._type}`,
-        )
-        continue
+        throw new WhatsappException(serverError.error.message).setOriginError({
+          response: {
+            error: serverError.error,
+          },
+        })
       }
 
       const messageId = (sendResponse as ServerSentMessageResponse)

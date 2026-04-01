@@ -61,7 +61,7 @@ class MessengerHttpClient {
       throw new MessengerAPIException(
         `GET request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         url,
-      )
+      ).setOriginError(error)
     }
   }
 
@@ -78,7 +78,7 @@ class MessengerHttpClient {
       throw new MessengerAPIException(
         `POST request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         url,
-      )
+      ).setOriginError(error)
     }
   }
 
@@ -95,7 +95,7 @@ class MessengerHttpClient {
       throw new MessengerAPIException(
         `DELETE request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         url,
-      )
+      ).setOriginError(error)
     }
   }
 }

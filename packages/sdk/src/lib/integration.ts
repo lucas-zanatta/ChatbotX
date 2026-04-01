@@ -38,6 +38,17 @@ type IChannel<IAuth extends AuthValue> = {
       },
       ReceivedMessageResult | null
     >
+    handleMessageStatus?: Handler<
+      {
+        ctx: Context<IAuth>
+        data: {
+          integrationType: string
+          integrationIdentifier: string
+          payload: unknown
+        }
+      },
+      ReceivedMessageResult | null
+    >
   }
   conversation?: {
     sendTyping?: Handler<
