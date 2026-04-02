@@ -21,6 +21,7 @@ import {
   type IntegrationJobSendFlowQuickReply,
   integrationQueue,
 } from "@aha.chat/worker-config"
+import { emit, FlowEventType } from "@chatbotx.io/event-bus"
 import { findConversationAndFlowVersion } from "../../lib/db"
 import { logger } from "../../lib/logger"
 import { flowStepHandlers } from "./step"
@@ -129,7 +130,11 @@ export async function runStepsAndQuickReplies(
   } = props
 
   // run before step
-  if (details.beforeStep && !props.startFromStepIndex) {
+  const skipBeforeStep =
+    (targetType === "button" || targetType === "quickReply") &&
+    details.beforeStep?.stepType === StepType.startAnotherNode
+
+  if (details.beforeStep && !props.startFromStepIndex && !skipBeforeStep) {
     await executeMultipleSteps({
       ...props,
       steps: [details.beforeStep],
@@ -261,6 +266,7 @@ export async function runFlowPostback(
   data: IntegrationJobSendFlowPostback["data"],
 ) {
   const parsedAction = decodeButtonPayload(data.action)
+  console.log("Parsed action:", parsedAction)
   if (!parsedAction) {
     throw new SdkException("Invalid postback action")
   }
@@ -282,6 +288,20 @@ export async function runFlowPostback(
     flowId: parsedAction.flowId,
     flowVersionId: parsedAction.flowVersionId,
   })
+
+  if (conversation.contactId) {
+    emit(FlowEventType.CLICKED, {
+      chatbotId: conversation.chatbotId,
+      contactId: conversation.contactId,
+      conversationId: data.conversationId,
+      channel: conversation.channel,
+      occurredAt: new Date(),
+      flowId: parsedAction.flowId,
+      buttonId: parsedAction.buttonId,
+      broadcastId: parsedAction.broadcastId,
+      clickType: "button",
+    })
+  }
 
   const nodes = flowVersion.nodes as unknown as FlowNode[]
 
@@ -324,6 +344,20 @@ export async function runFlowQuickReply(
     flowId: parsedAction.flowId,
     flowVersionId: parsedAction.flowVersionId,
   })
+
+  if (conversation.contactId) {
+    emit(FlowEventType.CLICKED, {
+      chatbotId: conversation.chatbotId,
+      contactId: conversation.contactId,
+      conversationId: data.conversationId,
+      channel: conversation.channel,
+      occurredAt: new Date(),
+      flowId: parsedAction.flowId,
+      buttonId: parsedAction.buttonId,
+      broadcastId: parsedAction.broadcastId,
+      clickType: "quick_reply",
+    })
+  }
 
   const nodes = flowVersion.nodes as unknown as FlowNode[]
 

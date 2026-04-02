@@ -1,5 +1,6 @@
 import {
   encodeButtonPayload,
+  extractMetadata,
   type SendTextStepSchema,
 } from "@aha.chat/flow-config"
 import type { SendFlowStepProps } from "@aha.chat/sdk"
@@ -31,6 +32,7 @@ export function* convertFlowStepText(
           flowId: props.data.flowId,
           flowVersionId: props.data.flowVersionId,
           buttonId: button.id,
+          broadcastId: extractMetadata("broadcastId", props.data.metadata),
         })
         return new Button(buttonId, button.label)
       })

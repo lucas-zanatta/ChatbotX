@@ -1,9 +1,10 @@
 import {
   type ButtonStepProps,
   encodeButtonPayload,
+  extractMetadata,
   type SendQuickReplyStepSchema,
 } from "@aha.chat/flow-config"
-import type { SendFlowStepProps } from "@aha.chat/sdk"
+import type { IntegrationJobMetadata, SendFlowStepProps } from "@aha.chat/sdk"
 import type {
   FacebookMessage,
   FacebookMessageAttachment,
@@ -26,6 +27,7 @@ export function* convertFlowStepQuickReply(
       flowId: props.data.flowId,
       flowVersionId: props.data.flowVersionId,
       buttons: step.buttons,
+      metadata: props.data.metadata,
     })
 
     yield {
@@ -39,6 +41,7 @@ export function convertFacebookQuickReplies(props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
+  metadata?: IntegrationJobMetadata
 }): FacebookQuickReply[] {
   return props.buttons.map((button) => ({
     content_type: "text",
@@ -47,6 +50,7 @@ export function convertFacebookQuickReplies(props: {
       flowId: props.flowId,
       flowVersionId: props.flowVersionId,
       buttonId: button.id,
+      broadcastId: extractMetadata("broadcastId", props.metadata),
     }),
   }))
 }

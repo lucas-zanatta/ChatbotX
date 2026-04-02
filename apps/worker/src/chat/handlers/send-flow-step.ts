@@ -15,6 +15,7 @@ import {
   type ButtonStepProps,
   ButtonType,
   encodeButtonPayload,
+  extractMetadata,
   type SendCardStepSchema,
   StepType,
 } from "@aha.chat/flow-config"
@@ -35,6 +36,7 @@ import type {
 import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
+  IntegrationJobMetadata,
 } from "@aha.chat/worker-config"
 import { contactTrackingService } from "@chatbotx.io/analytics"
 import { createId } from "@paralleldrive/cuid2"
@@ -49,8 +51,9 @@ export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
+  metadata?: IntegrationJobMetadata
 }): MessageButtonTemplate[] => {
-  const { flowId, flowVersionId, buttons } = props
+  const { flowId, flowVersionId, buttons, metadata } = props
   return buttons.map((button) => {
     if (button.buttonType === ButtonType.OpenWebsite) {
       return {
@@ -69,6 +72,7 @@ export const convertButtonsToTemplate = (props: {
         flowId,
         flowVersionId,
         buttonId: button.id,
+        broadcastId: extractMetadata("broadcastId", metadata),
       }),
     }
   })
@@ -78,8 +82,9 @@ const convertCardsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   cards: SendCardStepSchema[]
+  metadata?: IntegrationJobMetadata
 }): MessageCardTemplate[] => {
-  const { flowId, flowVersionId, cards } = props
+  const { flowId, flowVersionId, cards, metadata } = props
 
   return cards.map((card) => ({
     id: card.id,
@@ -92,6 +97,7 @@ const convertCardsToTemplate = (props: {
             flowId,
             flowVersionId,
             buttons: card.buttons,
+            metadata,
           })
         : undefined,
   }))
@@ -167,6 +173,7 @@ export async function sendFlowStep({
               flowId,
               flowVersionId,
               buttons: step.buttons,
+              metadata,
             }),
           },
         } satisfies MessageTemplateEntity
@@ -180,6 +187,7 @@ export async function sendFlowStep({
               flowId,
               flowVersionId,
               cards: step.cards,
+              metadata,
             }),
           },
         } satisfies MessageTemplateEntity

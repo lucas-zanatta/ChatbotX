@@ -2,7 +2,9 @@ import {
   type ButtonStepProps,
   ButtonType,
   encodeButtonPayload,
+  extractMetadata,
 } from "@aha.chat/flow-config"
+import type { IntegrationJobMetadata } from "@aha.chat/sdk"
 import { chunk } from "remeda"
 import { MAX_BUTTONS } from "../constants"
 import type { ButtonPayload } from "../schemas/webhook"
@@ -11,8 +13,9 @@ export function getButtonTemplate(props: {
   flowId: string
   flowVersionId?: string
   button: ButtonStepProps
+  metadata?: IntegrationJobMetadata
 }): ButtonPayload {
-  const { button } = props
+  const { button, metadata } = props
   switch (button.buttonType) {
     case ButtonType.OpenWebsite:
       return {
@@ -30,6 +33,7 @@ export function getButtonTemplate(props: {
           flowId: props.flowId,
           flowVersionId: props.flowVersionId,
           buttonId: button.id,
+          broadcastId: extractMetadata("broadcastId", metadata),
         })}`,
       }
   }
@@ -39,6 +43,7 @@ export function convertZaloButtons(props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
+  metadata?: IntegrationJobMetadata
 }): ButtonPayload[] | undefined {
   const chunks = chunk(props.buttons, MAX_BUTTONS)
   if (chunks.length > 0 && chunks[0]) {
@@ -47,6 +52,7 @@ export function convertZaloButtons(props: {
         flowId: props.flowId,
         flowVersionId: props.flowVersionId,
         button,
+        metadata: props.metadata,
       }),
     )
   }

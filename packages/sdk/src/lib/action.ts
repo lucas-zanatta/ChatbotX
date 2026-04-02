@@ -9,6 +9,9 @@ import type {
   SendVideoStepSchema,
   SendWaTemplateMessageStepSchema,
 } from "@aha.chat/flow-config"
+
+export type { IntegrationJobMetadata } from "@aha.chat/worker-config"
+
 import type { IntegrationJobMetadata } from "@aha.chat/worker-config"
 import type { AuthValue } from "./auth"
 import type {
