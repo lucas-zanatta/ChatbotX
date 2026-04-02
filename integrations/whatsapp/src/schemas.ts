@@ -47,7 +47,9 @@ export const whatsappStatusWebhookEventSchema = z.object({
   messageId: z.string(),
   status: z.string(),
 })
-export type WhatsappStatusWebhookEvent = z.infer<typeof whatsappStatusWebhookEventSchema>
+export type WhatsappStatusWebhookEvent = z.infer<
+  typeof whatsappStatusWebhookEventSchema
+>
 
 export type WhatsAppTemplateComponentParameter = {
   type: string
