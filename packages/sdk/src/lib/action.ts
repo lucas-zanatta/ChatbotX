@@ -1,4 +1,5 @@
 import type {
+  MetadataPayload,
   SendAudioStepSchema,
   SendCarouselStepSchema,
   SendFileStepSchema,
@@ -9,7 +10,6 @@ import type {
   SendVideoStepSchema,
   SendWaTemplateMessageStepSchema,
 } from "@chatbotx.io/flow-config"
-import type { IntegrationJobMetadata } from "@chatbotx.io/worker-config"
 import type { AuthValue } from "./auth"
 import type {
   Context,
@@ -26,7 +26,7 @@ export type SendMessageProps<TAuth extends AuthValue> = {
     conversation: OutgoingConversation
     contactInbox: OutgoingContactInbox
     message: OutgoingMessage
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -81,6 +81,6 @@ export type SendFlowStepProps<TAuth extends AuthValue, S = SendFlowStepData> = {
     flowId: string
     flowVersionId?: string
     step: S
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }

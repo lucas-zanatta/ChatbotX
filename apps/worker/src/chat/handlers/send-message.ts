@@ -8,8 +8,8 @@ import { parseSdkError, type SendFlowStepData } from "@chatbotx.io/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
-  IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
@@ -109,7 +109,7 @@ export async function sendFlowStepToExternal({
   flowId: string
   flowVersionId?: string
   step: SendFlowStepData
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
   messageId?: string
 }): Promise<{ messageIds?: string[] }> {
   // Find integration auth
