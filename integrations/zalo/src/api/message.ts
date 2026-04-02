@@ -150,7 +150,9 @@ export const uploadAttachment = (
     })
 
     if (result.error && result.error !== 0) {
-      throw new ZaloException(result.message || "Zalo OA upload file failed").setOriginError({
+      throw new ZaloException(
+        result.message || "Zalo OA upload file failed",
+      ).setOriginError({
         response: {
           error: result,
         },

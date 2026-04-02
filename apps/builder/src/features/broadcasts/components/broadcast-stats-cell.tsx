@@ -78,22 +78,16 @@ export const BroadcastStatsCell = memo(function BroadcastStatsCell({
 
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            className="cursor-pointer tabular-nums hover:underline"
-            onClick={handleClick}
-            type="button"
-          >
-            {value.toLocaleString()}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            {t(`broadcasts.stats.${field}`)}: {value.toLocaleString()}
-          </p>
-        </TooltipContent>
-      </Tooltip>
+      <button
+        className={
+          value ? "cursor-pointer tabular-nums hover:underline" : "tabular-nums"
+        }
+        disabled={!value}
+        onClick={handleClick}
+        type="button"
+      >
+        {value ? value.toLocaleString() : "----"}
+      </button>
 
       <BroadcastContactsDialog
         broadcastId={broadcastId}

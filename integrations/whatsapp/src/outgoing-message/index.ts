@@ -18,12 +18,12 @@ import type {
 } from "whatsapp-api-js/types"
 import { getWhatsappClient } from "../client"
 import { API_URL, DEFAULT_API_VERSION } from "../constants"
+import { WhatsappException } from "../exception"
 import { logger } from "../lib/logger"
 import type { TemplateMessage, WhatsappAuthValue } from "../schemas"
 import { convertFlowStepImage } from "./send-image"
 import { convertFlowStepText } from "./send-text"
 import { convertFlowStepWaTemplate } from "./send-wa-template"
-import { WhatsappException } from "../exception"
 
 export function* convertMessageToWhatsappMessage(
   message: OutgoingMessage,

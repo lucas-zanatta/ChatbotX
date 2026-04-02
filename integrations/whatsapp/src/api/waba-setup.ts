@@ -38,7 +38,9 @@ export async function addSystemUser({
     )
   } catch (error) {
     console.error("Failed to add system user", error)
-    throw new WhatsappException("Failed to add system user").setOriginError(error)
+    throw new WhatsappException("Failed to add system user").setOriginError(
+      error,
+    )
   }
 }
 
@@ -90,7 +92,9 @@ export async function shareCreditLine({
       }
     }
     console.error("Failed to share credit line", error)
-    throw new WhatsappException("Failed to share credit line").setOriginError(error)
+    throw new WhatsappException("Failed to share credit line").setOriginError(
+      error,
+    )
   }
 }
 
@@ -123,7 +127,9 @@ async function retrieveCreditLineId(
     return creditLine.id
   } catch (error) {
     console.error("Failed to retrieve credit line ID", error)
-    throw new WhatsappException("Failed to retrieve credit line ID").setOriginError(error)
+    throw new WhatsappException(
+      "Failed to retrieve credit line ID",
+    ).setOriginError(error)
   }
 }
 
@@ -181,7 +187,9 @@ async function getPhoneNumbers(auth: WhatsappAuthValue) {
     return response.data
   } catch (error) {
     console.error("Failed to get phone numbers", error)
-    throw new WhatsappException("Failed to get phone numbers").setOriginError(error)
+    throw new WhatsappException("Failed to get phone numbers").setOriginError(
+      error,
+    )
   }
 }
 

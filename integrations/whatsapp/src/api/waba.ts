@@ -36,7 +36,9 @@ export async function findWaba(props: {
   } catch (error) {
     logger.error(error, "Unable to find WhatsApp's business account")
 
-    throw new WhatsappException("Unable to find WhatsApp's business account").setOriginError(error)
+    throw new WhatsappException(
+      "Unable to find WhatsApp's business account",
+    ).setOriginError(error)
   }
 }
 
@@ -128,7 +130,9 @@ export const listMessageTemplates = async (
     }
   } catch (e) {
     logger.error(e, "Failed to list message templates")
-    throw new WhatsappException("Failed to list message templates").setOriginError(e)
+    throw new WhatsappException(
+      "Failed to list message templates",
+    ).setOriginError(e)
   }
 }
 
@@ -149,6 +153,8 @@ export const createMessageTemplate = async (
       .json()
   } catch (e) {
     logger.error(e, "Failed to create message template")
-    throw new WhatsappException("Failed to create message template").setOriginError(e)
+    throw new WhatsappException(
+      "Failed to create message template",
+    ).setOriginError(e)
   }
 }
