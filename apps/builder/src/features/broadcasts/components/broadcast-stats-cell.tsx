@@ -1,13 +1,7 @@
 "use client"
 
 import { Skeleton } from "@aha.chat/ui/components/ui/skeleton"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@aha.chat/ui/components/ui/tooltip"
 import { useParams } from "next/navigation"
-import { useTranslations } from "next-intl"
 import { memo, useCallback, useEffect, useState } from "react"
 import { client } from "@/lib/orpc/orpc"
 import type { BroadcastEventType } from "../schemas/broadcast-contacts"
@@ -24,7 +18,6 @@ export const BroadcastStatsCell = memo(function BroadcastStatsCell({
   field,
 }: Props) {
   const { chatbotId } = useParams<{ chatbotId: string }>()
-  const t = useTranslations()
   const [stats, setStats] = useState<GetBroadcastStatsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)

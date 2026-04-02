@@ -26,6 +26,7 @@ import {
   type ButtonStepProps,
   ButtonType,
   encodeButtonPayload,
+  extractMetadata,
   type SendCardStepSchema,
   stepTypes,
 } from "@chatbotx.io/flow-config"
@@ -47,7 +48,9 @@ import { createId } from "@chatbotx.io/utils"
 import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
+  IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
+import { contactTrackingService } from "@chatbotx.io/analytics"
 import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
@@ -59,8 +62,9 @@ export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
+  metadata?: IntegrationJobMetadata
 }): MessageButtonTemplate[] => {
-  const { flowId, flowVersionId, buttons } = props
+  const { flowId, flowVersionId, buttons, metadata } = props
   return buttons.map((button) => {
     if (button.buttonType === ButtonType.OpenWebsite) {
       return {
@@ -79,6 +83,7 @@ export const convertButtonsToTemplate = (props: {
         flowId,
         flowVersionId,
         buttonId: button.id,
+        broadcastId: extractMetadata("broadcastId", metadata),
       }),
     }
   })
@@ -88,8 +93,9 @@ const convertCardsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   cards: SendCardStepSchema[]
+  metadata?: IntegrationJobMetadata
 }): MessageCardTemplate[] => {
-  const { flowId, flowVersionId, cards } = props
+  const { flowId, flowVersionId, cards, metadata } = props
 
   return cards.map((card) => ({
     id: card.id,
@@ -102,6 +108,7 @@ const convertCardsToTemplate = (props: {
             flowId,
             flowVersionId,
             buttons: card.buttons,
+            metadata,
           })
         : undefined,
   }))
@@ -190,6 +197,7 @@ export async function sendFlowStep({
               flowId,
               flowVersionId,
               buttons: step.buttons,
+              metadata,
             }),
           },
         } satisfies MessageTemplateEntity
@@ -203,6 +211,7 @@ export async function sendFlowStep({
               flowId,
               flowVersionId,
               cards: step.cards,
+              metadata,
             }),
           },
         } satisfies MessageTemplateEntity
