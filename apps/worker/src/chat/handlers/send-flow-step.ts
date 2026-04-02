@@ -11,6 +11,7 @@ import {
 } from "@aha.chat/database/types"
 import { getPublicUrl } from "@aha.chat/database/utils"
 import { uploadFileFromUrl } from "@aha.chat/filesystem/node-upload"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import {
   type ButtonStepProps,
   ButtonType,
@@ -36,7 +37,6 @@ import type {
 import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
-  IntegrationJobMetadata,
 } from "@aha.chat/worker-config"
 import { contactTrackingService } from "@chatbotx.io/analytics"
 import { createId } from "@paralleldrive/cuid2"
@@ -51,7 +51,7 @@ export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
 }): MessageButtonTemplate[] => {
   const { flowId, flowVersionId, buttons, metadata } = props
   return buttons.map((button) => {
@@ -82,7 +82,7 @@ const convertCardsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   cards: SendCardStepSchema[]
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
 }): MessageCardTemplate[] => {
   const { flowId, flowVersionId, cards, metadata } = props
 

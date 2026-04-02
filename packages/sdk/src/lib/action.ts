@@ -1,4 +1,5 @@
 import type {
+  MetadataPayload,
   SendAudioStepSchema,
   SendCarouselStepSchema,
   SendFileStepSchema,
@@ -10,9 +11,6 @@ import type {
   SendWaTemplateMessageStepSchema,
 } from "@aha.chat/flow-config"
 
-export type { IntegrationJobMetadata } from "@aha.chat/worker-config"
-
-import type { IntegrationJobMetadata } from "@aha.chat/worker-config"
 import type { AuthValue } from "./auth"
 import type {
   Context,
@@ -27,7 +25,7 @@ export type SendMessageProps<TAuth extends AuthValue> = {
     contact: OutgoingContact
     conversation: OutgoingConversation
     message: OutgoingMessage
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -79,6 +77,6 @@ export type SendFlowStepProps<TAuth extends AuthValue, S = SendFlowStepData> = {
     flowId: string
     flowVersionId?: string
     step: S
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }

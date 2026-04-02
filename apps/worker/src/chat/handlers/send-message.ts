@@ -4,11 +4,11 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@aha.chat/database/types"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import { parseSdkError, type SendFlowStepData } from "@aha.chat/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
-  IntegrationJobMetadata,
 } from "@aha.chat/worker-config"
 import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
@@ -109,7 +109,7 @@ export async function sendFlowStepToExternal({
   flowId: string
   flowVersionId?: string
   step: SendFlowStepData
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
   messageId?: string
 }): Promise<{ messageIds?: string[] }> {
   // Find integration auth

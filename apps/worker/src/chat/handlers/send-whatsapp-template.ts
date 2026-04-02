@@ -1,6 +1,7 @@
 import { db, eq } from "@aha.chat/database/client"
 import { messageModel } from "@aha.chat/database/schema"
 import type { ConversationModel } from "@aha.chat/database/types"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import {
   extractTemplateParams,
   type SendWaTemplateMessageStepSchema,
@@ -16,7 +17,6 @@ import type { MessageTemplateEntity } from "@aha.chat/sdk"
 import type {
   BotResponseTrackingContext,
   ChatJobSendWhatsappTemplateMessage,
-  IntegrationJobMetadata,
 } from "@aha.chat/worker-config"
 import { createId } from "@paralleldrive/cuid2"
 import {
@@ -35,7 +35,7 @@ export interface ProcessWhatsappTemplateParams {
     versionId?: string
     buttons: SendWaTemplateMessageStepSchema["buttons"]
   }
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
   template: {
     id: string
     name: string

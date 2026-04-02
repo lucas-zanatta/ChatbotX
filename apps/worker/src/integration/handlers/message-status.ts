@@ -1,11 +1,9 @@
 import { db } from "@aha.chat/database/client"
 import type { IntegrationType } from "@aha.chat/database/types"
 import { uploader } from "@aha.chat/filesystem"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import { type AuthValue, SdkException } from "@aha.chat/sdk"
-import type {
-  IntegrationJobMessageStatus,
-  IntegrationJobMetadata,
-} from "@aha.chat/worker-config"
+import type { IntegrationJobMessageStatus } from "@aha.chat/worker-config"
 import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { allIntegrations, getDBIntegration } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
@@ -87,8 +85,7 @@ export const handleMessageStatus = async (
     }
 
     if (message?.contentAttributes?.metadata) {
-      eventLog.metadata = message.contentAttributes
-        .metadata as IntegrationJobMetadata
+      eventLog.metadata = message.contentAttributes.metadata as MetadataPayload
     }
 
     if (eventStatus === "delivered") {

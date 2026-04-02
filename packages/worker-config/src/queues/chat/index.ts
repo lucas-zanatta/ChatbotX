@@ -1,4 +1,5 @@
 import type {
+  MetadataPayload,
   SendAudioStepSchema,
   SendCardStepSchema,
   SendCarouselStepSchema,
@@ -19,7 +20,6 @@ import {
   getRedisConnection,
 } from "../../lib/connection"
 import { queueName } from "../../lib/types"
-import type { IntegrationJobMetadata } from "../integration"
 import type { BotResponseTrackingContext } from "../types"
 
 export const ChatJobAction = {
@@ -36,7 +36,7 @@ export type ChatJobSendExternalMessage = {
   data: {
     conversation: OutgoingConversation
     message: OutgoingMessage
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -58,7 +58,7 @@ export type ChatJobSendFlowStep = {
       | SendQuickReplyStepSchema
       | SendWaTemplateMessageStepSchema
     trackingContext?: BotResponseTrackingContext
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -70,14 +70,14 @@ export type ChatJobSendChatMessage = {
         text?: string
         url?: string
         trackingContext?: BotResponseTrackingContext
-        metadata?: IntegrationJobMetadata
+        metadata?: MetadataPayload
       }
     | {
         conversationId: string
         text?: string
         url?: string
         trackingContext?: BotResponseTrackingContext
-        metadata?: IntegrationJobMetadata
+        metadata?: MetadataPayload
       }
 }
 
@@ -88,7 +88,7 @@ export type ChatJobSendWhatsappTemplateMessage = {
     templateId: string
     broadcastId: string
     templateData?: WaTemplateParams
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -97,7 +97,7 @@ export type ChatJobSendTyping = {
   data: {
     conversation: OutgoingConversation
     typing: boolean
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
@@ -108,7 +108,7 @@ export type ChatJobNotifyExportResult = {
     userId: string
     status: "pending" | "completed" | "failed"
     outputPath: string
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 

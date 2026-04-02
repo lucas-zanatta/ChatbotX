@@ -1,4 +1,5 @@
 import type { ContactModel, ConversationModel } from "@aha.chat/database/types"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import type { OutgoingConversation, OutgoingMessage } from "@aha.chat/sdk"
 import { Queue } from "bullmq"
 import {
@@ -49,20 +50,6 @@ export type IntegrationJobMessageStatus = {
   }
 }
 
-export type BroadcastMetadata = {
-  type: "broadcast"
-  broadcastId: string
-}
-
-export type SequenceScheduleMetadata = {
-  type: "sequenceSchedule"
-  sequenceScheduleId: string
-}
-
-export type IntegrationJobMetadata =
-  | BroadcastMetadata
-  | SequenceScheduleMetadata
-
 export type IntegrationJobRunFlowNode = {
   type: typeof IntegrationJobAction.sendFlow
   data: {
@@ -71,7 +58,7 @@ export type IntegrationJobRunFlowNode = {
     flowVersionId?: string
     nodeId?: string
     trackingContext?: BotResponseTrackingContext
-    metadata?: IntegrationJobMetadata
+    metadata?: MetadataPayload
   }
 }
 
