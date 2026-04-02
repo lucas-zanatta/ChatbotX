@@ -1,4 +1,4 @@
-import type { IntegrationJobMetadata } from "@chatbotx.io/worker-config"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import type { AuthValue, Oauth2AuthValue } from "./auth"
 import type {
   BaseConfig,
@@ -22,7 +22,7 @@ type IChannel<IAuth extends AuthValue> = {
           conversation: OutgoingConversation
           contactInbox: OutgoingContactInbox
           message: OutgoingMessage
-          metadata?: IntegrationJobMetadata
+          metadata?: MetadataPayload
         }
       },
       void

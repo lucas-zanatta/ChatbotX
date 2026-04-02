@@ -45,12 +45,11 @@ import type {
   SendTypingProps,
 } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
-  IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
-import { contactTrackingService } from "@chatbotx.io/analytics"
 import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
@@ -62,7 +61,7 @@ export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   buttons: ButtonStepProps[]
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
 }): MessageButtonTemplate[] => {
   const { flowId, flowVersionId, buttons, metadata } = props
   return buttons.map((button) => {
@@ -93,7 +92,7 @@ const convertCardsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
   cards: SendCardStepSchema[]
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
 }): MessageCardTemplate[] => {
   const { flowId, flowVersionId, cards, metadata } = props
 
