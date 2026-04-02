@@ -9,6 +9,7 @@ import type {
   IntegrationJobAssignConversation,
   IntegrationJobContactMarkAsRead,
 } from "@aha.chat/worker-config"
+import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 
 export const broadcastAssignConversation = async (
@@ -30,7 +31,19 @@ export const broadcastAssignConversation = async (
 export const contactMarkAsRead = async (
   props: IntegrationJobContactMarkAsRead["data"],
 ) => {
-  const { sourceConversationId } = props
+  const { sourceConversationId, integrationType } = props
+
+  const conversation = await db.query.conversationModel.findFirst({
+    where: { sourceId: sourceConversationId },
+    with: {
+      contact: true,
+      inbox: true,
+    },
+  })
+
+  if (!conversation) {
+    return
+  }
 
   await db
     .update(conversationModel)
@@ -38,6 +51,14 @@ export const contactMarkAsRead = async (
       contactLastReadAt: new Date(),
     })
     .where(eq(conversationModel.sourceId, sourceConversationId))
+
+  emit(MessageEventType.SEEN, {
+    chatbotId: conversation.inbox.chatbotId,
+    contactId: conversation.contact.id,
+    conversationId: conversation.id,
+    channel: integrationType,
+    occurredAt: new Date(),
+  })
 }
 
 export const agentMarkAsRead = async (
