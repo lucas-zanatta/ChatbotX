@@ -96,6 +96,20 @@ export function SequenceEditor({ sequence, chatbotId }: SequenceEditorProps) {
           <CardHeader />
 
           <CardContent>
+            {sequence.steps.length > 0 && (
+              <div className="mb-2 flex items-center pl-4 text-muted-foreground text-xs">
+                <div className="min-w-[320px] max-w-xl flex-1" />
+                <div className="flex-1" />
+                <div className="flex items-center gap-4">
+                  <span className="w-12 text-center">Sent</span>
+                  <span className="w-12 text-center">Seen</span>
+                  <span className="w-12 text-center">Clicked</span>
+                  <span className="w-12 text-center">Failed</span>
+                </div>
+                <div className="ml-auto w-[72px]" />
+              </div>
+            )}
+
             {sequence.steps.length === 0 && !isAddingStep && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <p className="text-muted-foreground">

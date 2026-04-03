@@ -83,3 +83,24 @@ export const upsertSequenceStepRequest = z.object({
 export type UpsertSequenceStepRequest = z.infer<
   typeof upsertSequenceStepRequest
 >
+
+export const getSequenceStepStatsRequest = z.object({
+  chatbotId: z.string(),
+  sequenceId: z.string(),
+  stepId: z.string(),
+})
+
+export const getSequenceStepStatsResponse = z.object({
+  sent: z.number(),
+  delivered: z.number(),
+  seen: z.number(),
+  clicked: z.number(),
+  failed: z.number(),
+})
+
+export type GetSequenceStepStatsRequest = z.infer<
+  typeof getSequenceStepStatsRequest
+>
+export type GetSequenceStepStatsResponse = z.infer<
+  typeof getSequenceStepStatsResponse
+>

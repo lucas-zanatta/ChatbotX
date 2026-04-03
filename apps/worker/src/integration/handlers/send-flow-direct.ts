@@ -1,4 +1,5 @@
 import { db } from "@aha.chat/database/client"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import { IntegrationJobAction } from "@aha.chat/worker-config"
 import { runFlowNode } from "./flow"
 
@@ -6,12 +7,13 @@ export interface SendFlowDirectParams {
   chatbotId: string
   contactId: string
   flowId: string
+  metadata?: MetadataPayload
 }
 
 export async function sendFlowDirect(
   params: SendFlowDirectParams,
 ): Promise<Date> {
-  const { flowId, chatbotId, contactId } = params
+  const { flowId, chatbotId, contactId, metadata } = params
 
   const conversation = await db.query.conversationModel.findFirst({
     where: {
@@ -29,6 +31,7 @@ export async function sendFlowDirect(
     data: {
       flowId,
       conversationId: conversation.id,
+      metadata,
     },
   })
 

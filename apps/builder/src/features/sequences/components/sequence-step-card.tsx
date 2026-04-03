@@ -14,6 +14,7 @@ import { useTimeRangeState } from "../hooks/use-time-range-state"
 import { DelaySelector } from "./delay-selector"
 import { DeleteStepDialog } from "./delete-step-dialog"
 import { FlowSelectorSimple } from "./flow-selector"
+import { SequenceStepStats } from "./sequence-step-stats"
 import { TimeRangeSelector } from "./time-range-selector"
 
 type SequenceStepCardProps = {
@@ -141,6 +142,8 @@ export function SequenceStepCard({
                 onSpecificDateTimeChange={handleSpecificDateTimeChange}
                 specificDateTime={specificDateTime}
               />
+
+              <SequenceStepStats sequenceId={sequenceId} stepId={step?.id} />
 
               <div className="ml-auto flex items-center gap-1">
                 <Button

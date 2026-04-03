@@ -161,10 +161,17 @@ class DispatchConsumer {
         )
         return
       }
-
       const sentAt = await this.stepExecutor.sendFlowMessage(
         dispatch,
         step as StepWithRelations,
+        {
+          metadata: {
+            type: "sequenceSchedule",
+            stepId: step?.id ?? "",
+            sequenceId: dispatch.chatbotId,
+            dispatchId: dispatch.contactId,
+          },
+        },
       )
 
       await this.stepExecutor.markDispatchCompleted(

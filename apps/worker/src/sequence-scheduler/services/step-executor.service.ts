@@ -3,6 +3,7 @@ import {
   sequenceDispatchModel,
   sequenceEventModel,
 } from "@aha.chat/database/schema"
+import type { MetadataPayload } from "@aha.chat/flow-config"
 import { createId } from "@paralleldrive/cuid2"
 import { sendFlowDirect } from "../../integration/handlers/send-flow-direct"
 import type {
@@ -45,6 +46,9 @@ export class StepExecutorService {
   async sendFlowMessage(
     dispatch: DispatchWithRelations,
     step: StepWithRelations,
+    options?: {
+      metadata?: MetadataPayload
+    },
   ): Promise<Date> {
     if (!step.flow) {
       throw new Error(`Step ${step.id} has no flow configured`)
@@ -54,6 +58,7 @@ export class StepExecutorService {
       flowId: step.flow.id,
       chatbotId: dispatch.chatbotId,
       contactId: dispatch.contactId,
+      metadata: options?.metadata,
     })
 
     return sentAt
