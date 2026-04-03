@@ -14,4 +14,6 @@ export const getBroadcastStatsResponse = z.object({
 })
 
 export type GetBroadcastStatsRequest = z.infer<typeof getBroadcastStatsRequest>
-export type GetBroadcastStatsResponse = z.infer<typeof getBroadcastStatsResponse>
+export type GetBroadcastStatsResponse = z.infer<
+  typeof getBroadcastStatsResponse
+>
