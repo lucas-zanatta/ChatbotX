@@ -82,17 +82,6 @@ async function removeContactSequences(
     return
   }
 
-  await Promise.all(
-    enrollments.map((enrollment: { id: string }) =>
-      cancelPendingDispatches({
-        client: tx,
-        enrollmentId: enrollment.id,
-        chatbotId,
-        reason: "enrollment_removed",
-      }),
-    ),
-  )
-
   const enrollmentIds = enrollments.map((e: { id: string }) => e.id)
   if (enrollmentIds.length > 0) {
     await tx
@@ -104,6 +93,17 @@ async function removeContactSequences(
         ),
       )
   }
+
+  await Promise.all(
+    enrollments.map((enrollment: { id: string }) =>
+      cancelPendingDispatches({
+        client: tx,
+        enrollmentId: enrollment.id,
+        chatbotId,
+        reason: "enrollment_removed",
+      }),
+    ),
+  )
 }
 
 async function addContactSequences(
@@ -159,23 +159,21 @@ export const updateContactSequenceAction = chatbotActionClient
 
       const currentIds = await getCurrentSequenceIds(db, contact.id, chatbotId)
 
-      const returnedSequences = await db.transaction(async (tx) => {
-        const { toAdd, toRemove } = calculateSequenceDiff(
-          currentIds,
-          parsedInput.sequences,
-        )
+      const { toAdd, toRemove } = calculateSequenceDiff(
+        currentIds,
+        parsedInput.sequences,
+      )
 
-        await removeContactSequences(tx, contact.id, toRemove, chatbotId)
-        await addContactSequences(tx, contact.id, toAdd, chatbotId)
+      await removeContactSequences(db, contact.id, toRemove, chatbotId)
+      await addContactSequences(db, contact.id, toAdd, chatbotId)
 
-        return await tx.query.contactsOnSequenceModel.findMany({
+      const returnedSequences = await db.query.contactsOnSequenceModel.findMany({
           where: {
             contactId: contact.id,
             chatbotId,
           },
           with: { sequence: true },
         })
-      })
 
       revalidateCacheTags([
         `chatbots:${chatbotId}#contacts`,

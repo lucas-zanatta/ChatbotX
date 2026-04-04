@@ -2202,6 +2202,15 @@
     "unenrollOnReplyDescription": "Xóa liên hệ khỏi chuỗi chăm sóc khi họ trả lời",
     "performance": "Hiệu suất",
     "enrolled": "Đã đăng ký",
+    "stats": {
+      "sent": "Đã gửi",
+      "delivered": "Đã nhận",
+      "seen": "Đã xem",
+      "clicked": "Đã nhấp",
+      "failed": "Thất bại",
+      "noContacts": "Không tìm thấy liên hệ",
+      "pageInfo": "Trang {page} / {pageCount}"
+    },
     "completed": "Hoàn thành",
     "openRate": "Tỷ lệ mở",
     "clickRate": "Tỷ lệ nhấp",

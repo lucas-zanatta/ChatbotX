@@ -1952,6 +1952,15 @@
     "unsubscribeRate": "Unsubscribe rate",
     "overview": "Overview",
     "analytics": "Analytics",
+    "stats": {
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "seen": "Seen",
+      "clicked": "Clicked",
+      "failed": "Failed",
+      "noContacts": "No contacts found",
+      "pageInfo": "Page {page} of {pageCount}"
+    },
     "settings": "Settings",
     "flow": "Flow",
     "active": "Active",

@@ -32,4 +32,6 @@ export const SequenceScheduleEventModel = z.object({
   inserted_at: z.string(),
 })
 
-export type SequenceScheduleEventType = z.infer<typeof SequenceScheduleEventModel>
+export type SequenceScheduleEventType = z.infer<
+  typeof SequenceScheduleEventModel
+>

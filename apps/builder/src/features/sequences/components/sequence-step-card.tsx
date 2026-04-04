@@ -103,8 +103,9 @@ export function SequenceStepCard({
         <Card className="py-2 shadow-none">
           <CardContent>
             {/* Main row */}
-            <div className="flex items-center gap-3">
-              <div className="flex min-w-[320px] max-w-xl flex-1 items-center gap-2">
+            <div className="flex items-center gap-4">
+              {/* Column 1: Switch + Label + Flow Selector */}
+              <div className="flex min-w-[320px] flex-1 items-center gap-2">
                 <Switch
                   checked={isActive}
                   className="cursor-pointer"
@@ -119,7 +120,7 @@ export function SequenceStepCard({
                   }}
                 />
 
-                <span className="mr-4 ml-4 whitespace-nowrap text-muted-foreground text-sm">
+                <span className="mx-4 whitespace-nowrap text-muted-foreground text-sm">
                   {t("sequences.sendLabel")}
                 </span>
 
@@ -133,6 +134,7 @@ export function SequenceStepCard({
                 />
               </div>
 
+              {/* Column 2: Delay Selector */}
               <DelaySelector
                 delayUnit={delayUnit}
                 delayValue={delayValue}
@@ -143,9 +145,11 @@ export function SequenceStepCard({
                 specificDateTime={specificDateTime}
               />
 
+              {/* Column 3: Stats */}
               <SequenceStepStats sequenceId={sequenceId} stepId={step?.id} />
 
-              <div className="ml-auto flex items-center gap-1">
+              {/* Column 4: Actions */}
+              <div className="flex items-center gap-1">
                 <Button
                   className="h-8 w-8 hover:bg-muted hover:text-primary"
                   onClick={() =>

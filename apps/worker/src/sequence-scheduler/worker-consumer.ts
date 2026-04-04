@@ -168,7 +168,7 @@ class DispatchConsumer {
           metadata: {
             type: "sequenceSchedule",
             stepId: step?.id ?? "",
-            sequenceId: dispatch.chatbotId,
+            sequenceId: step?.sequenceId ?? "",
             dispatchId: dispatch.contactId,
           },
         },
