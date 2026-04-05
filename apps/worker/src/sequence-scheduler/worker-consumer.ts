@@ -180,15 +180,6 @@ class DispatchConsumer {
         sentAt,
       )
 
-      await this.stepExecutor.recordDispatchEvent(
-        dispatch,
-        "dispatch_completed",
-        {
-          attempt: dispatch.attempt,
-          duration: Date.now() - Number(dispatch.runAtMs),
-        },
-      )
-
       await this.advanceEnrollment(dispatch, step as StepWithRelations, sentAt)
     } catch (error) {
       logger.error(
@@ -208,15 +199,6 @@ class DispatchConsumer {
             dispatch.id,
             dispatch.chatbotId,
             error instanceof Error ? error.message : "Unknown error",
-          )
-
-          await this.stepExecutor.recordDispatchEvent(
-            dispatch,
-            "dispatch_failed",
-            {
-              attempt: dispatch.attempt,
-              error: error instanceof Error ? error.message : "Unknown error",
-            },
           )
         }
       } catch (retryError) {

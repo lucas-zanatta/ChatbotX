@@ -6,10 +6,7 @@ import {
 } from "@aha.chat/database/client"
 import {
   sequenceDispatchModel,
-  sequenceEventModel,
 } from "@aha.chat/database/schema"
-import { sequenceEventType } from "@aha.chat/database/types"
-import { createId } from "@paralleldrive/cuid2"
 
 export const sequenceDispatchUtils = {
   bulkCancelPendingDispatches: async (props: {
@@ -58,21 +55,6 @@ export const sequenceDispatchUtils = {
     if (updatedDispatches.length === 0) {
       return []
     }
-
-    // Create a sequence event for each pending dispatch
-    await dbClient.insert(sequenceEventModel).values(
-      pendingDispatches.map((d) => ({
-        id: createId(),
-        chatbotId,
-        sequenceId: d.sequenceId,
-        contactId: d.contactId,
-        stepId: d.stepId,
-        dispatchId: d.id,
-        eventType: sequenceEventType.dispatch_canceled,
-        payload: { reason },
-        occurredAt: new Date(),
-      })),
-    )
 
     return pendingDispatches.map((d) => ({
       id: d.id,

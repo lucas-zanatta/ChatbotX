@@ -705,23 +705,6 @@ export const relations = defineRelations(schema, (r) => ({
       optional: false,
     }),
   },
-  sequenceEventModel: {
-    chatbot: r.one.chatbotModel({
-      from: r.sequenceEventModel.chatbotId,
-      to: r.chatbotModel.id,
-      optional: false,
-    }),
-    sequence: r.one.sequenceModel({
-      from: r.sequenceEventModel.sequenceId,
-      to: r.sequenceModel.id,
-      optional: false,
-    }),
-    contact: r.one.contactModel({
-      from: r.sequenceEventModel.contactId,
-      to: r.contactModel.id,
-      optional: false,
-    }),
-  },
   sequenceDispatchModel: {
     chatbot: r.one.chatbotModel({
       from: r.sequenceDispatchModel.chatbotId,

@@ -1828,35 +1828,6 @@ export const contactsOnSequenceModel = pgTable(
   ],
 )
 
-export const sequenceEventModel = pgTable(
-  "SequenceEvent",
-  {
-    ...sharedColumns,
-    occurredAt: timestamp({ precision: 3 }).notNull().defaultNow(),
-    eventType: text().notNull(),
-    payload: jsonb(),
-    chatbotId: text().notNull(),
-    sequenceId: text().notNull(),
-    contactId: text().notNull(),
-    stepId: text(),
-    dispatchId: text(),
-  },
-  (table) => [
-    index("SequenceEvent_chatbotId_occurredAt_idx").on(
-      table.chatbotId,
-      table.occurredAt,
-    ),
-    index("SequenceEvent_contactId_occurredAt_idx").on(
-      table.contactId,
-      table.occurredAt,
-    ),
-    index("SequenceEvent_sequenceId_eventType_idx").on(
-      table.sequenceId,
-      table.eventType,
-    ),
-  ],
-)
-
 export const sequenceDispatchModel = pgTable(
   "SequenceDispatch",
   {

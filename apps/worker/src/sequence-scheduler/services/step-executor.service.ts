@@ -1,14 +1,9 @@
 import { and, db, eq } from "@aha.chat/database/client"
-import {
-  sequenceDispatchModel,
-  sequenceEventModel,
-} from "@aha.chat/database/schema"
+import { sequenceDispatchModel } from "@aha.chat/database/schema"
 import type { MetadataPayload } from "@aha.chat/flow-config"
-import { createId } from "@paralleldrive/cuid2"
 import { sendFlowDirect } from "../../integration/handlers/send-flow-direct"
 import type {
   DispatchWithRelations,
-  SequenceEventType,
   StepWithRelations,
   ValidationResult,
 } from "./types"
@@ -84,21 +79,4 @@ export class StepExecutorService {
       )
   }
 
-  async recordDispatchEvent(
-    dispatch: DispatchWithRelations,
-    eventType: SequenceEventType,
-    payload: Record<string, unknown>,
-  ): Promise<void> {
-    await db.insert(sequenceEventModel).values({
-      id: createId(),
-      chatbotId: dispatch.chatbotId,
-      sequenceId: dispatch.sequenceId,
-      contactId: dispatch.contactId,
-      stepId: dispatch.stepId,
-      dispatchId: dispatch.id,
-      eventType,
-      payload,
-      occurredAt: new Date(),
-    })
-  }
 }
