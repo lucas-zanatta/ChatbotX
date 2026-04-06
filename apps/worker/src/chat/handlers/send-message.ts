@@ -4,8 +4,9 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@chatbotx.io/database/types"
-import { emit, MessageEventType } from "@chatbotx.io/event-bus"
+import { emit } from "@chatbotx.io/event-bus"
 import type { MetadataPayload } from "@chatbotx.io/flow-config"
+import { MessageEventType } from "@chatbotx.io/flow-config"
 import { parseSdkError, type SendFlowStepData } from "@chatbotx.io/sdk"
 import type {
   ChatJobSendExternalMessage,
@@ -150,7 +151,7 @@ export async function sendFlowStepToExternal({
     })
 
     await updateMessageSourceId(messageId, result)
-    await emit(MessageEventType.SENT, {
+    await emit(MessageEventType["message:sent"], {
       ...eventLogData,
       messageId: result?.messageIds?.[0],
       occurredAt: new Date(),
@@ -158,7 +159,7 @@ export async function sendFlowStepToExternal({
 
     return result || {}
   } catch (err) {
-    await emit(MessageEventType.FAILED, {
+    await emit(MessageEventType["message:failed"], {
       ...eventLogData,
       errorData: await parseSdkError(err),
       occurredAt: new Date(),
