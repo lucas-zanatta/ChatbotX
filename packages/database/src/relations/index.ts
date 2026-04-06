@@ -48,7 +48,6 @@ import { reflinkRelations } from "./reflink"
 import { savedReplyRelations } from "./save-reply"
 import { sequenceRelations } from "./sequence"
 import { sequenceDispatchRelations } from "./sequence-dispatch"
-import { sequenceEventRelations } from "./sequence-event"
 import { sequenceStepRelations } from "./sequence-step"
 import { spreadsheetRelations } from "./spreadsheet"
 import { tagRelations } from "./tag"
@@ -118,7 +117,6 @@ export const relations = {
   ...sequenceRelations,
   ...sequenceStepRelations,
   ...contactsOnSequenceRelations,
-  ...sequenceEventRelations,
   ...sequenceDispatchRelations,
   ...inboxContactStatsRelations,
   ...organizationMemberRelations,
