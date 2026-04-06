@@ -2,6 +2,7 @@ import type {
   ConversationModel,
   FlowVersionModel,
 } from "@chatbotx.io/database/types"
+import { emit, FlowEventType } from "@chatbotx.io/event-bus"
 import {
   type BaseStepSchema,
   type ButtonStepProps,
@@ -22,7 +23,6 @@ import {
   type IntegrationJobSendFlowQuickReply,
   integrationQueue,
 } from "@chatbotx.io/worker-config"
-import { emit, FlowEventType } from "@chatbotx.io/event-bus"
 import { findConversationAndFlowVersion } from "../../lib/db"
 import { logger } from "../../lib/logger"
 import { flowStepHandlers } from "./step"
@@ -292,10 +292,10 @@ export async function runFlowPostback(
 
   if (conversation.contactId) {
     emit(FlowEventType.CLICKED, {
-      chatbotId: conversation.chatbotId,
+      workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
-      channel: conversation.channel,
+      channel: conversation.inbox?.channel,
       occurredAt: new Date(),
       flowId: parsedAction.flowId,
       buttonId: parsedAction.buttonId,
@@ -348,7 +348,7 @@ export async function runFlowQuickReply(
 
   if (conversation.contactId) {
     emit(FlowEventType.CLICKED, {
-      chatbotId: conversation.chatbotId,
+      workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
       channel: conversation.channel,

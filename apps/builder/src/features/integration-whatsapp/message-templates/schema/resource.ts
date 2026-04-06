@@ -17,6 +17,7 @@ export const whatsappMessageTemplateResouce = createSelectSchema(
     category: true,
     status: true,
     components: true,
+    integrationWhatsappId: true,
   })
   .extend({
     components: z.any(),
