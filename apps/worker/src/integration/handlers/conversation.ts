@@ -53,7 +53,7 @@ export const contactMarkAsRead = async (
     })
     .where(eq(conversationModel.sourceId, sourceConversationId))
 
-  emit(MessageEventType["message:seen"], {
+  await emit(MessageEventType["message:seen"], {
     workspaceId: conversation.workspaceId,
     contactId: conversation.contactId,
     conversationId: conversation.id,
