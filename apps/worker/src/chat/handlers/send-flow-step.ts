@@ -22,6 +22,7 @@ import {
 import type { AttachmentModel } from "@chatbotx.io/database/types"
 import { getPublicUrl } from "@chatbotx.io/database/utils"
 import { uploadFileFromUrl } from "@chatbotx.io/filesystem/node-upload"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import {
   type ButtonStepProps,
   ButtonType,
@@ -45,7 +46,6 @@ import type {
   SendTypingProps,
 } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
-import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
