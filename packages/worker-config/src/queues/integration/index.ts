@@ -71,6 +71,7 @@ export type IntegrationJobSendFlowPostback = {
     conversationId: string
     action: string
     ref?: string | null
+    inboxId?: string
   }
 }
 
@@ -80,6 +81,7 @@ export type IntegrationJobSendFlowQuickReply = {
     conversationId: string
     action: string
     ref?: string | null
+    inboxId?: string
   }
 }
 
