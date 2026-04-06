@@ -1,8 +1,8 @@
-import type { IntegrationType } from "@chatbotx.io/database/types"
-import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import { db } from "@chatbotx.io/database/client"
+import type { IntegrationType } from "@chatbotx.io/database/types"
 import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { uploader } from "@chatbotx.io/filesystem"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import { type AuthValue, SdkException } from "@chatbotx.io/sdk"
 import type { IntegrationJobMessageStatus } from "@chatbotx.io/worker-config"
 import { allIntegrations, getDBIntegration } from "../../lib/integrations"
@@ -54,7 +54,7 @@ export const handleMessageStatus = async (
     const chatConversation = await db.query.conversationModel.findFirst({
       where: {
         sourceId: conversation.sourceId,
-        chatbotId: ctx.chatbot.id,
+        workspaceId: ctx.chatbot.id,
         inboxId: ctx.inbox.id,
       },
       with: {
@@ -70,12 +70,12 @@ export const handleMessageStatus = async (
       where: {
         sourceId: payload.messageId,
         conversationId: chatConversation.id,
-        chatbotId: ctx.chatbot.id,
+        workspaceId: ctx.chatbot.id,
       },
     })
 
     const eventLog = {
-      chatbotId: inbox.chatbotId,
+      workspaceId: inbox.workspaceId,
       contactId: chatConversation.contact.id,
       conversationId: chatConversation.id,
       channel: inbox.channel,

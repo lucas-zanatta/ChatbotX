@@ -6,7 +6,7 @@ import {
   type ParameterInfo,
   type TemplateComponent,
 } from "@chatbotx.io/flow-config"
-import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
+import { ComboboxField } from "@chatbotx.io/ui/components/form/combobox-field"
 import {
   Select,
   SelectContent,
@@ -36,7 +36,6 @@ function SendWaTemplateMessageStepEditor(
   const { parentName } = props
   const t = useTranslations()
   const { setValue, watch } = useFormContext()
-  const workspaceId = useFlowAction((s) => s.workspaceId)
   const [selectedTemplate, setSelectedTemplate] =
     useState<WhatsappMessageTemplateResource | null>(null)
   const [parameters, setParameters] = useState<ParameterInfo[]>([])

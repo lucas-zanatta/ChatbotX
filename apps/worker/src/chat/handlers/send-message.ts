@@ -4,13 +4,13 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@chatbotx.io/database/types"
+import { emit, MessageEventType } from "@chatbotx.io/event-bus"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import { parseSdkError, type SendFlowStepData } from "@chatbotx.io/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
 } from "@chatbotx.io/worker-config"
-import type { MetadataPayload } from "@chatbotx.io/flow-config"
-import { emit, MessageEventType } from "@chatbotx.io/event-bus"
 import { getInboxWithAuthFromInboxId } from "../../lib/inbox"
 import { allIntegrations } from "../../lib/integrations"
 import { logger } from "../../lib/logger"
@@ -127,7 +127,7 @@ export async function sendFlowStepToExternal({
   }
 
   const eventLogData = {
-    chatbotId: inbox.chatbotId,
+    workspaceId: inbox.workspaceId,
     contactId: conversation.contactId,
     conversationId: conversation.id,
     channel: inbox.channel,
