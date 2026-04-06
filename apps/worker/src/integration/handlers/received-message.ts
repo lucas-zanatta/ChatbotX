@@ -302,6 +302,7 @@ export const receiveMessage = async (
         conversationId: result.conversation.id,
         action: postbackAction,
         ref,
+        inboxId,
       },
     })
   }
@@ -313,6 +314,7 @@ export const receiveMessage = async (
         conversationId: result.conversation.id,
         action: quickReplyAction,
         ref,
+        inboxId,
       },
     })
   }

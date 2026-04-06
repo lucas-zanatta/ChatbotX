@@ -1,3 +1,5 @@
+import { and, db, eq } from "@chatbotx.io/database/client"
+import { contactInboxModel } from "@chatbotx.io/database/schema"
 import type {
   ConversationModel,
   FlowVersionModel,
@@ -290,12 +292,30 @@ export async function runFlowPostback(
     flowVersionId: parsedAction.flowVersionId,
   })
 
-  if (conversation.contactId) {
+  if (conversation?.contactId) {
+    let contactInbox: { id: string; channel: string } | undefined
+    if (data.inboxId) {
+      contactInbox = await db
+        .select({
+          id: contactInboxModel.id,
+          channel: contactInboxModel.channel,
+        })
+        .from(contactInboxModel)
+        .where(
+          and(
+            eq(contactInboxModel.contactId, conversation.contactId),
+            eq(contactInboxModel.inboxId, data.inboxId),
+          ),
+        )
+        .then((rows) => rows[0])
+    }
+
     emit(FlowEventType.CLICKED, {
       workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
-      channel: conversation.inbox?.channel,
+      channel: contactInbox?.channel ?? "",
+      contactInboxId: contactInbox?.id ?? "",
       occurredAt: new Date(),
       flowId: parsedAction.flowId,
       buttonId: parsedAction.buttonId,
@@ -347,11 +367,29 @@ export async function runFlowQuickReply(
   })
 
   if (conversation.contactId) {
+    let contactInbox: { id: string; channel: string } | undefined
+    if (data.inboxId) {
+      contactInbox = await db
+        .select({
+          id: contactInboxModel.id,
+          channel: contactInboxModel.channel,
+        })
+        .from(contactInboxModel)
+        .where(
+          and(
+            eq(contactInboxModel.contactId, conversation.contactId),
+            eq(contactInboxModel.inboxId, data.inboxId),
+          ),
+        )
+        .then((rows) => rows[0])
+    }
+
     emit(FlowEventType.CLICKED, {
       workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
-      channel: conversation.channel,
+      channel: contactInbox?.channel ?? "",
+      contactInboxId: contactInbox?.id ?? "",
       occurredAt: new Date(),
       flowId: parsedAction.flowId,
       buttonId: parsedAction.buttonId,
