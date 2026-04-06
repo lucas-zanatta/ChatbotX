@@ -1,6 +1,7 @@
 import { db, eq } from "@chatbotx.io/database/client"
 import { conversationModel } from "@chatbotx.io/database/schema"
-import { emit, MessageEventType } from "@chatbotx.io/event-bus"
+import { emit } from "@chatbotx.io/event-bus"
+import { MessageEventType } from "@chatbotx.io/flow-config"
 import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
@@ -52,7 +53,7 @@ export const contactMarkAsRead = async (
     })
     .where(eq(conversationModel.sourceId, sourceConversationId))
 
-  emit(MessageEventType.SEEN, {
+  emit(MessageEventType["message:seen"], {
     workspaceId: conversation.workspaceId,
     contactId: conversation.contactId,
     conversationId: conversation.id,
