@@ -4,10 +4,8 @@ import type {
   ConversationModel,
   IntegrationType,
 } from "@chatbotx.io/database/types"
-import { emit } from "@chatbotx.io/event-bus"
 import type { MetadataPayload } from "@chatbotx.io/flow-config"
-import { MessageEventType } from "@chatbotx.io/flow-config"
-import { parseSdkError, type SendFlowStepData } from "@chatbotx.io/sdk"
+import type { SendFlowStepData } from "@chatbotx.io/sdk"
 import type {
   ChatJobSendExternalMessage,
   ChatJobSendTyping,
@@ -127,44 +125,21 @@ export async function sendFlowStepToExternal({
     return {}
   }
 
-  const eventLogData = {
-    workspaceId: inbox.workspaceId,
-    contactId: conversation.contactId,
-    conversationId: conversation.id,
-    channel: inbox.channel,
-    metadata,
-  }
+  const result = await intergationDetail.runAction("sendFlowStep", {
+    ctx: {
+      workspace: inbox.workspace,
+      auth,
+    },
+    data: {
+      conversation,
+      flowId,
+      flowVersionId,
+      step,
+      metadata,
+    },
+  })
 
-  try {
-    const result = await intergationDetail.runAction("sendFlowStep", {
-      ctx: {
-        workspace: inbox.workspace,
-        auth,
-      },
-      data: {
-        conversation,
-        flowId,
-        flowVersionId,
-        step,
-        metadata,
-      },
-    })
+  await updateMessageSourceId(messageId, result)
 
-    await updateMessageSourceId(messageId, result)
-    await emit(MessageEventType["message:sent"], {
-      ...eventLogData,
-      messageId: result?.messageIds?.[0],
-      occurredAt: new Date(),
-    })
-
-    return result || {}
-  } catch (err) {
-    await emit(MessageEventType["message:failed"], {
-      ...eventLogData,
-      errorData: await parseSdkError(err),
-      occurredAt: new Date(),
-    })
-
-    throw err
-  }
+  return result || {}
 }
