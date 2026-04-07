@@ -140,11 +140,13 @@ export async function processWhatsappTemplate(
   })
 
   const eventLogData = {
-    workspaceId: conversation.workspaceId,
-    contactId: conversation.contactId,
-    conversationId: conversation.id,
-    channel: targetContactInbox.channel,
-    contactInboxId: targetContactInbox.id,
+    context: {
+      workspaceId: conversation.workspaceId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: targetContactInbox.channel,
+      contactInboxId: targetContactInbox.id,
+    },
     metadata,
   }
 
@@ -165,7 +167,7 @@ export async function processWhatsappTemplate(
 
     await emit(MessageEventType["message:sent"], {
       ...eventLogData,
-      messageId: "",
+      action: { messageId: "" },
       occurredAt: new Date(),
     })
 
@@ -195,6 +197,7 @@ export async function processWhatsappTemplate(
     )
     await emit(MessageEventType["message:failed"], {
       ...eventLogData,
+      action: {},
       errorData: await parseSdkError(error),
       occurredAt: new Date(),
     })
@@ -206,8 +209,14 @@ export async function processWhatsappTemplate(
 export async function sendWhatsappTemplateMessage(
   data: ChatJobSendWhatsappTemplateMessage["data"],
 ) {
-  const { conversationId, templateId, broadcastId, templateData, metadata } =
-    data
+  const {
+    conversationId,
+    templateId,
+    broadcastId,
+    templateData,
+    metadata,
+    contactInboxId,
+  } = data
 
   try {
     const conversation = await db.query.conversationModel.findFirst({
@@ -231,8 +240,17 @@ export async function sendWhatsappTemplateMessage(
       templateData ??
       extractTemplateParams((template.components as TemplateComponent[]) || [])
 
+    const contactInbox = await db.query.contactInboxModel.findFirst({
+      where: { id: contactInboxId },
+    })
+
+    if (!contactInbox) {
+      throw new Error(`Contact inbox not found: ${contactInboxId}`)
+    }
+
     const result = await processWhatsappTemplate({
       conversation,
+      targetContactInbox: contactInbox,
       template: {
         id: template.id,
         name: template.name,

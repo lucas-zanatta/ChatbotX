@@ -54,10 +54,13 @@ export const contactMarkAsRead = async (
     .where(eq(conversationModel.sourceId, sourceConversationId))
 
   await emit(MessageEventType["message:seen"], {
-    workspaceId: conversation.workspaceId,
-    contactId: conversation.contactId,
-    conversationId: conversation.id,
-    channel: integrationType,
+    context: {
+      workspaceId: conversation.workspaceId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: integrationType,
+    },
+    action: {},
     occurredAt: new Date(),
   })
 }
