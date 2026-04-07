@@ -21,6 +21,7 @@ import {
 } from "@chatbotx.io/database/schema"
 import type { AttachmentModel } from "@chatbotx.io/database/types"
 import { getPublicUrl } from "@chatbotx.io/database/utils"
+import { emit } from "@chatbotx.io/event-bus"
 import { uploadFileFromUrl } from "@chatbotx.io/filesystem/node-upload"
 import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import {
@@ -28,6 +29,7 @@ import {
   ButtonType,
   encodeButtonPayload,
   extractMetadata,
+  MessageEventType,
   type SendCardStepSchema,
   stepTypes,
 } from "@chatbotx.io/flow-config"
@@ -36,14 +38,15 @@ import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
 } from "@chatbotx.io/partysocket-config"
-import type {
-  AuthValue,
-  MessageButtonTemplate,
-  MessageCardTemplate,
-  MessageTemplateEntity,
-  OutgoingMessage,
-  SendFlowStepData,
-  SendTypingProps,
+import {
+  type AuthValue,
+  type MessageButtonTemplate,
+  type MessageCardTemplate,
+  type MessageTemplateEntity,
+  type OutgoingMessage,
+  parseSdkError,
+  type SendFlowStepData,
+  type SendTypingProps,
 } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import type {
@@ -150,6 +153,7 @@ export async function sendFlowStep({
     try {
       await processWhatsappTemplate({
         conversation,
+        targetContactInbox,
         template: {
           id: step.template.id,
           name: step.template.name,
@@ -171,6 +175,14 @@ export async function sendFlowStep({
     }
 
     return
+  }
+
+  const eventLogData = {
+    workspaceId: conversation.workspaceId,
+    contactId: conversation.contactId,
+    conversationId: conversation.id,
+    channel: targetContactInbox.channel,
+    metadata,
   }
 
   try {
@@ -284,6 +296,11 @@ export async function sendFlowStep({
     }
 
     await Promise.all(promises)
+    await emit(MessageEventType["message:sent"], {
+      ...eventLogData,
+      messageId: "",
+      occurredAt: new Date(),
+    })
 
     // Send contact tracking event
     contactTrackingService
@@ -332,6 +349,12 @@ export async function sendFlowStep({
       error,
       `sendFlowStep error for conversationId: ${conversationId}`,
     )
+
+    await emit(MessageEventType["message:failed"], {
+      ...eventLogData,
+      errorData: await parseSdkError(error),
+      occurredAt: new Date(),
+    })
 
     if (trackingContext) {
       await trackBotResponse({
