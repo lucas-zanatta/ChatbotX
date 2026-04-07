@@ -178,10 +178,13 @@ export async function sendFlowStep({
   }
 
   const eventLogData = {
-    workspaceId: conversation.workspaceId,
-    contactId: conversation.contactId,
-    conversationId: conversation.id,
-    channel: targetContactInbox.channel,
+    context: {
+      workspaceId: conversation.workspaceId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: targetContactInbox.channel,
+      contactInboxId: targetContactInbox.id,
+    },
     metadata,
   }
 
@@ -298,7 +301,7 @@ export async function sendFlowStep({
     await Promise.all(promises)
     await emit(MessageEventType["message:sent"], {
       ...eventLogData,
-      messageId: "",
+      action: { messageId: "" },
       occurredAt: new Date(),
     })
 
@@ -352,6 +355,7 @@ export async function sendFlowStep({
 
     await emit(MessageEventType["message:failed"], {
       ...eventLogData,
+      action: {},
       errorData: await parseSdkError(error),
       occurredAt: new Date(),
     })
