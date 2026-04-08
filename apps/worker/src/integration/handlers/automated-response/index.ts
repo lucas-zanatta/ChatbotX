@@ -4,7 +4,6 @@ import type { OutgoingConversation } from "@chatbotx.io/sdk"
 import type { IntegrationJobTriggerAutomatedResponse } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
 import { logger } from "../../../lib/logger"
-import { getAIToolset } from "../generate-text/tools"
 import { replyByAI, replyByAutomatedResponse } from "./replies"
 import { createTrackingContext, trackBotResponse } from "./track-bot-response"
 
@@ -15,30 +14,6 @@ export async function triggerAutomatedResponse(
   const messageId = (message as { id?: string }).id ?? ""
   const startTime = Date.now()
   try {
-    // if (!message.text) {
-    //   await trackBotResponse({
-    //     workspaceId: message.workspaceId,
-    //     conversationId: message.conversationId,
-    //     messageId,
-    //     hasResponse: false,
-    //     responseType: "none",
-    //     routeType: "fallback",
-    //     result: "fallback",
-    //     aiProvider: "none",
-    //     startTime: Date.now(),
-    //     metadata: {
-    //       fallbackReason: "no_content",
-    //     },
-    //     triggerContext: {
-    //       triggerSource: "worker",
-    //       triggerHandler: "triggerAutomatedResponse",
-    //       triggerType: "bot_response_fallback_no_content",
-    //     },
-    //   })
-
-    //   return
-    // }
-
     const conversation = await db.query.conversationModel.findFirst({
       where: { id: message.conversationId },
     })
@@ -71,6 +46,7 @@ export async function triggerAutomatedResponse(
         isDefault: true,
       },
     })
+
     if (!aiAgent) {
       await trackBotResponse({
         workspaceId: message.workspaceId,
@@ -118,21 +94,19 @@ export async function triggerAutomatedResponse(
     }
     lastAIMessages.reverse()
 
-    const toolset = await getAIToolset(aiAgent.workspaceId, aiAgent.tools)
+    const aiResult = await replyByAI({
+      message,
+      lastAIMessages,
+      aiAgent,
+      tools: {}, // This will be ignored as replyByAI now handles toolset internally
+      availableTools: {
+        fileTools: [],
+        functionTools: [],
+        mcpTools: [],
+      },
+    })
 
-    if (
-      await replyByAI({
-        message,
-        lastAIMessages,
-        aiAgent,
-        tools: toolset,
-        availableTools: {
-          fileTools: [],
-          functionTools: [],
-          mcpTools: [],
-        },
-      })
-    ) {
+    if (aiResult) {
       // Step 3: AI Agent exists → Route to AGENT
       await trackBotResponse({
         workspaceId: message.workspaceId,
@@ -142,7 +116,8 @@ export async function triggerAutomatedResponse(
         responseType: "ai_agent",
         routeType: "agent",
         result: "success",
-        aiProvider: "openai",
+        aiProvider: aiResult.provider,
+        metadata: {},
         startTime,
       })
       return
@@ -178,6 +153,5 @@ export async function triggerAutomatedResponse(
       },
       "[automated-response] triggerAutomatedResponse failed",
     )
-    return
   }
 }
