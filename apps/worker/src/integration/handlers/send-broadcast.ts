@@ -67,6 +67,7 @@ export const sendBroadcast = async (broadcastId: string) => {
             type: ChatJobAction.sendWhatsappTemplateMessage,
             data: {
               conversationId: contactOnBroadcast.conversationId,
+              contactInboxId: contactOnBroadcast.contactInboxId,
               templateId: broadcast.templateId,
               broadcastId: broadcast.id,
               templateData: broadcast.templateData as

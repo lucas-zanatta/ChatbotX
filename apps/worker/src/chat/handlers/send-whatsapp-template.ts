@@ -41,6 +41,7 @@ export interface ProcessWhatsappTemplateParams {
     buttons: SendWaTemplateMessageStepSchema["buttons"]
   }
   metadata?: MetadataPayload
+  step?: SendWaTemplateMessageStepSchema
   targetContactInbox: ContactInboxModel
   template: {
     id: string
@@ -66,6 +67,7 @@ export async function processWhatsappTemplate(
     template,
     broadcastId,
     flow,
+    step,
     trackingContext,
     metadata,
   } = params
@@ -147,6 +149,11 @@ export async function processWhatsappTemplate(
       channel: targetContactInbox.channel,
       contactInboxId: targetContactInbox.id,
     },
+    action: {
+      flowId: flow?.id || "",
+      flowVersionId: flow?.versionId || "",
+    },
+    stepId: step?.id || "",
     metadata,
   }
 

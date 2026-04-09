@@ -85,6 +85,7 @@ export type ChatJobSendWhatsappTemplateMessage = {
   type: typeof ChatJobAction.sendWhatsappTemplateMessage
   data: {
     conversationId: string
+    contactInboxId: string
     templateId: string
     broadcastId: string
     templateData?: WaTemplateParams
