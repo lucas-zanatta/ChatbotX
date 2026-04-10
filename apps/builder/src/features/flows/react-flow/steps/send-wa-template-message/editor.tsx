@@ -1,12 +1,12 @@
 "use client"
 
-import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import {
   extractParameterInfos,
   extractTemplateParams,
   type ParameterInfo,
   type TemplateComponent,
 } from "@chatbotx.io/flow-config"
+import { ComboboxField } from "@chatbotx.io/ui/components/form/combobox-field"
 import {
   Select,
   SelectContent,
