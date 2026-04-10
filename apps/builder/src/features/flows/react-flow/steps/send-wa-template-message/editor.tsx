@@ -1,12 +1,12 @@
 "use client"
 
+import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import {
   extractParameterInfos,
   extractTemplateParams,
   type ParameterInfo,
   type TemplateComponent,
 } from "@chatbotx.io/flow-config"
-import { ComboboxField } from "@aha.chat/ui/components/form/combobox-field"
 import {
   Select,
   SelectContent,
@@ -36,7 +36,6 @@ function SendWaTemplateMessageStepEditor(
   const { parentName } = props
   const t = useTranslations()
   const { setValue, watch } = useFormContext()
-  const workspaceId = useFlowAction((s) => s.workspaceId)
   const [selectedTemplate, setSelectedTemplate] =
     useState<WhatsappMessageTemplateResource | null>(null)
   const [parameters, setParameters] = useState<ParameterInfo[]>([])
@@ -58,7 +57,7 @@ function SendWaTemplateMessageStepEditor(
     ) {
       setValue(`${parentName}.template.id`, "")
       setValue(`${parentName}.template.name`, "")
-      setValue(`${parentName}.template.languageCode`, "")
+      setValue(`${parentName}.template.language`, "")
       setValue(`${parentName}.template.params`, {})
       setSelectedTemplate(null)
       setParameters([])
@@ -96,7 +95,7 @@ function SendWaTemplateMessageStepEditor(
     if (template) {
       setValue(`${parentName}.template.id`, template.id)
       setValue(`${parentName}.template.name`, template.name)
-      setValue(`${parentName}.template.languageCode`, template.language)
+      setValue(`${parentName}.template.language`, template.language)
       const initialParams = extractTemplateParams(
         template.components as TemplateComponent[],
       )
