@@ -313,7 +313,7 @@ export async function runFlowPostback(
         .then((rows) => rows[0])
     }
 
-    emit(FlowEventType["flow:clicked"], {
+    await emit(FlowEventType["flow:clicked"], {
       workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
@@ -387,7 +387,7 @@ export async function runFlowQuickReply(
         .then((rows) => rows[0])
     }
 
-    emit(FlowEventType["flow:clicked"], {
+    await emit(FlowEventType["flow:clicked"], {
       workspaceId: conversation.workspaceId,
       contactId: conversation.contactId,
       conversationId: data.conversationId,
