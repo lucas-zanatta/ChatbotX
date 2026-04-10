@@ -137,11 +137,13 @@ export async function processWhatsappTemplate(
   })
 
   const eventLogData = {
-    workspaceId: conversation.workspaceId,
-    contactId: conversation.contactId,
-    conversationId: conversation.id,
-    channel: contactInbox.channel,
-    contactInboxId: contactInbox.id,
+    context: {
+      workspaceId: conversation.workspaceId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: contactInbox.channel,
+      contactInboxId: contactInbox.id,
+    },
     metadata,
   }
 
@@ -163,7 +165,7 @@ export async function processWhatsappTemplate(
 
     await emit(MessageEventType["message:sent"], {
       ...eventLogData,
-      messageId: "",
+      action: { messageId: "" },
       occurredAt: new Date(),
     })
 
@@ -193,6 +195,7 @@ export async function processWhatsappTemplate(
     )
     await emit(MessageEventType["message:failed"], {
       ...eventLogData,
+      action: {},
       errorData: await parseSdkError(error),
       occurredAt: new Date(),
     })
@@ -204,7 +207,14 @@ export async function processWhatsappTemplate(
 export async function sendWhatsappTemplateMessage(
   data: ChatJobSendWhatsappTemplateMessage["data"],
 ) {
-  const { conversation, templateId, broadcastId, templateData, metadata } = data
+  const {
+    conversation,
+    templateId,
+    broadcastId,
+    templateData,
+    contactInbox,
+    metadata,
+  } = data
 
   try {
     const template = await db.query.whatsappMessageTemplateModel.findFirst({
@@ -222,7 +232,7 @@ export async function sendWhatsappTemplateMessage(
 
     const result = await processWhatsappTemplate({
       conversation,
-      contactInbox: data.contactInbox,
+      contactInbox,
       template: {
         id: template.id,
         name: template.name,
