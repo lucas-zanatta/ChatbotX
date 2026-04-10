@@ -2,6 +2,7 @@ import { db, eq } from "@chatbotx.io/database/client"
 import { channelTypes } from "@chatbotx.io/database/partials"
 import { messageModel } from "@chatbotx.io/database/schema"
 import type { ConversationModel } from "@chatbotx.io/database/types"
+import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import {
   extractTemplateParams,
   type SendWaTemplateMessageStepSchema,
@@ -18,7 +19,6 @@ import { createId } from "@chatbotx.io/utils"
 import type {
   BotResponseTrackingContext,
   ChatJobSendWhatsappTemplateMessage,
-  IntegrationJobMetadata,
 } from "@chatbotx.io/worker-config"
 import {
   replaceWhatsappTemplateVariables,
@@ -36,7 +36,7 @@ export interface ProcessWhatsappTemplateParams {
     versionId?: string
     buttons: SendWaTemplateMessageStepSchema["buttons"]
   }
-  metadata?: IntegrationJobMetadata
+  metadata?: MetadataPayload
   template: {
     id: string
     name: string
