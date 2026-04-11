@@ -1,6 +1,5 @@
 "use server"
 
-import { contactTrackingService } from "@chatbotx.io/analytics"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { channelTypes } from "@chatbotx.io/database/partials"
 import {
@@ -9,8 +8,10 @@ import {
   messageModel,
 } from "@chatbotx.io/database/schema"
 import type {
+  AttachmentModel,
   ContactInboxModel,
   ConversationModel,
+  MessageModel,
   UserModel,
 } from "@chatbotx.io/database/types"
 import { getPublicUrl } from "@chatbotx.io/database/utils"
@@ -20,7 +21,6 @@ import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
 } from "@chatbotx.io/partysocket-config"
-import type { OutgoingConversation, OutgoingMessage } from "@chatbotx.io/sdk"
 import { createId, zodBigintAsString } from "@chatbotx.io/utils"
 import {
   ChatJobAction,
@@ -28,7 +28,6 @@ import {
   IntegrationJobAction,
   integrationQueue,
 } from "@chatbotx.io/worker-config"
-import type { AttachmentResource } from "@/features/attachments/schema/resource"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { ChatbotXException } from "@/lib/errors/exception"
 import { workspaceActionClient } from "@/lib/safe-action"
@@ -36,7 +35,6 @@ import {
   type CreateMessageRequest,
   createMessageRequest,
 } from "../schema/mutation"
-import type { MessageResource } from "../schema/resource"
 
 export const createMessageAction = workspaceActionClient
   .bindArgsSchemas([zodBigintAsString(), zodBigintAsString()])
@@ -117,7 +115,7 @@ export const createMessage = async (props: {
   // }
 
   const message = await db.transaction(async (tx) => {
-    const newMessage: MessageResource & { attachments?: AttachmentResource[] } =
+    const newMessage: MessageModel & { attachments?: AttachmentModel[] } =
       await tx
         .insert(messageModel)
         .values({
@@ -154,7 +152,7 @@ export const createMessage = async (props: {
           })),
         )
 
-      newMessage.attachments = attachments as AttachmentResource[]
+      newMessage.attachments = attachments
     }
 
     await tx
@@ -194,34 +192,35 @@ export const createMessage = async (props: {
       chatQueue.add(ChatJobAction.sendExternalMessage, {
         type: ChatJobAction.sendExternalMessage,
         data: {
-          conversation: conversation as OutgoingConversation,
+          conversation,
+          contactInbox,
           message: {
             ...message,
             clientId: parsedInput.clientId,
-          } as OutgoingMessage,
+          },
         },
       }),
     )
   }
 
-  promises.push(
-    contactTrackingService.trackEvent({
-      workspaceId: message.workspaceId,
-      contactId: contactInbox.contactId,
-      eventType: "contact_message_out",
-      senderType: "human",
-      adminId: user?.id,
-      occurredAt: new Date(),
-      source: contactInbox.source,
-      sourceId: contactInbox.sourceId,
-      channel: contactInbox.channel,
-      country: undefined,
-      metadata: {
-        messageId: message.id,
-        conversationId: message.conversationId,
-      },
-    }),
-  )
+  // promises.push(
+  //   contactTrackingService.trackEvent({
+  //     workspaceId: message.workspaceId,
+  //     contactId: contactInbox.contactId,
+  //     eventType: "contact_message_out",
+  //     senderType: "human",
+  //     adminId: user?.id,
+  //     occurredAt: new Date(),
+  //     source: contactInbox.source,
+  //     sourceId: contactInbox.sourceId,
+  //     channel: contactInbox.channel,
+  //     country: undefined,
+  //     metadata: {
+  //       messageId: message.id,
+  //       conversationId: message.conversationId,
+  //     },
+  //   }),
+  // )
 
   // Broadcast and send
   await Promise.all(promises)

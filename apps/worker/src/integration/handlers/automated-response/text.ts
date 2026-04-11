@@ -1,3 +1,5 @@
+import { findOrFail } from "@chatbotx.io/database/client"
+import { conversationModel } from "@chatbotx.io/database/schema"
 import {
   type BotResponseTrackingContext,
   ChatJobAction,
@@ -111,9 +113,20 @@ export async function sendMessageWithRender(
     ? { conversationId, url: text, trackingContext }
     : { conversationId, text, trackingContext }
 
+  const conversation = await findOrFail({
+    table: conversationModel,
+    where: {
+      id: conversationId,
+    },
+    message: "Conversation not found",
+  })
+
   await chatQueue.add(ChatJobAction.sendChatMessage, {
     type: ChatJobAction.sendChatMessage,
-    data,
+    data: {
+      ...data,
+      conversation,
+    },
   })
 }
 

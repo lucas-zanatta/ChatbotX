@@ -1,26 +1,18 @@
+import { automatedResponseService } from "@chatbotx.io/automated-response"
 import {
   defaultWorkerOptions,
   getRedisConnection,
   IntegrationJobAction,
   type IntegrationJobData,
-  integrationQueue,
   queueName,
 } from "@chatbotx.io/worker-config"
 import { type Job, Worker } from "bullmq"
 import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
-import { triggerAutomatedResponse } from "./handlers/automated-response"
+import { processAutomatedResponse } from "./handlers/automated-response"
 import { trackBotResponse } from "./handlers/automated-response/track-bot-response"
 import { runChallenge } from "./handlers/challenge"
-import {
-  broadcastBlockContactEvent,
-  broadcastUnblockContactEvent,
-} from "./handlers/contact"
-import {
-  agentMarkAsRead,
-  broadcastAssignConversation,
-  contactMarkAsRead,
-} from "./handlers/conversation"
+import { agentMarkAsRead, contactMarkAsRead } from "./handlers/conversation"
 import {
   runFlowNode,
   runFlowPostback,
@@ -52,18 +44,14 @@ async function startIntegrationWorker() {
           if (
             !(postbackAction || quickReplyAction) &&
             message.text &&
-            message.senderType === "contact"
+            message.senderType === "contact" &&
+            conversation.botEnabled
           ) {
-            await integrationQueue.add(
-              IntegrationJobAction.triggerAutomatedResponse,
-              {
-                type: IntegrationJobAction.triggerAutomatedResponse,
-                data: {
-                  message,
-                  conversation,
-                },
-              },
-            )
+            await automatedResponseService.enqueue({
+              conversationId: conversation.id,
+              contactInboxId: message.contactInboxId,
+              messageId: message.id,
+            })
           } else if (!(postbackAction || quickReplyAction)) {
             // Track no response for messages without content or not from contact
             // (postback/quickReply are tracked in their own handlers)
@@ -98,8 +86,8 @@ async function startIntegrationWorker() {
           await runFlowQuickReply(job.data.data)
           return
         }
-        case IntegrationJobAction.triggerAutomatedResponse: {
-          await triggerAutomatedResponse(job.data.data)
+        case IntegrationJobAction.processAutomatedResonse: {
+          await processAutomatedResponse(job.data.data)
           return
         }
         case IntegrationJobAction.agentMarkAsRead: {
@@ -123,15 +111,15 @@ async function startIntegrationWorker() {
           return
         }
         case IntegrationJobAction.blockContact: {
-          await broadcastBlockContactEvent(job.data.data)
+          // await broadcastBlockContactEvent(job.data.data)
           return
         }
         case IntegrationJobAction.unblockContact: {
-          await broadcastUnblockContactEvent(job.data.data)
+          // await broadcastUnblockContactEvent(job.data.data)
           return
         }
         case IntegrationJobAction.assignConversation: {
-          await broadcastAssignConversation(job.data.data)
+          // await broadcastAssignConversation(job.data.data)
           return
         }
         default:

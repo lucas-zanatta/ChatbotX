@@ -45,8 +45,7 @@ export function AIAgentsTable({
   createPromises,
 }: AIAgentsTableProps) {
   const [{ data, pageCount }] = use(listPromises)
-  const [{ data: files }, { data: functions }, { data: mcpServers }] =
-    use(createPromises)
+  use(createPromises)
 
   const t = useTranslations()
   const router = useRouter()
@@ -86,9 +85,6 @@ export function AIAgentsTable({
         <DataTable table={table}>
           <DataTableToolbar table={table}>
             <CreateAIAgentDialog
-              files={files}
-              functions={functions}
-              mcpServers={mcpServers}
               onSuccess={() => {
                 router.refresh()
               }}
@@ -111,9 +107,6 @@ export function AIAgentsTable({
 
         <UpdateAIAgentDialog
           agent={rowAction?.row.original || null}
-          files={files}
-          functions={functions}
-          mcpServers={mcpServers}
           onOpenChange={() => setRowAction(null)}
           onSuccess={() => {
             router.refresh()

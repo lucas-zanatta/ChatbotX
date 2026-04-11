@@ -2,7 +2,7 @@ import type {
   ContactModel,
   ConversationModel,
 } from "@chatbotx.io/database/types"
-import type { OutgoingConversation, OutgoingMessage } from "@chatbotx.io/sdk"
+import type { IncomingContact, OutgoingMessage } from "@chatbotx.io/sdk"
 import { Queue } from "bullmq"
 import {
   defaultJobOptions,
@@ -19,7 +19,7 @@ export const IntegrationJobAction = {
   messageStatus: "messageStatus",
   runFlowPostback: "runFlowPostback",
   runFlowQuickReply: "runFlowQuickReply",
-  triggerAutomatedResponse: "triggerAutomatedResponse",
+  processAutomatedResonse: "processAutomatedResponse",
   sendBroadcast: "sendBroadcast",
   agentMarkAsRead: "agentMarkAsRead",
   contactMarkAsRead: "contactMarkAsRead",
@@ -55,6 +55,7 @@ export type IntegrationJobRunFlowNode = {
   type: typeof IntegrationJobAction.sendFlow
   data: {
     conversationId: string
+    contactInboxId?: string
     flowId?: string
     flowVersionId?: string
     nodeId?: string
@@ -80,11 +81,11 @@ export type IntegrationJobSendFlowQuickReply = {
   }
 }
 
-export type IntegrationJobTriggerAutomatedResponse = {
-  type: typeof IntegrationJobAction.triggerAutomatedResponse
+export type IntegrationJobProcessAutomatedResponse = {
+  type: typeof IntegrationJobAction.processAutomatedResonse
   data: {
-    message: OutgoingMessage
-    conversation: OutgoingConversation
+    conversationId: string
+    contactInboxId: string
   }
 }
 
@@ -98,7 +99,7 @@ export type IntegrationJobSendBroadcast = {
 export type IntegrationJobAgentMarkAsRead = {
   type: typeof IntegrationJobAction.agentMarkAsRead
   data: {
-    conversation: OutgoingConversation
+    conversation: ConversationModel
   }
 }
 
@@ -107,7 +108,7 @@ export type IntegrationJobContactMarkAsRead = {
   data: {
     integrationType: string
     integrationIdentifier: string
-    sourceConversationId: string
+    contact: IncomingContact
     payload: unknown
   }
 }
@@ -172,7 +173,6 @@ export type IntegrationJobData =
   | IntegrationJobRunFlowNode
   | IntegrationJobSendFlowPostback
   | IntegrationJobSendFlowQuickReply
-  | IntegrationJobTriggerAutomatedResponse
   | IntegrationJobSendBroadcast
   | IntegrationJobAgentMarkAsRead
   | IntegrationJobContactMarkAsRead
@@ -182,6 +182,7 @@ export type IntegrationJobData =
   | IntegrationJobUnblockContact
   | IntegrationJobAssignConversation
   | IntegrationJobCreateMessage
+  | IntegrationJobProcessAutomatedResponse
 
 export const integrationQueue =
   process.env.NEXT_PHASE === "phase-production-build"

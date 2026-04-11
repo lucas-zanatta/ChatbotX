@@ -811,7 +811,8 @@
       "placeholder": "Nhập tiêu đề"
     },
     "tools": {
-      "label": "Công cụ"
+      "label": "Công cụ",
+      "placeholder": "Chọn công cụ"
     },
     "triggerFlowId": {
       "label": "ID Luồng kích hoạt",
