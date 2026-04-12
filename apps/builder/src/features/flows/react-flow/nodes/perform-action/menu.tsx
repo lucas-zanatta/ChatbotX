@@ -78,6 +78,14 @@ const openaiMenus = (t: TranslationFn): MenuItem[] => [
           provider: "openai",
         },
       },
+      {
+        label: t("flows.actions.aiGenerateImage"),
+        icon: OpenAIIcon,
+        stepType: stepTypes.enum.aiGenerateImage,
+        props: {
+          provider: "openai",
+        },
+      },
     ],
   },
 ]
@@ -114,6 +122,14 @@ const geminiMenus = (t: TranslationFn): MenuItem[] => [
         }),
         icon: SiGooglegemini,
         stepType: stepTypes.enum.aiGenerateText,
+        props: {
+          provider: "gemini",
+        },
+      },
+      {
+        label: t("flows.actions.aiGenerateImage"),
+        icon: SiGooglegemini,
+        stepType: stepTypes.enum.aiGenerateImage,
         props: {
           provider: "gemini",
         },

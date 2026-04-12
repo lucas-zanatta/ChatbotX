@@ -81,3 +81,17 @@ export function createAIModelInstance(props: {
 
   return providerInstance(modelId)
 }
+
+export function createAIImageModelInstance(props: {
+  model: IntegrationOpenAIModel | IntegrationGeminiModel
+  provider: string
+  modelId: string
+  abortSignal?: AbortSignal
+}) {
+  const { model, provider, modelId, abortSignal } = props
+  const providerInstance = getAIModel(model, provider, {
+    abortSignal,
+  }) as unknown as { image: (id: string) => unknown }
+
+  return providerInstance.image(modelId)
+}

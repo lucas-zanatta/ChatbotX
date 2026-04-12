@@ -1204,6 +1204,9 @@ importers:
 
   packages/flow-config:
     dependencies:
+      '@chatbotx.io/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@chatbotx.io/utils':
         specifier: workspace:*
         version: link:../utils
