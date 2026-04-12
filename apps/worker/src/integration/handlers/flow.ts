@@ -272,7 +272,6 @@ export async function runFlowPostback(
   data: IntegrationJobSendFlowPostback["data"],
 ) {
   const parsedAction = decodeButtonPayload(data.action)
-  console.log("Parsed action:", parsedAction)
   if (!parsedAction) {
     throw new SdkException("Invalid postback action")
   }
@@ -310,23 +309,20 @@ export async function runFlowPostback(
     return
   }
 
-  if (conversation?.contactId) {
-    let contactInbox: { id: string; channel: string } | undefined
-    if (data.inboxId) {
-      contactInbox = await db
-        .select({
-          id: contactInboxModel.id,
-          channel: contactInboxModel.channel,
-        })
-        .from(contactInboxModel)
-        .where(
-          and(
-            eq(contactInboxModel.contactId, conversation.contactId),
-            eq(contactInboxModel.inboxId, data.inboxId),
-          ),
-        )
-        .then((rows) => rows[0])
-    }
+  if (conversation?.contactId && data.inboxId) {
+    const contactInbox = await db
+      .select({
+        id: contactInboxModel.id,
+        channel: contactInboxModel.channel,
+      })
+      .from(contactInboxModel)
+      .where(
+        and(
+          eq(contactInboxModel.contactId, conversation.contactId),
+          eq(contactInboxModel.inboxId, data.inboxId),
+        ),
+      )
+      .then((rows) => rows[0])
 
     await emit(FlowEventType["flow:clicked"], {
       stepId: foundedButton.id,
