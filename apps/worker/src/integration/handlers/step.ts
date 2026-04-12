@@ -40,6 +40,7 @@ import {
   setContactCustomField,
 } from "./contact"
 import { type ExecuteStepProps, seekConnectedNode } from "./flow"
+import { handleAIGenerateImage } from "./generate-image"
 import { handleAIGenerateText } from "./generate-text"
 import { getUserData } from "./get-user-data"
 import { sendEmail } from "./send-email"
@@ -321,7 +322,7 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.openWebsite]: undefined,
   [stepTypes.enum.aiAnalyzeImage]: undefined,
   [stepTypes.enum.aiDeleteMessageHistory]: undefined,
-  [stepTypes.enum.aiGenerateImage]: undefined,
+  [stepTypes.enum.aiGenerateImage]: handleAIGenerateImage,
   [stepTypes.enum.aiGenerateTextAgent]: undefined,
   [stepTypes.enum.aiGenerateText]: handleAIGenerateText,
   [stepTypes.enum.aiSpeechToText]: undefined,
