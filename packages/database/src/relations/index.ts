@@ -37,9 +37,11 @@ import { integrationGeminiRelations } from "./integration-gemini"
 import { integrationGoogleSheetsRelations } from "./integration-google-sheets"
 import { integrationMessengerRelations } from "./integration-messenger"
 import { integrationOpenaiRelations } from "./integration-openai"
+import { integrationSmtpRelations } from "./integration-smtp"
 import { integrationWebchatRelations } from "./integration-webchat"
 import { integrationWhatsappRelations } from "./integration-whatsapp"
 import { integrationZaloRelations } from "./integration-zalo"
+import { magicLinkRelations } from "./magic-link"
 import { messageRelations } from "./message"
 import { organizationRelations } from "./organization"
 import { organizationMemberRelations } from "./organization-member"
@@ -111,10 +113,12 @@ export const relations = {
   ...contactNoteRelations,
   ...aiEmbeddingRelations,
   ...integrationGoogleSheetsRelations,
+  ...integrationSmtpRelations,
   ...integrationGeminiRelations,
   ...contactsOnBroadcastsRelations,
   ...contactsToTagsRelations,
   ...reflinkRelations,
+  ...magicLinkRelations,
   ...sequenceRelations,
   ...sequenceStepRelations,
   ...contactsOnSequenceRelations,

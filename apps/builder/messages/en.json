@@ -302,17 +302,11 @@
   },
   "workspaces": {
     "list": {
-      "title": "Chatbots List"
+      "title": "Workspaces List"
     }
   },
   "workspaceToken": {
     "title": "Workspace token"
-  },
-  "dialog": {
-    "deleteConfirmation": "Are you absolutely sure?\nThis action cannot be undone.\nThis will permanently delete your {feature} from our servers.",
-    "disconnect": {
-      "description": "Are you sure to disconnect {feature}?"
-    }
   },
   "fields": {
     "omnichannel": {
@@ -630,6 +624,10 @@
     "googleSheets": {
       "label": "Google Sheets"
     },
+    "host": {
+      "label": "Host",
+      "placeholder": "smtp.example.com"
+    },
     "hideHeader": {
       "label": "Show Header"
     },
@@ -755,6 +753,13 @@
       "label": "Phone number",
       "noPhoneNumbersFound": "No phone numbers found for this account"
     },
+    "port": {
+      "label": "Port",
+      "placeholder": "587"
+    },
+    "provider": {
+      "label": "Provider"
+    },
     "prompt": {
       "label": "Prompt",
       "placeholder": "Enter prompt"
@@ -876,6 +881,10 @@
     "userId": {
       "label": "User ID"
     },
+    "username": {
+      "label": "Username",
+      "placeholder": "user@example.com"
+    },
     "keywords": {
       "label": "Keywords"
     },
@@ -993,7 +1002,8 @@
       "label": "Source"
     },
     "password": {
-      "label": "Password"
+      "label": "Password",
+      "placeholder": "••••••••"
     },
     "passwordConfirmation": {
       "label": "Re-enter password"
@@ -1097,6 +1107,10 @@
     "from": {
       "label": "From"
     },
+    "fromAddress": {
+      "label": "From Address",
+      "placeholder": "noreply@example.com"
+    },
     "messageTemplate": {
       "label": "Message Template"
     },
@@ -1111,6 +1125,11 @@
     },
     "topicId": {
       "label": "Topic ID"
+    },
+    "magicLink": {
+      "label": "Magic Link",
+      "nameHint": "Appended after /r/{workspaceId}/ in the public tracking URL. Use letters, numbers, underscore, and hyphen only.",
+      "urlHint": "Use double braces in the URL, e.g. https://example.com/page?utm_campaign='{{campaign}}'. Values come from the tracking link query string."
     }
   },
   "flows": {
@@ -1268,6 +1287,7 @@
     "deleteFileComingSoon": "Delete file functionality coming soon",
     "disconnectFeature": "Disconnect {feature}",
     "disconnectFeatureDescription": "Are you sure you want to disconnect the {feature}?",
+    "disconnectSuccess": "{feature} disconnected successfully",
     "failedToCopy": "Failed to copy",
     "failedToPreviewImage": "Failed to preview image",
     "loadingData": "Loading data...",
@@ -1472,7 +1492,16 @@
     "title": "Webhooks"
   },
   "reflinks": {
-    "title": "Entry Point Links"
+    "title": "Entry Point Links",
+    "description": "Keyword links that start flows and capture ref payloads from channels."
+  },
+  "magicLinks": {
+    "title": "Magic Links",
+    "description": "Create deep links that redirect to your URL with query parameters."
+  },
+  "QRCode": {
+    "title": "QR Code",
+    "description": "Share this code so people open your tracking link."
   },
   "trigger": {
     "when": "When this happens",
@@ -1608,5 +1637,11 @@
     "gemini": "Gemini",
     "claude": "Claude",
     "deepseek": "DeepSeek"
+  },
+  "smtp": {
+    "setting": {
+      "description": "Send emails using your SMTP server.",
+      "label": "(Email) SMTP"
+    }
   }
 }
