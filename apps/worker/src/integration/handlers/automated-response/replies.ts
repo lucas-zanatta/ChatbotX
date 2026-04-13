@@ -1,3 +1,12 @@
+import { aiTimeouts, helpTexts, toolPrefixes } from "@chatbotx.io/ai"
+import {
+  createAIModelInstance,
+  getAIIntegrationInDB,
+  getAIToolset,
+  McpClient,
+  normalizeMcpContent,
+} from "@chatbotx.io/ai/server"
+import { processStreamingText } from "@chatbotx.io/ai/utils"
 import type {
   AIAgentProvider,
   AIAgentProviderModel,
@@ -5,11 +14,8 @@ import type {
 } from "@chatbotx.io/database/partials"
 import { contactVariableService } from "@chatbotx.io/variables"
 import { stepCountIs, streamText, type ToolSet } from "ai"
-import { createAIModelInstance, getAIIntegrationInDB } from "../../../lib/ai"
 import { logger } from "../../../lib/logger"
-import { getAIToolset } from "../generate-text/tools"
-import { aiTimeouts, helpTexts } from "./constants"
-import { processStreamingText, sendMessageWithRender } from "./text"
+import { sendMessageWithRender } from "../../utils/message"
 import type { ReplyByAIProps } from "./types"
 
 export async function replyByAI(
@@ -18,10 +24,25 @@ export async function replyByAI(
   const { aiAgent } = props
   const providers = aiAgent.models as AIAgentProviderModels
 
-  const { tools, cleanup } = await getAIToolset(
-    aiAgent.workspaceId,
-    aiAgent.tools,
-  )
+  const { tools, cleanup } = await getAIToolset({
+    workspaceId: aiAgent.workspaceId,
+    tools: aiAgent.tools,
+    toolPrefixes: {
+      file: toolPrefixes.enum.file,
+      fn: toolPrefixes.enum.fn,
+      mcp: toolPrefixes.enum.mcp,
+    },
+    fileSearch: {
+      fileSearchDescription: helpTexts.fileSearchDescription,
+      fileSearchQueryDescription: helpTexts.fileSearchQueryDescription,
+      fileSearchNoResult: helpTexts.fileSearchNoResult,
+      fileSearchFoundPrefix: helpTexts.fileSearchFoundPrefix,
+    },
+    mcp: {
+      McpClient,
+      normalizeMcpContent,
+    },
+  })
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), aiTimeouts.aiTotal)
@@ -172,7 +193,11 @@ async function runAIReply(
 
     const { messageCount } = await processStreamingText(
       result.textStream,
-      conversation.id,
+      async (_segment, parts) => {
+        for (const part of parts) {
+          await sendMessageWithRender(conversation.id, part)
+        }
+      },
       { sendParts: true },
     ).catch((streamError) => {
       logger.error(
