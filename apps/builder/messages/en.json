@@ -77,6 +77,7 @@
     "getDraftLink": "Get Draft Link",
     "getPublishedLink": "Get Published Link",
     "analytics": "Analytics",
+    "deleteAnalytics": "Delete Analytics",
     "flowVersions": "Flow Versions",
     "revertToPublished": "Revert to Published",
     "search": "Search",

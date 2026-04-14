@@ -28,7 +28,6 @@ import {
   useEffect,
 } from "react"
 import { updateDraftFlowVersionAction } from "../actions/update-draft-flow-version-action"
-import { NodeViewer } from "./nodes/viewer"
 import AddNodeButton from "./panel-buttons/add-node-button"
 import FocusButton from "./panel-buttons/focus-button"
 import ZoomInButton from "./panel-buttons/zoom-in-button"
@@ -37,21 +36,7 @@ import "./react-flow-wrapper.css"
 import { createId } from "@chatbotx.io/utils"
 import type { ButtonProps } from "react-day-picker"
 import type { FlowVersionResource } from "@/features/flow-versions/schema/resource"
-import ButtonEdge from "./edges/button-edge"
-
-const nodeTypes = {
-  [NodeType.sendMessage]: NodeViewer,
-  [NodeType.sendMail]: NodeViewer,
-  [NodeType.landingPage]: NodeViewer,
-  [NodeType.performAction]: NodeViewer,
-  [NodeType.addNotes]: NodeViewer,
-  [NodeType.wait]: NodeViewer,
-  [NodeType.startFlow]: NodeViewer,
-}
-
-const edgeTypes = {
-  buttonedge: ButtonEdge,
-}
+import { edgeTypes, nodeTypes } from "./node-types-config"
 
 type ReactFlowFrameProps = {
   flowVersion: FlowVersionResource

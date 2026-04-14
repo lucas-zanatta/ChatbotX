@@ -140,7 +140,13 @@ export function FlowEditToolbar({
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(
+                  `/space/${flow.workspaceId}/flows/${flow.id}/analytics`,
+                )
+              }
+            >
               <ChartNoAxesCombinedIcon />
               {t("actions.analytics")}
             </DropdownMenuItem>
