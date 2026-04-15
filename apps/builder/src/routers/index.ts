@@ -16,6 +16,7 @@ import { inboxesAPI } from "@/features/inboxes/api"
 import { integrationWhatsappAPIs } from "@/features/integration-whatsapp/api"
 import { whatsappMessageTemplateAPIs } from "@/features/integration-whatsapp/message-templates/api"
 import { messagesAPI } from "@/features/messages/api"
+import { refLinksAPI } from "@/features/reflinks/api"
 import savedRepliesAPI from "@/features/saved-replies/api"
 import { sequencesAPI } from "@/features/sequences/api"
 import { spreadsheetsAPI } from "@/features/spreadsheets/api"
@@ -49,6 +50,7 @@ export const router = {
   workspaceMembersAPI,
   inboxTeamsAPI,
   foldersAPI,
+  refLinksAPI,
   messagesAPI,
   errorLogsAPI,
   workspacesAPI,

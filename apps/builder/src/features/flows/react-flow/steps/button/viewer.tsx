@@ -4,7 +4,7 @@ import { cn } from "@chatbotx.io/ui/lib/utils"
 import { Position } from "@xyflow/react"
 import { useTranslations } from "next-intl"
 import { BaseHandle } from "@/components/base-handle"
-import { useAnalyticsMode } from "../../analytics-context"
+import { useFlowAnalyticsStore } from "../../stores/flow-analytics-store-provider"
 
 type ButtonStepViewerProps = {
   data: ButtonStepProps
@@ -12,14 +12,17 @@ type ButtonStepViewerProps = {
 
 export const ButtonStepViewer = (props: ButtonStepViewerProps) => {
   const { data } = props
-  const isAnalytics = useAnalyticsMode()
+  const { isAnalytics, buttonStats, totalSent } = useFlowAnalyticsStore()
+  const clicks = buttonStats[data.id] ?? 0
+  const clickPercent =
+    totalSent > 0 ? Math.round((clicks / totalSent) * 100) : 0
 
   return (
     <div className="relative flex items-center gap-2">
       <div className="relative min-w-0 flex-1">
         {isAnalytics && (
-          <span className="absolute top-1/2 left-2 -translate-y-1/2 font-bold text-muted-foreground text-xs dark:text-white">
-            0%
+          <span className="absolute top-1/2 left-2 -translate-y-1/2 font-medium text-muted-foreground text-xs dark:text-white">
+            {clickPercent}%
           </span>
         )}
         <Button

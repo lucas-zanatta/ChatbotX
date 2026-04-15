@@ -4,6 +4,7 @@ import { analyticsContactRoutes } from "./contact"
 import { analyticsConversationRoutes } from "./conversation"
 import { analyticsFlowRoutes } from "./flow"
 import { analyticsMessageRoutes } from "./message"
+import { analyticsReflinkRoutes } from "./reflink"
 import { analyticsSequenceRoutes } from "./sequence"
 
 export const analyticsRoutes = os.router({
@@ -13,4 +14,5 @@ export const analyticsRoutes = os.router({
   ...analyticsMessageRoutes,
   ...analyticsSequenceRoutes,
   ...analyticsFlowRoutes,
+  ...analyticsReflinkRoutes,
 })

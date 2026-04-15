@@ -1,5 +1,6 @@
 "use client"
 
+import type { NodeResponse } from "@chatbotx.io/analytics/schemas"
 import type { FlowNode, NodeType } from "@chatbotx.io/flow-config"
 import {
   Card,
@@ -11,21 +12,16 @@ import { Position } from "@xyflow/react"
 import { useTranslations } from "next-intl"
 import { memo } from "react"
 import { BaseHandle } from "@/components/base-handle"
-import { AnalyticsModeProvider } from "../analytics-context"
 import { DynamicStepViewer } from "../steps"
 import { ButtonStepViewer } from "../steps/button/viewer"
+import { FlowAnalyticsStoreProvider } from "../stores/flow-analytics-store-provider"
 import { allNodesConfig } from "./node-config"
 
 type NodeAnalyticsViewerProps = {
   id: string
   type: NodeType
   data: FlowNode["data"] & {
-    analytics?: {
-      sent: number
-      delivered: number
-      seen: number
-      clicked: number
-    }
+    analytics?: NodeResponse | null
   }
 }
 
@@ -45,18 +41,21 @@ export const NodeAnalyticsViewer = memo((props: NodeAnalyticsViewerProps) => {
   const nodeConfig = allNodesConfig[type]?.(t)
   const analytics = data.analytics
 
-  const deliveredPct =
-    analytics && analytics.sent > 0
-      ? Math.round((analytics.delivered / analytics.sent) * 100)
-      : 0
-  const seenPct =
-    analytics && analytics.sent > 0
-      ? Math.round((analytics.seen / analytics.sent) * 100)
-      : 0
-  const clickedPct =
-    analytics && analytics.sent > 0
-      ? Math.round((analytics.clicked / analytics.sent) * 100)
-      : 0
+  const sent = analytics?.node["message:sent"] ?? 0
+  const delivered = analytics?.node["message:delivered"] ?? 0
+  const seen = analytics?.node["message:seen"] ?? 0
+  const clicked = analytics?.node["flow:clicked"]?.clicked ?? 0
+
+  const deliveredPercent = sent > 0 ? Math.round((delivered / sent) * 100) : 0
+  const seenPercent = sent > 0 ? Math.round((seen / sent) * 100) : 0
+  const clickedPercent = sent > 0 ? Math.round((clicked / sent) * 100) : 0
+
+  const buttonStats: Record<string, number> = {}
+  if (analytics?.buttons) {
+    for (const [buttonId, btn] of Object.entries(analytics.buttons)) {
+      buttonStats[buttonId] = btn.clicks
+    }
+  }
 
   return data.details && nodeConfig ? (
     <>
@@ -82,14 +81,14 @@ export const NodeAnalyticsViewer = memo((props: NodeAnalyticsViewerProps) => {
           </CardTitle>
 
           <div className="flex justify-between border-t pt-2">
-            <StatItem label="Sent" value={analytics?.sent ?? 0} />
-            <StatItem label="Delivered" value={`${deliveredPct}%`} />
-            <StatItem label="Seen" value={`${seenPct}%`} />
-            <StatItem label="Clicked" value={`${clickedPct}%`} />
+            <StatItem label="Sent" value={sent} />
+            <StatItem label="Delivered" value={`${deliveredPercent}%`} />
+            <StatItem label="Seen" value={`${seenPercent}%`} />
+            <StatItem label="Clicked" value={`${clickedPercent}%`} />
           </div>
         </CardHeader>
 
-        <AnalyticsModeProvider>
+        <FlowAnalyticsStoreProvider buttonStats={buttonStats} totalSent={sent}>
           <CardContent className="flex flex-col gap-4 p-4 pt-0">
             {"steps" in data.details &&
               data.details.steps &&
@@ -117,7 +116,7 @@ export const NodeAnalyticsViewer = memo((props: NodeAnalyticsViewerProps) => {
               <BaseHandle id={id} position={Position.Right} type="source" />
             </div>
           </CardContent>
-        </AnalyticsModeProvider>
+        </FlowAnalyticsStoreProvider>
       </Card>
     </>
   ) : (

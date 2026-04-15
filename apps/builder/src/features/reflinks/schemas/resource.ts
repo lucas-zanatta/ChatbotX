@@ -8,3 +8,6 @@ export const reflinkResource = createSelectSchema(reflinkModel, {
   workspaceId: z.string(),
 })
 export type ReflinkResource = z.infer<typeof reflinkResource>
+
+export const reflinkResponse = reflinkResource.optional()
+export type ReflinkResponse = z.infer<typeof reflinkResponse>

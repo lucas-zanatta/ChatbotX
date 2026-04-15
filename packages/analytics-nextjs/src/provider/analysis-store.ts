@@ -8,6 +8,7 @@ import type {
   ConversationAssignedStats,
   ConversationFollowUpStats,
   ConversationHandoffStats,
+  FlowNodeContactData,
   GetBotMessagesAIProvidersResponseSchema,
   GetContactCountsResponseSchema,
   GetContactsByDimensionStatsResponseSchema,
@@ -21,10 +22,12 @@ import type {
   GetMessagesStatsResponseSchema,
   GetUniqueConversationsByAdminResponse,
   HumanAgentStats,
+  MagicLinkTimeseriesRow,
   MessagesByAdminStats,
   MessagesBySenderStats,
   UniqueConversationsByAdminStats,
 } from "@chatbotx.io/analytics"
+import type { ReflinkModel } from "@chatbotx.io/database/types"
 import { endOfToday, startOfToday, subDays } from "date-fns"
 import ky, { HTTPError } from "ky"
 import { createStore } from "zustand/vanilla"
@@ -37,6 +40,7 @@ export type AnalysisState = {
   loading: boolean
   errors: Map<string, string>
 
+  type: "dashboard" | "reflinks"
   defaultSearchParams: { [x: string]: string }
   from: Date
   to: Date
@@ -63,6 +67,14 @@ export type AnalysisState = {
   botMessagesWithResponse: BotMessageStats[]
   botMessagesNoResponse: BotMessageStats[]
   humanAgentStats: HumanAgentStats[]
+
+  refLink?: ReflinkModel
+  refLinkStats: MagicLinkTimeseriesRow[]
+  reflinkContacts: FlowNodeContactData[]
+  reflinkContactsPage: number
+  reflinkContactsPageCount: number
+  reflinkContactsTotal: number
+  reflinkContactsPerPage: number
 }
 
 export type AnalysisActions = {
@@ -92,6 +104,11 @@ export type AnalysisActions = {
   getBotMessagesWithResponse: () => Promise<void>
   getBotMessagesNoResponse: () => Promise<void>
   getHumanAgentStats: () => Promise<void>
+
+  getRefLink: () => Promise<ReflinkModel | undefined>
+  getMagicLinkStatsByDateRange: () => Promise<void>
+  getMagicLinkContacts: () => Promise<void>
+  setReflinkContactsPage: (page: number) => Promise<void>
 }
 
 export type AnalysisStore = AnalysisState & AnalysisActions
@@ -100,6 +117,7 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
   createStore<AnalysisStore>((set, get) => ({
     loading: false,
     errors: new Map<string, string>(),
+    type: "dashboard",
 
     // Default option is last 7 days
     defaultSearchParams: {},
@@ -130,6 +148,14 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     botMessagesNoResponse: [],
     humanAgentStats: [],
 
+    refLink: undefined,
+    refLinkStats: [],
+    reflinkContacts: [],
+    reflinkContactsPage: 1,
+    reflinkContactsPageCount: 1,
+    reflinkContactsTotal: 0,
+    reflinkContactsPerPage: 20,
+
     initialize: async () => {
       const { loadAnalysisData } = get()
       await loadAnalysisData()
@@ -151,6 +177,7 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
 
     loadAnalysisData: async () => {
       const {
+        type,
         getContactCounts,
         getNewContactCounts,
         getInboxTotalContacts,
@@ -172,32 +199,43 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
         getBotMessagesWithResponse,
         getBotMessagesNoResponse,
         getHumanAgentStats,
+        getRefLink,
+        getMagicLinkStatsByDateRange,
+        getMagicLinkContacts,
       } = get()
       set({ loading: true, errors: new Map<string, string>() })
 
-      await Promise.all([
-        getContactCounts(),
-        getNewContactCounts(),
-        getInboxTotalContacts(),
-        getInboxNewContacts(),
-        getInboxActiveContacts(),
-        getBotMessagesByResult(),
-        getBotMessagesAIProviders(),
-        getMessagesBySender(),
-        getContactsByChannel(),
-        getContactsByCountry(),
-        getContactsBySource(),
-        getConversationHandoffs(),
-        getConversationFollowUps(),
-        getConversationArchived(),
-        getConversationAssigned(),
-        getConversationAssignedByAdmin(),
-        getUniqueConversationsByAdmin(),
-        getMessagesByAdmin(),
-        getBotMessagesWithResponse(),
-        getBotMessagesNoResponse(),
-        getHumanAgentStats(),
-      ])
+      if (type === "dashboard") {
+        await Promise.all([
+          getContactCounts(),
+          getNewContactCounts(),
+          getInboxTotalContacts(),
+          getInboxNewContacts(),
+          getInboxActiveContacts(),
+          getBotMessagesByResult(),
+          getBotMessagesAIProviders(),
+          getMessagesBySender(),
+          getContactsByChannel(),
+          getContactsByCountry(),
+          getContactsBySource(),
+          getConversationHandoffs(),
+          getConversationFollowUps(),
+          getConversationArchived(),
+          getConversationAssigned(),
+          getConversationAssignedByAdmin(),
+          getUniqueConversationsByAdmin(),
+          getMessagesByAdmin(),
+          getBotMessagesWithResponse(),
+          getBotMessagesNoResponse(),
+          getHumanAgentStats(),
+        ])
+      } else if (type === "reflinks") {
+        await Promise.all([
+          getRefLink(),
+          getMagicLinkStatsByDateRange(),
+          getMagicLinkContacts(),
+        ])
+      }
       set({ loading: false })
     },
 
@@ -634,5 +672,79 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
       } catch (error: unknown) {
         get().handleError("getHumanAgentStats", error)
       }
+    },
+
+    getRefLink: async () => {
+      const { defaultSearchParams } = get()
+      const { workspaceId, linkId } = defaultSearchParams
+
+      try {
+        const result = await ky
+          .get(`/api/workspaces/${workspaceId}/ref-links/${linkId}`)
+          .json<ReflinkModel>()
+
+        set({ refLink: result })
+      } catch (error: unknown) {
+        get().handleError("getRefLink", error)
+      }
+    },
+
+    getMagicLinkStatsByDateRange: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const { data: refLinkStats } = await ky
+          .get("/api/analytics/magic-links-stats", {
+            searchParams: {
+              ...defaultSearchParams,
+              startDate: from.toISOString().split("T")[0],
+              endDate: to.toISOString().split("T")[0],
+            },
+          })
+          .json<{ data: MagicLinkTimeseriesRow[] }>()
+
+        set({ refLinkStats })
+      } catch (error: unknown) {
+        get().handleError("getContactCounts", error)
+      }
+    },
+
+    getMagicLinkContacts: async () => {
+      const {
+        defaultSearchParams,
+        reflinkContactsPage,
+        reflinkContactsPerPage,
+      } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/magic-links-contacts", {
+            searchParams: {
+              ...defaultSearchParams,
+              page: String(reflinkContactsPage),
+              perPage: String(reflinkContactsPerPage),
+            },
+          })
+          .json<{
+            data: FlowNodeContactData[]
+            total: number
+            page: number
+            pageCount: number
+          }>()
+
+        set({
+          reflinkContacts: result.data,
+          reflinkContactsTotal: result.total,
+          reflinkContactsPage: result.page,
+          reflinkContactsPageCount: result.pageCount,
+        })
+      } catch (error: unknown) {
+        get().handleError("getMagicLinkContacts", error)
+      }
+    },
+
+    setReflinkContactsPage: async (page: number) => {
+      set({ reflinkContactsPage: page })
+      await get().getMagicLinkContacts()
     },
   }))

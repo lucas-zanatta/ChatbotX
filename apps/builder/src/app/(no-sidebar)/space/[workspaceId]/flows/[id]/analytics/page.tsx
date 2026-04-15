@@ -1,3 +1,4 @@
+import { flowAnalyticsService } from "@chatbotx.io/analytics"
 import { db } from "@chatbotx.io/database/client"
 import { notFound } from "next/navigation"
 import type { FlowVersionResource } from "@/features/flow-versions/schema/resource"
@@ -49,12 +50,18 @@ export default async function FlowAnalyticsPage({
     return notFound()
   }
 
+  const stats = await flowAnalyticsService.getFlowStats({
+    workspaceId: data.workspaceId,
+    flowId: data.id,
+  })
+
   return (
     <div className="flex h-screen w-screen flex-col">
       <FlowAnalytics
         flow={flow}
         flowVersion={draftFlowVersion as FlowVersionResource}
         organization={organization}
+        stats={stats}
       />
     </div>
   )

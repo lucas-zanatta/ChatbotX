@@ -1,5 +1,6 @@
 "use client"
 
+import type { FlowNodeStatsResponse } from "@chatbotx.io/analytics/schemas"
 import type { OrganizationSettings } from "@chatbotx.io/database/partials"
 import { ReactFlowProvider } from "@xyflow/react"
 import type { FlowVersionResource } from "../flow-versions/schema/resource"
@@ -12,12 +13,14 @@ type FlowAnalyticsProps = {
   flow: FlowResource
   flowVersion: FlowVersionResource
   organization: OrganizationResource
+  stats: FlowNodeStatsResponse
 }
 
 export function FlowAnalytics({
   flow,
   flowVersion,
   organization,
+  stats,
 }: FlowAnalyticsProps) {
   return (
     <ReactFlowProvider>
@@ -28,7 +31,11 @@ export function FlowAnalytics({
           activeFlowId: flow.id,
         }}
       >
-        <FlowAnalyticsFrame flow={flow} flowVersion={flowVersion} />
+        <FlowAnalyticsFrame
+          flow={flow}
+          flowVersion={flowVersion}
+          stats={stats}
+        />
       </StepStoreProvider>
     </ReactFlowProvider>
   )

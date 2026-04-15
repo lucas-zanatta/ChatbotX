@@ -25,7 +25,10 @@ export function BaseDashboard({
   defaultSearchParams: { [x: string]: string }
 }) {
   return (
-    <AnalysisStoreProvider defaultSearchParams={defaultSearchParams}>
+    <AnalysisStoreProvider
+      defaultSearchParams={defaultSearchParams}
+      type="dashboard"
+    >
       <AnalysisFilterForm defaultPreset="last7" />
       <InboxStatsList />
 

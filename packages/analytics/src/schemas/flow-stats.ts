@@ -10,6 +10,7 @@ export const flowStatsRequest = z.object({
 export type FlowStatsRequest = z.infer<typeof flowStatsRequest>
 
 export const getFlowStatsResponse = z.object({
+  "message:delivered": z.number(),
   "message:sent": z.number(),
   "message:seen": z.number(),
   "flow:clicked": z.object({

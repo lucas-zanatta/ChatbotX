@@ -20,3 +20,10 @@ export const magicLinkContactStatsSchema = z.object({
 export type MagicLinkContactStatsInput = z.infer<
   typeof magicLinkContactStatsSchema
 >
+
+export const magicLinkTimeseriesRow = z.object({
+  dateReport: z.string(),
+  clicks: z.number(),
+})
+
+export type MagicLinkTimeseriesRow = z.infer<typeof magicLinkTimeseriesRow>

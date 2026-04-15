@@ -1,5 +1,6 @@
 "use client"
 
+import type { FlowNodeStatsResponse } from "@chatbotx.io/analytics/schemas"
 import type { FlowNode } from "@chatbotx.io/flow-config"
 import {
   Background,
@@ -11,6 +12,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react"
+import { useMemo } from "react"
 import type { FlowVersionResource } from "@/features/flow-versions/schema/resource"
 import { analyticsNodeTypes, edgeTypes } from "./node-types-config"
 import FocusButton from "./panel-buttons/focus-button"
@@ -20,12 +22,26 @@ import "./react-flow-wrapper.css"
 
 type ReactFlowAnalyticsWrapperProps = {
   flowVersion: FlowVersionResource
+  stats: FlowNodeStatsResponse
 }
 
 export function ReactFlowAnalyticsWrapper({
   flowVersion,
+  stats,
 }: ReactFlowAnalyticsWrapperProps) {
-  const [nodes] = useNodesState(flowVersion.nodes as unknown as FlowNode[])
+  const nodesWithStats = useMemo(
+    () =>
+      (flowVersion.nodes as unknown as FlowNode[]).map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          analytics: stats[node.id] ?? null,
+        },
+      })),
+    [flowVersion.nodes, stats],
+  )
+
+  const [nodes] = useNodesState(nodesWithStats)
   const [edges] = useEdgesState(
     (flowVersion.edges as unknown as Edge[]).map((edge) => ({
       ...edge,

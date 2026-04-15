@@ -280,6 +280,7 @@ export class FlowStatsRepository extends BaseRepository {
       : 0
 
     return {
+      "message:delivered": delivered,
       "message:sent": delivered + failed,
       "message:seen": seen,
       "flow:clicked": {
@@ -522,6 +523,7 @@ export class FlowStatsRepository extends BaseRepository {
 
       result[nodeId] = {
         node: {
+          "message:delivered": stepStat["message:delivered"],
           "message:sent": stepStat["message:sent"],
           "message:seen": stepStat["message:seen"],
           "flow:clicked": {

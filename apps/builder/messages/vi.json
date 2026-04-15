@@ -73,6 +73,7 @@
     "upgradeToPro": "Nâng cấp lên Pro",
     "uploadFile": "Tải lên tệp",
     "view": "Xem",
+    "viewAnalytics": "Xem phân tích",
     "duplicate": "Nhân bản",
     "getDraftLink": "Lấy liên kết bản nháp",
     "getPublishedLink": "Lấy liên kết đã xuất bản",
@@ -194,7 +195,10 @@
     "archivedConversations": "Cuộc trò chuyện đã lưu trữ",
     "blockedConversations": "Cuộc trò chuyện đã chặn",
     "blockedConversationsHelp": "Cuộc trò chuyện mà tài khoản của bạn đã chặn.",
-    "newContactsByCountry": "Liên hệ mới theo quốc gia"
+    "newContactsByCountry": "Liên hệ mới theo quốc gia",
+    "date": "Ngày",
+    "total": "Tổng",
+    "sessionsThroughTheRef": "Phiên qua Ref '{ref}' mỗi ngày"
   },
   "autoAssignConversation": {
     "rule": {

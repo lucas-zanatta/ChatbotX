@@ -5,6 +5,7 @@ import {
   flowStatsRequest,
   listFlowNodeContactsResponse,
 } from "@chatbotx.io/analytics"
+import { z } from "zod"
 import { withWorkspaceIdSchema } from "@/features/workspaces/schema/resource"
 import { workspaceAuthorizedMidddleware } from "@/middlewares/auth"
 import { authorizedAPI } from "@/orpc"
@@ -40,6 +41,23 @@ export const privateFlowsAPI = {
     .use(workspaceAuthorizedMidddleware, (input) => input.workspaceId)
     .handler(async ({ input }) => {
       return await flowAnalyticsService.getFlowStats({
+        workspaceId: input.workspaceId,
+        flowId: input.flowId,
+      })
+    }),
+
+  privateResetFlowStatsAPI: authorizedAPI
+    .route({
+      method: "DELETE",
+      path: "/workspaces/{workspaceId}/flows/{flowId}/stats",
+      summary: "Reset flow stats",
+      tags: ["Flows"],
+    })
+    .input(flowStatsRequest)
+    .output(z.void())
+    .use(workspaceAuthorizedMidddleware, (input) => input.workspaceId)
+    .handler(async ({ input }) => {
+      await flowAnalyticsService.resetStatsSession({
         workspaceId: input.workspaceId,
         flowId: input.flowId,
       })

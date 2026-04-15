@@ -73,6 +73,7 @@
     "upgradeToPro": "Upgrade to Pro",
     "uploadFile": "Upload File",
     "view": "View",
+    "viewAnalytics": "View Analytics",
     "duplicate": "Duplicate",
     "getDraftLink": "Get Draft Link",
     "getPublishedLink": "Get Published Link",
@@ -194,7 +195,10 @@
     "archivedConversations": "Archived conversations",
     "blockedConversations": "Blocked conversations",
     "blockedConversationsHelp": "Conversations that your account blocked.",
-    "newContactsByCountry": "New contacts by country"
+    "newContactsByCountry": "New contacts by country",
+    "date": "Date",
+    "total": "Total",
+    "sessionsThroughTheRef": "Sessions through the Ref \"{ref}\" per day"
   },
   "autoAssignConversation": {
     "rule": {

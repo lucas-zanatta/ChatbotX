@@ -1,13 +1,8 @@
 import { and, db, eq, gte, lte, sql } from "@chatbotx.io/database/client"
 import { magicLinkStatModel } from "@chatbotx.io/database/schema"
 import { fromZonedTime } from "date-fns-tz"
-import type { MagicLinkStatsInput } from "../schemas"
+import type { MagicLinkStatsInput, MagicLinkTimeseriesRow } from "../schemas"
 import { BaseRepository } from "./base.repository"
-
-export type MagicLinkTimeseriesRow = {
-  dateReport: string
-  clicks: number
-}
 
 export class MagicLinkStatsRepository extends BaseRepository {
   async getMagicLinkStatsByDateRange(
