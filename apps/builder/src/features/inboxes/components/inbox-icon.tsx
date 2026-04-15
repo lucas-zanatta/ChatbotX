@@ -38,7 +38,7 @@ type InboxIconConfig = {
   defaultLabel: string
 }
 
-const INBOX_ICON_CONFIG: Record<ChannelType, InboxIconConfig> = {
+export const INBOX_ICON_CONFIG: Record<ChannelType, InboxIconConfig> = {
   messenger: {
     Icon: SiMessenger,
     fill: SiMessengerHex,

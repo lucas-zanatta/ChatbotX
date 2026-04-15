@@ -74,3 +74,5 @@ export type ReflinkModel = typeof schema.reflinkModel.$inferSelect
 export type MagicLinkModel = typeof schema.magicLinkModel.$inferSelect
 export type OrganizationMember =
   typeof schema.organizationMemberModel.$inferSelect
+export type WhatsappMessageTemplateModel =
+  typeof schema.whatsappMessageTemplateModel.$inferSelect
