@@ -39,6 +39,7 @@ import { createBroadcastAction } from "@/features/broadcasts/actions/create-broa
 import { createBroadcastRequest } from "@/features/broadcasts/schemas/action"
 import { useWorkspaceId } from "@/hooks/routing"
 import { ContactFilter } from "../contacts/components/contact-filter"
+import { useContactStore } from "../contacts/provider/contact-store-context"
 import { useFlowStore } from "../flows/provider/flow-store-context"
 import { InboxIcon } from "../inboxes/components/inbox-icon"
 import { TemplateParamsForm } from "../integration-whatsapp/message-templates/components/template-params-form"
@@ -461,6 +462,7 @@ type CreateBroadcastChooseFlowProps = {
 function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
   const t = useTranslations()
   const router = useRouter()
+  const { count, getContactsCount } = useContactStore((state) => state)
 
   const workspaceId = useWorkspaceId()
 
@@ -498,6 +500,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
     name: "integrationWhatsappId",
   })
   const watchedTemplateId = useWatch({ control, name: "templateId" })
+  const watchedContactFilter = useWatch({ control, name: "contactFilter" })
   const watchedTemplateData = useWatch({ control, name: "templateData" }) as
     | WaTemplateParams
     | undefined
@@ -553,6 +556,11 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
       setIntegrationWhatsappId(watchedIntegrationWhatsappId)
     }
   }, [watchedIntegrationWhatsappId, setIntegrationWhatsappId])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch on filter change
+  useEffect(() => {
+    getContactsCount()
+  }, [watchedContactFilter, getContactsCount])
 
   useEffect(() => {
     if (watchedTemplateId && templates.length > 0) {
@@ -707,18 +715,25 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-2">
-        <Button onClick={handleCancel} type="button" variant="outline">
-          {t("actions.cancel")}
-        </Button>
+      <div className="flex items-center justify-between">
+        <div className="flex-1 text-gray-500 text-sm">
+          {t("broadcasts.receiversCount", {
+            count: count || 0,
+          })}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button onClick={handleCancel} type="button" variant="outline">
+            {t("actions.cancel")}
+          </Button>
 
-        <Button
-          disabled={!formState.isValid || formState.isSubmitting}
-          type="submit"
-        >
-          {formState.isSubmitting && <Loader2Icon className="animate-spin" />}
-          {t("actions.confirm")}
-        </Button>
+          <Button
+            disabled={!formState.isValid || formState.isSubmitting}
+            type="submit"
+          >
+            {formState.isSubmitting && <Loader2Icon className="animate-spin" />}
+            {t("actions.confirm")}
+          </Button>
+        </div>
       </div>
     </div>
   )
