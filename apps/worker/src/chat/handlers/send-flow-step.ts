@@ -15,9 +15,12 @@ import {
 } from "@chatbotx.io/database/partials"
 import { attachmentModel, messageModel } from "@chatbotx.io/database/schema"
 import type { AttachmentModel } from "@chatbotx.io/database/types"
-import { getPublicUrl } from "@chatbotx.io/database/utils"
+import { getPublicUrl, isInternalUrl } from "@chatbotx.io/database/utils"
 import { emit } from "@chatbotx.io/event-bus"
-import { uploadFileFromUrl } from "@chatbotx.io/filesystem/node-upload"
+import {
+  getUploadedFileFromUrl,
+  uploadFileFromUrl,
+} from "@chatbotx.io/filesystem/node-upload"
 import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import {
   appendCodeToMagicLink,
@@ -258,10 +261,12 @@ export async function sendFlowStep({
       // Upload file if exists
       let attachment: AttachmentModel | undefined
       if ("url" in step) {
-        const uploadedFile = await uploadFileFromUrl(
-          step.url,
-          `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
-        )
+        const uploadedFile = isInternalUrl(step.url)
+          ? await getUploadedFileFromUrl(step.url)
+          : await uploadFileFromUrl(
+              step.url,
+              `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
+            )
 
         attachment = await tx
           .insert(attachmentModel)
@@ -448,11 +453,12 @@ export const sendChatMessage = async (
         .then((result) => result[0])
 
       if (url) {
-        const uploadedFile = await uploadFileFromUrl(
-          url,
-          `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
-        )
-
+        const uploadedFile = isInternalUrl(url)
+          ? await getUploadedFileFromUrl(url)
+          : await uploadFileFromUrl(
+              url,
+              `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
+            )
         const attachment = await tx
           .insert(attachmentModel)
           .values({

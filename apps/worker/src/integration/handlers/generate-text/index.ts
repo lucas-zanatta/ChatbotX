@@ -90,7 +90,6 @@ export async function handleAIGenerateText({
       contactId: conversation.contactId,
       customFieldId: step.outputFieldId,
       fullText,
-      messageCount: 1,
       workspaceId: conversation.workspaceId,
     })
   } finally {
