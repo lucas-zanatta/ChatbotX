@@ -6,20 +6,20 @@ import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
-import { syncMessageTemplateAction } from "./actions/sync-message-templates"
+import { syncUtilityMessagesAction } from "./actions/sync-utility-messages"
 
-export function WhatsappMessageTemplatesTableToolbarActions({
+export function MessengerUtilityMessagesTableToolbarActions({
   workspaceId,
-  integrationWhatsappId,
+  integrationMessengerId,
 }: {
   workspaceId: string
-  integrationWhatsappId: string
+  integrationMessengerId: string
 }) {
   const t = useTranslations()
   const router = useRouter()
 
   const { execute, isPending } = useAction(
-    syncMessageTemplateAction.bind(null, workspaceId, integrationWhatsappId),
+    syncUtilityMessagesAction.bind(null, workspaceId, integrationMessengerId),
     {
       onSuccess() {
         toast.success(t("messages.syncedSuccessfully"))

@@ -3,6 +3,7 @@ import {
   Integration,
   type IntegrationDefinition,
 } from "@chatbotx.io/sdk"
+import { listMessageTemplates } from "./apis/message-template"
 import { updatePersona } from "./apis/page"
 import { MessengerAPIException } from "./exception"
 import { botHandlers } from "./handlers/bot"
@@ -32,6 +33,7 @@ const config: IntegrationDefinition<
   },
   actions: {
     updatePersona,
+    listMessageTemplates: async ({ ctx }) => await listMessageTemplates(ctx),
   },
   handleRequest: async (props) => {
     const segments = new URL(props.req.url).pathname.split("/")

@@ -1,5 +1,11 @@
-import type { Context, Oauth2AuthValue, Oauth2Config } from "@chatbotx.io/sdk"
+import type {
+  Context,
+  Handler,
+  Oauth2AuthValue,
+  Oauth2Config,
+} from "@chatbotx.io/sdk"
 import { z } from "zod"
+import type { ListMessengerMessageTemplatesResponse } from "./apis/message-template"
 
 export const MESSENGER_MESSAGE_METADATA = "SENT_FROM_CHATBOTX"
 
@@ -26,6 +32,12 @@ export type MessengerActions<
     ctx: Context<IAuth>
     persona: PersonaRequest
   }) => Promise<{ personaId?: string }>
+  listMessageTemplates: Handler<
+    {
+      ctx: Context<IAuth>
+    },
+    ListMessengerMessageTemplatesResponse
+  >
 }
 
 // Common attachment types

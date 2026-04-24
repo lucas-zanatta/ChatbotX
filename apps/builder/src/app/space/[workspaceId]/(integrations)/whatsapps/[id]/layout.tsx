@@ -28,7 +28,7 @@ export default async function WhatsappLayout({
             label: t("channels.title"),
             href: `/space/${workspaceId}/settings/channels`,
           },
-          { label: t("fields.whatsapp.label"), href: "" },
+          { label: t("fields.mess.label"), href: "" },
         ]}
       />
       <WhatsappSettingTabs />
