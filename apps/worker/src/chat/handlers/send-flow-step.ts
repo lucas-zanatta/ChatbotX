@@ -6,14 +6,18 @@ import {
   contactTrackingService,
   trackingResponseTypes,
 } from "@chatbotx.io/analytics"
-import { db } from "@chatbotx.io/database/client"
+import { db, eq } from "@chatbotx.io/database/client"
 import {
   channelTypes,
   contentTypes,
   messageTypes,
   senderTypes,
 } from "@chatbotx.io/database/partials"
-import { attachmentModel, messageModel } from "@chatbotx.io/database/schema"
+import { createMessageRepository } from "@chatbotx.io/database/repositories"
+import {
+  contactInboxModel,
+  type messageModel,
+} from "@chatbotx.io/database/schema"
 import type { AttachmentModel } from "@chatbotx.io/database/types"
 import { getPublicUrl } from "@chatbotx.io/database/utils"
 import { emit } from "@chatbotx.io/event-bus"
@@ -38,7 +42,6 @@ import {
   IntegrationException,
   type MessageButtonTemplate,
   type MessageCardTemplate,
-  type MessageTemplateEntity,
   parseSdkError,
   type SendFlowStepData,
 } from "@chatbotx.io/sdk"
@@ -196,52 +199,10 @@ export async function sendFlowStep({
   }
 
   try {
-    const message = await db.transaction(async (tx) => {
-      const messageData: typeof messageModel.$inferInsert = {
-        id: createId(),
-        workspaceId: conversation.workspaceId,
-        conversationId: conversation.id,
-        contactInboxId: targetContactInbox.id,
-        messageType: messageTypes.enum.outgoing,
-        contentType: contentTypes.enum.text,
-        senderType: senderTypes.enum.bot,
-        sourceId: null,
-        text: step.stepType === stepTypes.enum.sendText ? step.text : null,
-      }
+    const repository = await createMessageRepository()
 
-      if ("buttons" in step && step.buttons.length > 0) {
-        messageData.contentAttributes = {
-          type: "template",
-          payload: {
-            templateType: "button",
-            buttons: convertButtonsToTemplate({
-              flowId,
-              flowVersionId,
-              buttons: step.buttons,
-              metadata,
-              contactInboxId: targetContactInbox.id,
-            }),
-          },
-        } satisfies MessageTemplateEntity
-      }
-      if ("cards" in step && step.cards.length > 0) {
-        messageData.contentAttributes = {
-          type: "template",
-          payload: {
-            templateType: "carousel",
-            cards: convertCardsToTemplate({
-              flowId,
-              flowVersionId,
-              cards: step.cards,
-              metadata,
-              contactInboxId: targetContactInbox.id,
-            }),
-          },
-        } satisfies MessageTemplateEntity
-      }
-
-      messageData.contentAttributes = {
-        ...messageData.contentAttributes,
+    let contentAttributes: (typeof messageModel.$inferInsert)["contentAttributes"] =
+      {
         metadata,
         stepId: step.id,
         nodeId: step.nodeId,
@@ -249,41 +210,85 @@ export async function sendFlowStep({
         flowVersionId,
       }
 
-      const newMessage = await tx
-        .insert(messageModel)
-        .values(messageData)
-        .returning()
-        .then((result) => result[0])
-
-      // Upload file if exists
-      let attachment: AttachmentModel | undefined
-      if ("url" in step) {
-        const uploadedFile = await uploadFileFromUrl(
-          step.url,
-          `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
-        )
-
-        attachment = await tx
-          .insert(attachmentModel)
-          .values({
-            id: createId(),
-            workspaceId: conversation.workspaceId,
-            conversationId: conversation.id,
-            messageId: newMessage.id,
-            ...uploadedFile,
-          })
-          .returning()
-          .then((result) => ({
-            ...result[0],
-            url: getPublicUrl(result[0].originPath),
-          }))
-
-        ;(newMessage as { attachments?: AttachmentModel[] }).attachments =
-          attachment ? [attachment] : undefined
+    if ("buttons" in step && step.buttons.length > 0) {
+      contentAttributes = {
+        type: "template",
+        payload: {
+          templateType: "button",
+          buttons: convertButtonsToTemplate({
+            flowId,
+            flowVersionId,
+            buttons: step.buttons,
+            metadata,
+            contactInboxId: targetContactInbox.id,
+          }),
+        },
+        ...contentAttributes,
       }
+    }
+    if ("cards" in step && step.cards.length > 0) {
+      contentAttributes = {
+        type: "template",
+        payload: {
+          templateType: "carousel",
+          cards: convertCardsToTemplate({
+            flowId,
+            flowVersionId,
+            cards: step.cards,
+            metadata,
+            contactInboxId: targetContactInbox.id,
+          }),
+        },
+        ...contentAttributes,
+      }
+    }
 
-      return newMessage
-    })
+    const messageInput = {
+      workspaceId: conversation.workspaceId,
+      conversationId: conversation.id,
+      contactInboxId: targetContactInbox.id,
+      messageType: messageTypes.enum.outgoing,
+      contentType: contentTypes.enum.text,
+      senderType: senderTypes.enum.bot,
+      sourceId: null,
+      text: step.stepType === stepTypes.enum.sendText ? step.text : null,
+      contentAttributes,
+      createdAt: new Date(),
+    }
+
+    // Upload file if exists
+    let attachmentInput:
+      | Parameters<typeof repository.createWithAttachments>[1][0]
+      | undefined
+    if ("url" in step) {
+      const uploadedFile = await uploadFileFromUrl(
+        step.url,
+        `public/space/${conversation.workspaceId}/conversations/${conversation.id}/${createId()}`,
+      )
+      attachmentInput = {
+        ...uploadedFile,
+        workspaceId: conversation.workspaceId,
+        conversationId: conversation.id,
+      }
+    }
+
+    const message = attachmentInput
+      ? await repository.createWithAttachments(messageInput, [attachmentInput])
+      : await repository.create(messageInput)
+
+    // Add url to attachments for response
+    if ("attachments" in message && Array.isArray(message.attachments)) {
+      ;(message as { attachments: AttachmentModel[] }).attachments =
+        message.attachments.map((att) => ({
+          ...att,
+          url: getPublicUrl(att.originPath),
+        }))
+    }
+
+    await db
+      .update(contactInboxModel)
+      .set({ lastMessageAt: message.createdAt })
+      .where(eq(contactInboxModel.id, targetContactInbox.id))
 
     const promises: Promise<unknown>[] = [
       broadcastToWorkspaceParty(conversation.workspaceId, {
@@ -426,55 +431,61 @@ export const sendChatMessage = async (
     )
   }
 
+  if (!(text || url)) {
+    return
+  }
+
   try {
-    const message = await db.transaction(async (tx) => {
-      const newMessage = await tx
-        .insert(messageModel)
-        .values({
-          id: createId(),
-          contactInboxId: contactInbox.id,
-          workspaceId: conversation.workspaceId,
-          conversationId: conversation.id,
-          messageType: "outgoing",
-          contentType: "text",
-          senderType: "bot",
-          sourceId: null,
-          text,
-          contentAttributes: {
-            metadata,
-          },
-        })
-        .returning()
-        .then((result) => result[0])
+    const repository = await createMessageRepository()
 
-      if (url) {
-        const uploadedFile = await uploadFileFromUrl(
-          url,
-          `public/space/${newMessage.workspaceId}/conversations/${conversation.id}/${createId()}`,
-        )
+    const messageInput = {
+      contactInboxId: contactInbox.id,
+      workspaceId: conversation.workspaceId,
+      conversationId: conversation.id,
+      messageType: "outgoing" as const,
+      contentType: "text" as const,
+      senderType: "bot" as const,
+      sourceId: null,
+      text,
+      contentAttributes: {
+        metadata,
+      },
+      createdAt: new Date(),
+    }
 
-        const attachment = await tx
-          .insert(attachmentModel)
-          .values({
-            id: createId(),
-            workspaceId: conversation.workspaceId,
-            conversationId: conversation.id,
-            messageId: newMessage.id,
-            ...uploadedFile,
-          })
-          .returning()
-          .then((result) => ({
-            ...result[0],
-            url: getPublicUrl(result[0].originPath),
-          }))
-
-        ;(newMessage as { attachments?: AttachmentModel[] }).attachments = [
-          attachment,
-        ]
+    // Upload file if exists
+    let attachmentInput:
+      | Parameters<typeof repository.createWithAttachments>[1][0]
+      | undefined
+    if (url) {
+      const uploadedFile = await uploadFileFromUrl(
+        url,
+        `public/space/${conversation.workspaceId}/conversations/${conversation.id}/${createId()}`,
+      )
+      attachmentInput = {
+        ...uploadedFile,
+        workspaceId: conversation.workspaceId,
+        conversationId: conversation.id,
       }
+    }
 
-      return newMessage
-    })
+    const message = attachmentInput
+      ? await repository.createWithAttachments(messageInput, [attachmentInput])
+      : await repository.create(messageInput)
+
+    // Add url to attachments for response
+    if ("attachments" in message && Array.isArray(message.attachments)) {
+      ;(message as { attachments: AttachmentModel[] }).attachments =
+        message.attachments.map((att) => ({
+          ...att,
+          url: getPublicUrl(att.originPath),
+        }))
+    }
+
+    await db
+      .update(contactInboxModel)
+      .set({ lastMessageAt: message.createdAt })
+      .where(eq(contactInboxModel.id, contactInbox.id))
 
     const promises: Promise<unknown>[] = [
       broadcastToWorkspaceParty(conversation.workspaceId, {

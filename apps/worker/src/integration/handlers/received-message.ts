@@ -1,12 +1,11 @@
 import { contactTrackingService } from "@chatbotx.io/analytics"
-import { db, findOrFail } from "@chatbotx.io/database/client"
+import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import type { IntegrationType } from "@chatbotx.io/database/partials"
+import { createMessageRepository } from "@chatbotx.io/database/repositories"
 import {
-  attachmentModel,
   contactInboxModel,
   contactModel,
   conversationModel,
-  messageModel,
   workspaceUsageModel,
 } from "@chatbotx.io/database/schema"
 import type {
@@ -16,7 +15,6 @@ import type {
   InboxModel,
   MessageModel,
 } from "@chatbotx.io/database/types"
-import { getPublicUrl } from "@chatbotx.io/database/utils"
 import {
   emitContactCreated,
   setWebhookExecutionContext,
@@ -26,9 +24,9 @@ import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
 } from "@chatbotx.io/partysocket-config"
+import type { IncomingAttachment } from "@chatbotx.io/sdk"
 import {
   type AuthValue,
-  type IncomingAttachment,
   type IncomingContact,
   SdkException,
 } from "@chatbotx.io/sdk"
@@ -99,72 +97,71 @@ export const receiveMessage = async (
 
   let createdMessage: MessageModel | null = null
   if (incomingMessage) {
-    const { newMessage, isNewMessage } = await db.transaction(async (tx) => {
-      // Create message and attachments
-      const now = new Date()
-      const newMessage = await tx
-        .insert(messageModel)
-        .values({
-          id: createId(),
-          conversationId: conversation.id,
-          contactInboxId: contactInbox.id,
-          senderType:
-            incomingMessage.messageType === "outgoing" ? "user" : "contact",
-          workspaceId: inbox.workspaceId,
-          sourceId: incomingMessage.sourceId,
-          senderId:
-            incomingMessage.messageType === "outgoing"
-              ? null
-              : contactInbox.contactId,
-          messageType: incomingMessage.messageType,
-          text: incomingMessage.text,
-          contentType: incomingMessage.contentType,
-          contentAttributes: incomingMessage.contentAttributes,
-          createdAt: now,
-          updatedAt: now,
+    const repository = await createMessageRepository()
+
+    const messageInput = {
+      id: createId(),
+      conversationId: conversation.id,
+      contactInboxId: contactInbox.id,
+      senderType:
+        incomingMessage.messageType === "outgoing"
+          ? ("user" as const)
+          : ("contact" as const),
+      workspaceId: inbox.workspaceId,
+      sourceId: incomingMessage.sourceId,
+      senderId:
+        incomingMessage.messageType === "outgoing"
+          ? null
+          : contactInbox.contactId,
+      messageType: incomingMessage.messageType,
+      text: incomingMessage.text,
+      contentType: incomingMessage.contentType,
+      contentAttributes: incomingMessage.contentAttributes,
+      createdAt: new Date(),
+    }
+
+    const attachmentInputs =
+      incomingMessage.attachments?.map((attachment: IncomingAttachment) => ({
+        ...attachment,
+        workspaceId: inbox.workspaceId,
+        conversationId: conversation.id,
+      })) ?? []
+
+    let messageWithAttachments: MessageModel & { attachments: unknown[] }
+    let isNewMessage: boolean
+
+    if (attachmentInputs.length > 0) {
+      const result = await repository.createOrUpdateWithAttachments(
+        messageInput,
+        attachmentInputs,
+      )
+      messageWithAttachments = result.result
+      isNewMessage = result.isNew
+    } else {
+      const result = await repository.createOrUpdate(messageInput)
+      messageWithAttachments = { ...result.message, attachments: [] }
+      isNewMessage = result.isNew
+    }
+
+    const newMessage = messageWithAttachments
+
+    if (isNewMessage) {
+      await db
+        .update(contactInboxModel)
+        .set({
+          lastMessageAt: newMessage.createdAt,
         })
-        .onConflictDoUpdate({
-          target: [messageModel.contactInboxId, messageModel.sourceId],
-          set: {
-            updatedAt: new Date(),
-          },
-        })
-        .returning()
-        .then((result) => result[0])
+        .where(eq(contactInboxModel.id, contactInbox.id))
+    }
 
-      const isNewMessage = newMessage.createdAt.getTime() === now.getTime()
-
-      if (
-        isNewMessage &&
-        incomingMessage.attachments &&
-        incomingMessage.attachments.length > 0
-      ) {
-        await tx.insert(attachmentModel).values(
-          incomingMessage.attachments.map((attachment: IncomingAttachment) => ({
-            id: createId(),
-            ...attachment,
-            messageId: newMessage.id,
-            workspaceId: inbox.workspaceId,
-            conversationId: conversation.id,
-            url: getPublicUrl(attachment.originPath),
-          })),
-        )
-      }
-
-      try {
-        broadcastToWorkspaceParty(inbox.workspaceId, {
-          eventType: RealtimeEventType.messageCreated,
-          data: newMessage,
-        })
-      } catch (error) {
-        logger.warn(error, "Unable to emit realtime message")
-      }
-
-      return {
-        newMessage,
-        isNewMessage,
-      }
-    })
+    try {
+      broadcastToWorkspaceParty(inbox.workspaceId, {
+        eventType: RealtimeEventType.messageCreated,
+        data: newMessage,
+      })
+    } catch (error) {
+      logger.warn(error, "Unable to emit realtime message")
+    }
 
     if (isNewMessage) {
       // re-assign if is new message

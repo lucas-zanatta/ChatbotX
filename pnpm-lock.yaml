@@ -1211,6 +1211,12 @@ importers:
 
   packages/database:
     dependencies:
+      '@chatbotx.io/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@chatbotx.io/redis':
+        specifier: workspace:*
+        version: link:../redis
       '@chatbotx.io/utils':
         specifier: workspace:*
         version: link:../utils

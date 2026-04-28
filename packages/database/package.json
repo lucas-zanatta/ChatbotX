@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
+    "@chatbotx.io/logger": "workspace:*",
+    "@chatbotx.io/redis": "workspace:*",
     "@chatbotx.io/utils": "workspace:*",
     "@t3-oss/env-core": "^0.13.11",
     "drizzle-orm": "1.0.0-beta.20",
@@ -35,6 +37,8 @@
     "./schema": "./src/schema/index.ts",
     "./errors": "./src/errors.ts",
     "./utils": "./src/utils.ts",
-    "./partials": "./src/partials/index.ts"
+    "./partials": "./src/partials/index.ts",
+    "./shard": "./src/shard/index.ts",
+    "./repositories": "./src/repositories/index.ts"
   }
 }

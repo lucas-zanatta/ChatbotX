@@ -2,16 +2,14 @@
 
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { channelTypes } from "@chatbotx.io/database/partials"
+import { createMessageRepository } from "@chatbotx.io/database/repositories"
 import {
-  attachmentModel,
+  contactInboxModel,
   conversationModel,
-  messageModel,
 } from "@chatbotx.io/database/schema"
 import type {
-  AttachmentModel,
   ContactInboxModel,
   ConversationModel,
-  MessageModel,
   UserModel,
 } from "@chatbotx.io/database/types"
 import { getPublicUrl } from "@chatbotx.io/database/utils"
@@ -21,7 +19,7 @@ import {
   broadcastToWorkspaceParty,
   RealtimeEventType,
 } from "@chatbotx.io/partysocket-config"
-import { createId, zodBigintAsString } from "@chatbotx.io/utils"
+import { zodBigintAsString } from "@chatbotx.io/utils"
 import {
   ChatJobAction,
   chatQueue,
@@ -115,64 +113,63 @@ export const createMessage = async (props: {
   //   uploadedFiles = [uploadedFile]
   // }
 
-  const message = await db.transaction(async (tx) => {
-    const newMessage: MessageModel & { attachments?: AttachmentModel[] } =
-      await tx
-        .insert(messageModel)
-        .values({
-          text: "text" in parsedInput ? parsedInput.text : null,
-          messageType: "outgoing",
-          workspaceId: conversation.workspaceId,
-          conversationId: conversation.id,
-          senderType: user ? "user" : "api",
-          senderId: user?.id,
-          contactInboxId: contactInbox.id,
-          contentType: "text",
-        })
-        .returning()
-        .then((result) => result[0])
+  const repository = await createMessageRepository()
 
-    // create attachment if path exists
-    if (uploadedFiles.length > 0) {
-      const attachments = await tx
-        .insert(attachmentModel)
-        .values(
-          uploadedFiles.map((file) => ({
-            id: createId(),
-            messageId: newMessage.id,
-            workspaceId: newMessage.workspaceId,
-            conversationId: newMessage.conversationId,
-            ...file,
-          })),
-        )
-        .returning()
-        .then((result) =>
-          result.map((attachment) => ({
-            ...attachment,
-            url: getPublicUrl(attachment.originPath),
-          })),
-        )
+  const messageInput = {
+    text: "text" in parsedInput ? parsedInput.text : null,
+    messageType: "outgoing" as const,
+    workspaceId: conversation.workspaceId,
+    conversationId: conversation.id,
+    senderType: user ? ("user" as const) : ("api" as const),
+    senderId: user?.id ?? null,
+    contactInboxId: contactInbox.id,
+    contentType: "text" as const,
+    createdAt: new Date(),
+  }
 
-      newMessage.attachments = attachments
-    }
+  const attachmentInputs = uploadedFiles.map((file) => ({
+    workspaceId: conversation.workspaceId,
+    conversationId: conversation.id,
+    ...file,
+  }))
 
-    await tx
-      .update(conversationModel)
-      .set({
-        agentLastReadAt: new Date(),
-        lastActivityAt: new Date(),
-        adminRepliedAt: new Date(),
-      })
-      .where(eq(conversationModel.id, conversation.id))
+  const message =
+    attachmentInputs.length > 0
+      ? await repository.createWithAttachments(messageInput, attachmentInputs)
+      : await repository.create(messageInput)
 
-    return newMessage
-  })
+  // Update conversation metadata in main DB
+  await db
+    .update(conversationModel)
+    .set({
+      agentLastReadAt: new Date(),
+      lastActivityAt: new Date(),
+      adminRepliedAt: new Date(),
+    })
+    .where(eq(conversationModel.id, conversation.id))
+
+  await db
+    .update(contactInboxModel)
+    .set({ lastMessageAt: message.createdAt })
+    .where(eq(contactInboxModel.id, contactInbox.id))
+
+  const attachments =
+    "attachments" in message && Array.isArray(message.attachments)
+      ? message.attachments
+      : []
+  const messageWithAttachments = {
+    ...message,
+    attachments: attachments.map((attachment) => ({
+      ...attachment,
+      url: getPublicUrl(attachment.originPath),
+    })),
+  }
 
   const promises: Promise<unknown>[] = [
-    broadcastToWorkspaceParty(message.workspaceId, {
+    broadcastToWorkspaceParty(messageWithAttachments.workspaceId, {
       eventType: RealtimeEventType.messageCreated,
       data: {
-        ...message,
+        ...messageWithAttachments,
         clientId: parsedInput.clientId,
       },
     }),
@@ -183,7 +180,7 @@ export const createMessage = async (props: {
       broadcastToGuestParty(contactInbox.sourceId, {
         eventType: RealtimeEventType.messageCreated,
         data: {
-          ...message,
+          ...messageWithAttachments,
           clientId: parsedInput.clientId,
         },
       }),
@@ -196,7 +193,7 @@ export const createMessage = async (props: {
           conversation,
           contactInbox,
           message: {
-            ...message,
+            ...messageWithAttachments,
             clientId: parsedInput.clientId,
           },
         },
@@ -204,29 +201,10 @@ export const createMessage = async (props: {
     )
   }
 
-  // promises.push(
-  //   contactTrackingService.trackEvent({
-  //     workspaceId: message.workspaceId,
-  //     contactId: contactInbox.contactId,
-  //     eventType: "contact_message_out",
-  //     senderType: "human",
-  //     adminId: user?.id,
-  //     occurredAt: new Date(),
-  //     source: contactInbox.source,
-  //     sourceId: contactInbox.sourceId,
-  //     channel: contactInbox.channel,
-  //     country: undefined,
-  //     metadata: {
-  //       messageId: message.id,
-  //       conversationId: message.conversationId,
-  //     },
-  //   }),
-  // )
-
   // Broadcast and send
   await Promise.all(promises)
 
   revalidateCacheTags(`workspaces:${conversation.workspaceId}:conversations`)
 
-  return message
+  return messageWithAttachments
 }

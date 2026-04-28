@@ -159,7 +159,13 @@ export const createChatStore = () => {
     setActiveConversationId: (activeConversationId: string | null) => {
       const { activeConversationId: oldActiveConversationId } = get()
       if (oldActiveConversationId !== activeConversationId) {
-        set({ activeConversationId, messages: [], nextCursorMessage: null })
+        set({
+          activeConversationId,
+          messages: [],
+          nextCursorMessage: null,
+          hasNextMessagePage: true,
+          isLoadMoreMessage: false,
+        })
       }
     },
 
@@ -279,6 +285,7 @@ export const createChatStore = () => {
       set({
         messages: [...data.reverse(), ...messages],
         nextCursorMessage: nextCursor,
+        hasNextMessagePage: nextCursor !== null,
         isLoadMoreMessage: false,
       })
     },

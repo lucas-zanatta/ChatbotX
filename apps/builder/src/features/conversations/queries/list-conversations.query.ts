@@ -6,21 +6,23 @@ import {
   desc,
   eq,
   gt,
-  inArray,
   isNotNull,
   isNull,
   type SQL,
-  sql,
 } from "@chatbotx.io/database/client"
+import {
+  createMessageRepository,
+  getSafeSinceTime,
+} from "@chatbotx.io/database/repositories"
 import {
   contactModel,
   conversationModel,
   inboxTeamModel,
-  messageModel,
   userModel,
 } from "@chatbotx.io/database/schema"
 import { getPaginationWithDefaults } from "@chatbotx.io/database/utils"
 import { parseBigIntId } from "@chatbotx.io/utils"
+import { endOfHour } from "date-fns"
 import { groupBy } from "remeda"
 import type { ListConversationsRequest } from "@/features/conversations/schema/query"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
@@ -88,24 +90,10 @@ export const listConversations = async (
     }
   }
 
-  const lastMessageQuery = db
-    .select()
-    .from(messageModel)
-    .where(
-      and(
-        eq(messageModel.conversationId, conversationModel.id),
-        inArray(messageModel.messageType, ["incoming", "outgoing"]),
-      ),
-    )
-    .orderBy(desc(messageModel.createdAt))
-    .limit(1)
-
   const conversations = await db
     .select()
     .from(conversationModel)
-    .leftJoinLateral(lastMessageQuery.as("lastMessage"), sql`true`)
     .leftJoin(contactModel, eq(conversationModel.contactId, contactModel.id))
-    // .leftJoin(inboxModel, eq(conversationModel.inboxId, inboxModel.id))
     .leftJoin(userModel, eq(conversationModel.assignedUserId, userModel.id))
     .leftJoin(
       inboxTeamModel,
@@ -116,6 +104,7 @@ export const listConversations = async (
     .limit(pagination.limit)
 
   const contactIds = conversations.map((c) => c.Conversation.contactId)
+  const conversationIds = conversations.map((c) => c.Conversation.id)
 
   const contactInboxes = await db.query.contactInboxModel.findMany({
     where: {
@@ -126,15 +115,39 @@ export const listConversations = async (
   })
   const contactInboxesMap = groupBy(contactInboxes, (ci) => ci.contactId)
 
+  const messageRepository = await createMessageRepository()
+  const lastMessagesPromises = conversations.map((c) => {
+    const contactInbox = contactInboxesMap[c.Conversation.contactId]?.[0]
+    if (!contactInbox?.lastMessageAt) {
+      return Promise.resolve([])
+    }
+
+    return messageRepository.findLastByConversation(c.Conversation.id, {
+      limit: 1,
+      sinceTime: getSafeSinceTime(contactInbox.lastMessageAt),
+    })
+  })
+
+  const lastMessagesResults = await Promise.all(lastMessagesPromises)
+  const lastMessagesByConversationId = new Map(
+    conversationIds.map((id, index) => [
+      id,
+      lastMessagesResults[index]?.[0] ?? null,
+    ]),
+  )
+
   return {
-    data: conversations.map((c) => ({
-      ...c.Conversation,
-      contact: c.Contact,
-      contactInboxes: contactInboxesMap[c.Conversation.contactId] || [],
-      assignedUser: c.User,
-      assignedInboxTeam: c.InboxTeam,
-      messages: c.lastMessage ? [c.lastMessage] : [],
-    })),
+    data: conversations.map((c) => {
+      const lastMessage = lastMessagesByConversationId.get(c.Conversation.id)
+      return {
+        ...c.Conversation,
+        contact: c.Contact,
+        contactInboxes: contactInboxesMap[c.Conversation.contactId] || [],
+        assignedUser: c.User,
+        assignedInboxTeam: c.InboxTeam,
+        messages: lastMessage ? [lastMessage] : [],
+      }
+    }),
     nextCursor: null,
     prevCursor: null,
   }
@@ -170,20 +183,23 @@ export const findConversation = async (
     throw notFoundException("Conversation not found")
   }
 
-  const lastMessage = await db.query.messageModel.findFirst({
-    where: {
-      conversationId: conversation.id,
-      messageType: {
-        in: ["incoming", "outgoing"],
-      },
+  const contactInbox = conversation.contactInboxes?.[0]
+  const messageRepository = await createMessageRepository()
+  const lastMessages = await messageRepository.findLastByConversation(
+    conversation.id,
+    {
+      messageTypes: ["incoming", "outgoing"],
+      limit: 1,
+      sinceTime: getSafeSinceTime(
+        endOfHour(contactInbox?.lastMessageAt ?? new Date()),
+      ),
     },
-    orderBy: { createdAt: "desc" },
-  })
+  )
 
   return {
     data: {
       ...conversation,
-      messages: lastMessage ? [lastMessage] : [],
+      messages: lastMessages.length > 0 ? [lastMessages[0]] : [],
     },
   }
 }

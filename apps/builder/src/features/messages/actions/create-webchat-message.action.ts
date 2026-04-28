@@ -9,13 +9,13 @@ import {
   type Transaction,
 } from "@chatbotx.io/database/client"
 import type { ConversationAttributes } from "@chatbotx.io/database/partials"
+import type { MessageWithAttachments } from "@chatbotx.io/database/repositories"
+import { createMessageRepository } from "@chatbotx.io/database/repositories"
 import {
-  attachmentModel,
   contactInboxModel,
   contactModel,
   conversationModel,
   integrationWebchatModel,
-  messageModel,
   workspaceUsageModel,
 } from "@chatbotx.io/database/schema"
 import type {
@@ -35,7 +35,6 @@ import {
   integrationQueue,
 } from "@chatbotx.io/worker-config"
 import { randomString } from "remeda"
-import type { AttachmentResource } from "@/features/attachments/schema/resource"
 import { ensureConversationActive } from "@/features/conversations/queries/bot-state"
 import { ChatbotXException } from "@/lib/errors/exception"
 import { actionClient } from "@/lib/safe-action"
@@ -43,7 +42,6 @@ import {
   type CreateWebchatMessageRequest,
   createWebchatMessageRequest,
 } from "../schema/mutation"
-import type { MessageResource } from "../schema/resource"
 
 export const createWebchatMessageAction = actionClient
   .inputSchema(createWebchatMessageRequest)
@@ -96,73 +94,80 @@ export async function handleCreateWebchatMessage({
     })
   }
 
-  // Create conversation if it does not exist
-  return await db.transaction(async (tx) => {
-    // upload file if exists
-    let uploadedFiles: UploadedFile[] = []
-    if ("files" in parsedInput && parsedInput.files.length > 0) {
-      uploadedFiles = await uploadMultipleFiles(
-        parsedInput.files,
-        `public/space/${parsedInput.workspaceId}/conversations/${conversation.id}`,
-      )
+  // upload file if exists
+  let uploadedFiles: UploadedFile[] = []
+  if ("files" in parsedInput && parsedInput.files.length > 0) {
+    uploadedFiles = await uploadMultipleFiles(
+      parsedInput.files,
+      `public/space/${parsedInput.workspaceId}/conversations/${conversation.id}`,
+    )
+  }
+
+  if ("text" in parsedInput && (parsedInput.text || uploadedFiles.length > 0)) {
+    const repository = await createMessageRepository()
+
+    const messageInput = {
+      text: parsedInput.text ?? null,
+      messageType: "incoming" as const,
+      workspaceId: conversation.workspaceId,
+      conversationId: conversation.id,
+      senderType: "contact" as const,
+      senderId: conversation.contactId,
+      contentType: "text" as const,
+      contactInboxId: contactInbox.id,
+      createdAt: new Date(),
     }
 
-    if (
-      "text" in parsedInput &&
-      (parsedInput.text || uploadedFiles.length > 0)
-    ) {
-      const newMessage: MessageResource & {
-        attachments?: AttachmentResource[]
-      } = await tx
-        .insert(messageModel)
-        .values({
-          text: parsedInput.text,
-          messageType: "incoming",
-          workspaceId: conversation.workspaceId,
-          conversationId: conversation.id,
-          senderType: "contact",
-          senderId: conversation.contactId,
-          contentType: "text",
-          contactInboxId: contactInbox.id,
-        })
-        .returning()
-        .then((result) => result[0])
+    const attachmentInputs = uploadedFiles.map((file) => ({
+      workspaceId: conversation.workspaceId,
+      conversationId: conversation.id,
+      ...file,
+    }))
 
-      if (uploadedFiles.length > 0) {
-        const attachments = await tx
-          .insert(attachmentModel)
-          .values(
-            uploadedFiles.map((file) => ({
-              messageId: newMessage.id,
-              workspaceId: newMessage.workspaceId,
-              conversationId: newMessage.conversationId,
-              ...file,
-            })),
-          )
-          .returning()
-          .then((result) =>
-            result.map((attachment) => ({
-              ...attachment,
-              url: getPublicUrl(attachment.originPath),
-            })),
-          )
+    const message: MessageWithAttachments =
+      attachmentInputs.length > 0
+        ? await repository.createWithAttachments(messageInput, attachmentInputs)
+        : { ...(await repository.create(messageInput)), attachments: [] }
 
-        newMessage.attachments = attachments as AttachmentResource[]
-      }
+    const newMessage = {
+      ...message,
+      attachments: message.attachments.map((attachment) => ({
+        ...attachment,
+        url: getPublicUrl(attachment.originPath),
+      })),
+    }
 
-      await tx
-        .update(conversationModel)
-        .set({
-          contactLastReadAt: new Date(),
-          lastActivityAt: new Date(),
-          contactRepliedAt: new Date(),
-        })
-        .where(eq(conversationModel.id, conversation.id))
+    // Update conversation metadata in main DB
+    await db
+      .update(conversationModel)
+      .set({
+        contactLastReadAt: new Date(),
+        lastActivityAt: new Date(),
+        contactRepliedAt: new Date(),
+      })
+      .where(eq(conversationModel.id, conversation.id))
 
-      // Broadcast realtime message
-      const promises: Promise<unknown>[] = []
+    await db
+      .update(contactInboxModel)
+      .set({
+        lastMessageAt: message.createdAt,
+      })
+      .where(eq(contactInboxModel.id, contactInbox.id))
+
+    const promises: Promise<unknown>[] = []
+    promises.push(
+      broadcastToWorkspaceParty(newMessage.workspaceId, {
+        eventType: RealtimeEventType.messageCreated,
+        data: {
+          ...newMessage,
+          clientId: parsedInput.clientId,
+        },
+      }),
+    )
+
+    if (uploadedFiles.length > 0 && contactInbox.sourceId) {
       promises.push(
-        broadcastToWorkspaceParty(newMessage.workspaceId, {
+        broadcastToGuestParty(contactInbox.sourceId, {
           eventType: RealtimeEventType.messageCreated,
           data: {
             ...newMessage,
@@ -170,77 +175,65 @@ export async function handleCreateWebchatMessage({
           },
         }),
       )
-
-      if (uploadedFiles.length > 0 && contactInbox.sourceId) {
-        promises.push(
-          broadcastToGuestParty(contactInbox.sourceId, {
-            eventType: RealtimeEventType.messageCreated,
-            data: {
-              ...newMessage,
-              clientId: parsedInput.clientId,
-            },
-          }),
-        )
-      }
-
-      const additionalAttributes =
-        conversation.additionalAttributes as unknown as ConversationAttributes
-
-      if (additionalAttributes?.challenge) {
-        promises.push(
-          integrationQueue.add(
-            IntegrationJobAction.runChallenge,
-            {
-              type: IntegrationJobAction.runChallenge,
-              data: {
-                conversationId: conversation,
-                contactInboxId: contactInbox,
-                challenge: additionalAttributes?.challenge,
-              },
-            },
-            {
-              deduplication: {
-                id: `conversation-${conversation.id}-challenge`,
-              },
-            },
-          ),
-        )
-      } else if (
-        newMessage.text &&
-        !("postback" in parsedInput && parsedInput.postback) &&
-        (await ensureConversationActive(conversation))
-      ) {
-        promises.push(
-          automatedResponseService.enqueue({
-            conversationId: conversation.id,
-            contactInboxId: contactInbox.id,
-            messageId: newMessage.id,
-          }),
-        )
-      }
-
-      if (isNewContact && parsedInput.guestConversationId) {
-        await contactTrackingService.trackEvent({
-          workspaceId: parsedInput.workspaceId,
-          contactId: contact.id,
-          eventType: "contact_created",
-          occurredAt: contact.createdAt,
-          source: "webchat",
-          sourceId: parsedInput.guestConversationId,
-          channel: "webchat",
-          country: undefined,
-        })
-      }
-
-      if (promises.length > 0) {
-        await Promise.all(promises)
-      }
-
-      return newMessage
     }
 
-    return null
-  })
+    const additionalAttributes =
+      conversation.additionalAttributes as unknown as ConversationAttributes
+
+    if (additionalAttributes?.challenge) {
+      promises.push(
+        integrationQueue.add(
+          IntegrationJobAction.runChallenge,
+          {
+            type: IntegrationJobAction.runChallenge,
+            data: {
+              conversationId: conversation,
+              contactInboxId: contactInbox,
+              challenge: additionalAttributes?.challenge,
+            },
+          },
+          {
+            deduplication: {
+              id: `conversation-${conversation.id}-challenge`,
+            },
+          },
+        ),
+      )
+    } else if (
+      newMessage.text &&
+      !("postback" in parsedInput && parsedInput.postback) &&
+      (await ensureConversationActive(conversation))
+    ) {
+      promises.push(
+        automatedResponseService.enqueue({
+          conversationId: conversation.id,
+          contactInboxId: contactInbox.id,
+          messageId: newMessage.id,
+        }),
+      )
+    }
+
+    if (isNewContact && parsedInput.guestConversationId) {
+      await contactTrackingService.trackEvent({
+        workspaceId: parsedInput.workspaceId,
+        contactId: contact.id,
+        eventType: "contact_created",
+        occurredAt: contact.createdAt,
+        source: "webchat",
+        sourceId: parsedInput.guestConversationId,
+        channel: "webchat",
+        country: undefined,
+      })
+    }
+
+    if (promises.length > 0) {
+      await Promise.all(promises)
+    }
+
+    return newMessage
+  }
+
+  return null
 }
 
 async function getConversationFromInput(

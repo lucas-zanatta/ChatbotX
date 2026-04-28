@@ -21,6 +21,7 @@ import { buildAIMessages } from "./messages"
 
 export async function handleAIGenerateText({
   conversation,
+  contactInbox,
   step,
 }: ExecuteStepProps<AIGenerateTextSchema>) {
   const controller = new AbortController()
@@ -29,7 +30,7 @@ export async function handleAIGenerateText({
   let cleanupToolset: (() => Promise<void>) | undefined
 
   try {
-    const messages = await buildAIMessages(conversation, step)
+    const messages = await buildAIMessages(conversation, contactInbox, step)
 
     const aiConfig = await getAIIntegrationInDB({
       workspaceId: conversation.workspaceId,

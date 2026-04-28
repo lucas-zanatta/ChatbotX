@@ -5,6 +5,7 @@ export const cursorPagination = z.object({
   direction: z.enum(["next", "prev"]),
   createdAt: z.coerce.date(),
   id: zodBigintAsString(),
+  shardId: z.string().optional(),
 })
 
 export type CursorPagination = z.infer<typeof cursorPagination>

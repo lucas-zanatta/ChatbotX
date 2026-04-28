@@ -1,15 +1,14 @@
 "use server"
 
-import { and, db, desc, eq, inArray } from "@chatbotx.io/database/client"
-import { attachmentModel, messageModel } from "@chatbotx.io/database/schema"
-import type { MessageModel } from "@chatbotx.io/database/types"
+import { db } from "@chatbotx.io/database/client"
 import {
-  getPaginationWithDefaults,
-  getPublicUrl,
-} from "@chatbotx.io/database/utils"
-import type { AttachmentResource } from "@/features/attachments/schema/resource"
+  createMessageRepository,
+  getSafeSinceTime,
+} from "@chatbotx.io/database/repositories"
+import { getPublicUrl } from "@chatbotx.io/database/utils"
+import { endOfHour } from "date-fns"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
-import { encodeCursor } from "@/lib/pagination"
+import { decodeCursor, encodeCursor } from "@/lib/pagination"
 import type {
   FindMessageRequest,
   ListMessagesRequest,
@@ -21,60 +20,63 @@ export const listMessages = async (
   input: ListMessagesRequest,
 ): Promise<ListMessagesResponse> => {
   // await assertCurrentUserCanAccessChatbot(workspaceId)
-  const where = [eq(messageModel.workspaceId, input.workspaceId)]
-  if (input.conversationId) {
-    where.push(eq(messageModel.conversationId, input.conversationId))
-  }
 
-  const pagination = getPaginationWithDefaults(input)
+  // Fetch conversation to get contactInbox for shard optimization
+  const conversation = input.conversationId
+    ? await db.query.conversationModel.findFirst({
+        where: { id: input.conversationId },
+      })
+    : null
 
-  const messages = await db
-    .select()
-    .from(messageModel)
-    .where(and(...where))
-    .limit(pagination.limit)
-    .orderBy(desc(messageModel.createdAt), desc(messageModel.id))
+  const contactInbox = conversation
+    ? await db.query.contactInboxModel.findFirst({
+        where: { contactId: conversation.contactId },
+        orderBy: { lastMessageAt: "desc" },
+      })
+    : null
 
-  if (messages.length === 0) {
+  const repository = await createMessageRepository()
+  const cursor = decodeCursor(input.cursor)
+
+  const result = await repository.listByConversation({
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    pagination: {
+      limit: input.perPage ?? 20,
+      cursor: cursor
+        ? cursor
+        : {
+            createdAt: endOfHour(contactInbox?.lastMessageAt ?? new Date()),
+            id: "",
+          },
+    },
+  })
+
+  if (result.data.length === 0) {
     return { data: [], nextCursor: null, prevCursor: null }
   }
 
-  const messageIds = messages.map((message) => message.id)
-  const messagesWithAttachments = await db
-    .select()
-    .from(attachmentModel)
-    .where(inArray(attachmentModel.messageId, messageIds))
-    .then((attachments) =>
-      attachments.reduce(
-        (acc, attachment) => {
-          acc[attachment.messageId.toString()] = [
-            ...(acc[attachment.messageId.toString()] ?? []),
-            { ...attachment, url: getPublicUrl(attachment.originPath) },
-          ]
-          return acc
-        },
-        {} as Record<string, AttachmentResource[]>,
-      ),
-    )
-    .then((attachments) =>
-      messages.map((message) => ({
-        ...message,
-        attachments: attachments[message.id.toString()] ?? [],
-      })),
-    )
+  const messagesWithUrls = result.data.map((message) => ({
+    ...message,
+    attachments: message.attachments.map((attachment) => ({
+      ...attachment,
+      url: getPublicUrl(attachment.originPath),
+    })),
+  }))
 
   let nextCursor: string | null = null
   const prevCursor: string | null = null
-  if (messagesWithAttachments.length === pagination.limit) {
-    const lastMessage = messages.at(-1) as MessageModel
+
+  if (result.nextCursor) {
     nextCursor = encodeCursor({
       direction: "prev",
-      createdAt: lastMessage.createdAt,
-      id: lastMessage.id,
+      createdAt: result.nextCursor.createdAt,
+      id: result.nextCursor.id,
+      shardId: result.nextCursor.shardId,
     })
   }
 
-  return { data: messagesWithAttachments, nextCursor, prevCursor }
+  return { data: messagesWithUrls, nextCursor, prevCursor }
 }
 
 export const findMessage = async (
@@ -82,12 +84,11 @@ export const findMessage = async (
 ): Promise<MessageResource> => {
   await assertCurrentUserCanAccessChatbot(input.workspaceId)
 
-  const message = await db.query.messageModel.findFirst({
-    with: {
-      attachments: true,
-    },
-    where: input,
-  })
+  const repository = await createMessageRepository()
+  const message = await repository.findById(
+    input.id,
+    getSafeSinceTime(input.createdAt),
+  )
 
   if (!message) {
     throw new Error("Message not found")
