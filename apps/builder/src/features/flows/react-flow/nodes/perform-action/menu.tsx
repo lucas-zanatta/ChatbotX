@@ -88,6 +88,11 @@ const openaiMenus = (t: TranslationFn): MenuItem[] => [
           provider: "openai",
         },
       },
+      {
+        label: t("flows.actions.aiDeleteMessageHistory"),
+        icon: OpenAIIcon,
+        stepType: stepTypes.enum.aiDeleteMessageHistory,
+      },
     ],
   },
 ]
@@ -107,6 +112,11 @@ const claudeMenus = (t: TranslationFn): MenuItem[] => [
         props: {
           provider: "claude",
         },
+      },
+      {
+        label: t("flows.actions.aiDeleteMessageHistory"),
+        icon: SiClaude,
+        stepType: stepTypes.enum.aiDeleteMessageHistory,
       },
     ],
   },
@@ -138,6 +148,11 @@ const geminiMenus = (t: TranslationFn): MenuItem[] => [
           provider: "gemini",
         },
       },
+      {
+        label: t("flows.actions.aiDeleteMessageHistory"),
+        icon: SiGooglegemini,
+        stepType: stepTypes.enum.aiDeleteMessageHistory,
+      },
     ],
   },
 ]
@@ -157,6 +172,11 @@ const deepseekMenus = (t: TranslationFn): MenuItem[] => [
         props: {
           provider: "deepseek",
         },
+      },
+      {
+        label: t("flows.actions.aiDeleteMessageHistory"),
+        icon: BotIcon,
+        stepType: stepTypes.enum.aiDeleteMessageHistory,
       },
     ],
   },

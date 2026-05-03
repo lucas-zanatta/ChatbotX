@@ -71,7 +71,7 @@ export async function processAutomatedResponse(
           conversationId: conversation.id,
           senderType: "contact",
         },
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
       })
 
       if (latestContactMessage?.text) {
@@ -101,10 +101,12 @@ export async function processAutomatedResponse(
         )
         summary = refreshedContext.summary
       }
-    } else {
+    }
+
+    if (messages.length === 0) {
       const last100Messages = await db.query.messageModel.findMany({
         where: { conversationId: conversation.id },
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
         limit: 100,
       })
       const dbMessages = [...last100Messages].reverse()

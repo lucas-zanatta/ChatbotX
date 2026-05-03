@@ -1176,6 +1176,7 @@
     "actions": {
       "addContactNotes": "Add Contact Notes",
       "addContactTag": "Add Contact Tag",
+      "aiDeleteMessageHistory": "Delete Message History",
       "aiAnalyzeImage": "AI Analyze Image",
       "aiGenerateTextAgent": "AI Generate Text Agent",
       "aiSpeechToText": "AI Speech to Text",

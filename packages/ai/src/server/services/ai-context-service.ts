@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
-import { db } from "@chatbotx.io/database/client"
+import { and, db, desc, eq, gt, or } from "@chatbotx.io/database/client"
 import { aiMessageRoles, senderTypes } from "@chatbotx.io/database/partials"
+import { messageModel } from "@chatbotx.io/database/schema"
 import { AIJobAction, aiAgentQueue } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
 import { MAX_CONVERSATION_HISTORY, MAX_SUMMARY_LENGTH } from "../../constants"
@@ -67,6 +68,63 @@ function isSameContextMessage(
     serializeMessageContent(existing.content) ===
       serializeMessageContent(incoming.content)
   )
+}
+
+async function getLatestConversationMessages(
+  conversationId: string,
+): Promise<DBConversationMessage[]> {
+  const lastMessages = await db.query.messageModel.findMany({
+    where: { conversationId },
+    orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+    limit: MAX_CONVERSATION_HISTORY,
+  })
+
+  return [...lastMessages].reverse()
+}
+
+async function getConversationMessagesAfterMarker(
+  conversationId: string,
+  markerMessageId: string,
+): Promise<DBConversationMessage[] | null> {
+  const markerMessage = await db.query.messageModel.findFirst({
+    where: {
+      id: markerMessageId,
+      conversationId,
+    },
+    columns: {
+      id: true,
+      createdAt: true,
+    },
+  })
+
+  if (!markerMessage) {
+    return null
+  }
+
+  const rows = await db
+    .select({
+      id: messageModel.id,
+      text: messageModel.text,
+      senderType: messageModel.senderType,
+      createdAt: messageModel.createdAt,
+    })
+    .from(messageModel)
+    .where(
+      and(
+        eq(messageModel.conversationId, conversationId),
+        or(
+          gt(messageModel.createdAt, markerMessage.createdAt),
+          and(
+            eq(messageModel.createdAt, markerMessage.createdAt),
+            gt(messageModel.id, markerMessage.id),
+          ),
+        ),
+      ),
+    )
+    .orderBy(desc(messageModel.createdAt), desc(messageModel.id))
+    .limit(MAX_CONVERSATION_HISTORY)
+
+  return [...rows].reverse()
 }
 
 export const aiContextService = {
@@ -225,13 +283,32 @@ export const aiContextService = {
         let context = await aiContextStore.get(conversationId)
 
         if (!context) {
-          const lastMessages = await db.query.messageModel.findMany({
-            where: { conversationId },
-            orderBy: (table, { desc }) => [desc(table.createdAt)],
-            limit: MAX_CONVERSATION_HISTORY,
+          const conversation = await db.query.conversationModel.findFirst({
+            where: {
+              id: conversationId,
+              workspaceId,
+            },
+            columns: {
+              aiContextLastMessageId: true,
+            },
           })
 
-          const dbMessages = [...lastMessages].reverse()
+          let dbMessages: DBConversationMessage[] = []
+
+          if (conversation?.aiContextLastMessageId) {
+            const messagesAfterMarker =
+              await getConversationMessagesAfterMarker(
+                conversationId,
+                conversation.aiContextLastMessageId,
+              )
+
+            dbMessages =
+              messagesAfterMarker ??
+              (await getLatestConversationMessages(conversationId))
+          } else {
+            dbMessages = await getLatestConversationMessages(conversationId)
+          }
+
           const aiHistory = this.mapDbMessagesToContext(dbMessages)
           const modelMessages = this.mapContextToModelMessages(aiHistory)
 

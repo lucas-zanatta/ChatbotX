@@ -27,6 +27,7 @@ import {
   removeContactTag,
   setContactCustomField,
 } from "./contact"
+import { handleAIDeleteMessageHistory } from "./delete-message-history"
 import type { ExecuteStepProps } from "./flow"
 import { handleAIGenerateImage } from "./generate-image"
 import { handleAIGenerateText } from "./generate-text"
@@ -205,7 +206,7 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.notifyAgent]: undefined,
   [stepTypes.enum.openWebsite]: undefined,
   [stepTypes.enum.aiAnalyzeImage]: undefined,
-  [stepTypes.enum.aiDeleteMessageHistory]: undefined,
+  [stepTypes.enum.aiDeleteMessageHistory]: handleAIDeleteMessageHistory,
   [stepTypes.enum.aiGenerateImage]: handleAIGenerateImage,
   [stepTypes.enum.aiGenerateTextAgent]: undefined,
   [stepTypes.enum.aiGenerateText]: handleAIGenerateText,

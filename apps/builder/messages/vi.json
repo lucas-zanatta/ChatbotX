@@ -1182,6 +1182,7 @@
     "actions": {
       "addContactNotes": "Thêm ghi chú liên hệ",
       "addContactTag": "Thêm thẻ liên hệ",
+      "aiDeleteMessageHistory": "Xóa lịch sử tin nhắn",
       "aiAnalyzeImage": "AI phân tích hình ảnh",
       "aiGenerateTextAgent": "AI tạo văn bản agent",
       "aiSpeechToText": "AI chuyển giọng nói thành văn bản",
