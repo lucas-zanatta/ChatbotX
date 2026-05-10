@@ -1,6 +1,6 @@
-import { aiContextService } from "@chatbotx.io/ai/server"
 import { automatedResponseService } from "@chatbotx.io/automated-response"
 import { db } from "@chatbotx.io/database/client"
+import { aiMessageRoles } from "@chatbotx.io/database/partials"
 import type { IntegrationJobProcessAutomatedResponse } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
 import { detectConversationAndContactInbox } from "../../../lib/db"
@@ -11,12 +11,35 @@ import { trackBotResponse } from "./track-bot-response"
 export async function processAutomatedResponse(
   props: IntegrationJobProcessAutomatedResponse["data"],
 ) {
-  const { conversationId, contactInboxId } = props
+  const { conversationId, contactInboxId, messageId } = props
   const { conversation, contactInbox } =
     await detectConversationAndContactInbox({
       conversationId,
       contactInboxId,
     })
+
+  const triggerMessage = await db.query.messageModel.findFirst({
+    where: {
+      id: messageId,
+      conversationId: conversation.id,
+    },
+    columns: {
+      id: true,
+      text: true,
+      senderType: true,
+    },
+    with: {
+      attachments: {
+        columns: {
+          id: true,
+        },
+      },
+    },
+  })
+  const isFileOnlyTrigger =
+    triggerMessage?.senderType === "contact" &&
+    !triggerMessage.text &&
+    (triggerMessage.attachments?.length ?? 0) > 0
 
   const repliedByAutomatedResponse = await automatedResponseService.process({
     conversation,
@@ -38,7 +61,7 @@ export async function processAutomatedResponse(
       await trackBotResponse({
         workspaceId: conversation.workspaceId,
         conversationId: conversation.id,
-        messageId: "",
+        messageId,
         hasResponse: false,
         responseType: "none",
         routeType: "fallback",
@@ -57,59 +80,36 @@ export async function processAutomatedResponse(
       return
     }
 
-    const aiContext = await aiContextService.getOrInitContext({
-      workspaceId: conversation.workspaceId,
-      conversationId: conversation.id,
+    const last100Messages = await db.query.messageModel.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 100,
     })
-
-    let messages: ModelMessage[] = []
-    let summary = ""
-
-    if (aiContext) {
-      const latestContactMessage = await db.query.messageModel.findFirst({
-        where: {
-          conversationId: conversation.id,
-          senderType: "contact",
-        },
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
-      })
-
-      if (latestContactMessage?.text) {
-        await aiContextService.appendHistory({
-          conversationId: conversation.id,
-          newMessages: [
-            {
-              message: {
-                role: "user",
-                content: latestContactMessage.text,
-              },
-              messageId: latestContactMessage.id,
-              createdAt: latestContactMessage.createdAt.getTime(),
-            },
-          ],
+    const messages: ModelMessage[] = []
+    for (const message of last100Messages) {
+      if (!message.text) {
+        continue
+      }
+      if (message.senderType === "contact") {
+        messages.push({
+          role: aiMessageRoles.enum.user,
+          content: message.text,
         })
+      } else if (
+        message.senderType === "user" ||
+        message.senderType === "bot"
+      ) {
+        messages.push({ role: "assistant", content: message.text })
       }
+    }
+    messages.reverse()
 
-      const refreshedContext = await aiContextService.getOrInitContext({
-        workspaceId: conversation.workspaceId,
-        conversationId: conversation.id,
+    if (isFileOnlyTrigger) {
+      messages.push({
+        role: aiMessageRoles.enum.user,
+        content:
+          "I uploaded a document. Please read it, provide a short summary, then ask what specific part I want to know more about.",
       })
-
-      if (refreshedContext) {
-        messages = aiContextService.mapContextToModelMessages(
-          refreshedContext.history,
-        )
-        summary = refreshedContext.summary
-      }
-    } else {
-      const last100Messages = await db.query.messageModel.findMany({
-        where: { conversationId: conversation.id },
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
-        limit: 100,
-      })
-      const dbMessages = [...last100Messages].reverse()
-      const aiHistory = aiContextService.mapDbMessagesToContext(dbMessages)
-      messages = aiContextService.mapContextToModelMessages(aiHistory)
     }
 
     const startTime = Date.now()
@@ -117,7 +117,8 @@ export async function processAutomatedResponse(
       conversation,
       messages,
       aiAgent,
-      summary,
+      triggerMessageId: messageId,
+      fileOnlyTrigger: isFileOnlyTrigger,
     })
 
     if (aiResult) {
@@ -125,7 +126,7 @@ export async function processAutomatedResponse(
       await trackBotResponse({
         workspaceId: conversation.workspaceId,
         conversationId: conversation.id,
-        messageId: "",
+        messageId,
         hasResponse: true,
         responseType: "ai_agent",
         routeType: "agent",
@@ -142,7 +143,7 @@ export async function processAutomatedResponse(
     await trackBotResponse({
       workspaceId: conversation.workspaceId,
       conversationId: conversation.id,
-      messageId: "",
+      messageId,
       hasResponse: false,
       responseType: "ai_agent",
       routeType: "agent",
