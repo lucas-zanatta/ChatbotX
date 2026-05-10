@@ -38,15 +38,20 @@ async function startIntegrationWorker() {
     async (job: Job<IntegrationJobData>) => {
       switch (job.data.type) {
         case IntegrationJobAction.incomingMessage: {
-          const { message, postbackAction, quickReplyAction, conversation } =
-            await receiveMessage(job.data.data)
+          const {
+            message,
+            postbackAction,
+            quickReplyAction,
+            conversation,
+            hasAttachments,
+          } = await receiveMessage(job.data.data)
 
           // Trigger automated response if the message is from a user
           if (
             !(postbackAction || quickReplyAction) &&
-            message.text &&
             message.senderType === "contact" &&
-            conversation.botEnabled
+            conversation.botEnabled &&
+            (message.text || hasAttachments)
           ) {
             await automatedResponseService.enqueue({
               conversationId: conversation.id,
@@ -66,9 +71,10 @@ async function startIntegrationWorker() {
               result: "fallback",
               aiProvider: "none",
               metadata: {
-                fallbackReason: message.text
-                  ? "not_from_contact"
-                  : "no_content",
+                fallbackReason:
+                  message.senderType !== "contact"
+                    ? "not_from_contact"
+                    : "no_content",
               },
               startTime: Date.now(),
             })

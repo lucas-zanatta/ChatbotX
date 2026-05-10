@@ -20,6 +20,8 @@ export const AI_FILES_DEFAULT_OVERLAP_SIZE = 200
 export const AIJobAction = {
   processAIFile: "processAIFile",
   processPendingEmbedding: "processPendingEmbedding",
+  processConversationSource: "processConversationSource",
+  processConversationSourceEmbedding: "processConversationSourceEmbedding",
 } as const
 
 export type AIJobProcessFile = {
@@ -36,4 +38,22 @@ export type AIJobProcessPendingEmbedding = {
   }
 }
 
-export type AIJobData = AIJobProcessFile | AIJobProcessPendingEmbedding
+export type AIJobProcessConversationSource = {
+  type: typeof AIJobAction.processConversationSource
+  data: {
+    sourceId: string
+  }
+}
+
+export type AIJobProcessConversationSourceEmbedding = {
+  type: typeof AIJobAction.processConversationSourceEmbedding
+  data: {
+    conversationEmbeddingId: string
+  }
+}
+
+export type AIJobData =
+  | AIJobProcessFile
+  | AIJobProcessPendingEmbedding
+  | AIJobProcessConversationSource
+  | AIJobProcessConversationSourceEmbedding

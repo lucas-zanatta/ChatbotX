@@ -1,5 +1,6 @@
 "use client"
 
+import { systemFunctionNames } from "@chatbotx.io/ai"
 import type {
   AIFileModel,
   AIFunctionModel,
@@ -40,6 +41,7 @@ export const buildAIToolMultiSelectGroups = (
     fn: string
     mcp: string
     sys: string
+    systemFunctions: Record<string, string>
   },
 ): AIToolMultiSelectGroup[] => {
   const { files, functions, mcpServers, systemFunctions = [] } = source
@@ -76,7 +78,7 @@ export const buildAIToolMultiSelectGroups = (
     groups.push({
       heading: labels.sys,
       options: systemFunctions.map((sysFn) => ({
-        label: sysFn.name,
+        label: labels.systemFunctions[sysFn.id] ?? sysFn.name,
         value: `sys:${sysFn.id}`,
         icon: SettingsIcon,
       })),
@@ -103,6 +105,23 @@ export const useAIToolMultiSelectGroups = ({
           fn: t("fields.function.label"),
           mcp: t("fields.mcpServer.label"),
           sys: t("fields.systemFunction.label"),
+          systemFunctions: {
+            [systemFunctionNames.connectUserToHuman]: t(
+              "fields.systemFunction.names.connectUserToHuman",
+            ),
+            [systemFunctionNames.documentReader]: t(
+              "fields.systemFunction.names.documentReader",
+            ),
+            [systemFunctionNames.imageReader]: t(
+              "fields.systemFunction.names.imageReader",
+            ),
+            [systemFunctionNames.urlContext]: t(
+              "fields.systemFunction.names.urlContext",
+            ),
+            [systemFunctionNames.webSearch]: t(
+              "fields.systemFunction.names.webSearch",
+            ),
+          },
         },
       ),
     [files, functions, mcpServers, systemFunctions, t],

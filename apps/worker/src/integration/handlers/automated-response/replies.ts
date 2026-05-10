@@ -28,11 +28,14 @@ import { normalizeError } from "universal-error-normalizer"
 import { logger } from "../../../lib/logger"
 import { handoffExecutorService } from "../../../trigger/services/handoff-executor.service"
 import { sendMessageWithRender } from "../../utils/message"
+import { createDocumentReaderExecutor } from "./system-tools/document-reader"
 
 type ReplyByAIProps = {
   conversation: ConversationModel
   messages: ModelMessage[]
   aiAgent: AIAgentModel
+  triggerMessageId?: string
+  fileOnlyTrigger: boolean
 }
 
 export type ReplyByAIExecutionResult = {
@@ -74,8 +77,31 @@ export async function replyByAI(
       conversationId: conversation.id,
       contactId: conversation.contactId,
     }),
-    executeSystemHandoff: async (request) => {
-      await handoffExecutorService.execute(request)
+    systemToolExecutors: {
+      [systemFunctionNames.connectUserToHuman]: async (args, context) => {
+        if (!context) {
+          return "I'm ready to connect you to a human agent, but conversation context is missing."
+        }
+
+        await handoffExecutorService.execute({
+          workspaceId: context.workspaceId,
+          conversationId: context.conversationId,
+          contactId: context.contactId,
+          reason: args.reason,
+          source: "ai_system_tool",
+          channel: context.channel,
+          metadata: {
+            userRequestExcerpt: args.userRequestExcerpt,
+            requestedBy: args.requestedBy,
+          },
+        })
+
+        return "I'm connecting you to a human agent who can better assist you. Please stay on the line."
+      },
+      [systemFunctionNames.documentReader]: createDocumentReaderExecutor({
+        fileOnlyTrigger: props.fileOnlyTrigger,
+        triggerMessageId: props.triggerMessageId,
+      }),
     },
     fileSearch: {
       fileSearchDescription: helpTexts.fileSearchDescription,

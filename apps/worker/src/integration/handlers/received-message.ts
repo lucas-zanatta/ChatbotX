@@ -47,6 +47,8 @@ import {
 export const receiveMessage = async (
   props: IntegrationJobReceiveMessage["data"],
 ): Promise<{
+  attachmentCount: number
+  hasAttachments: boolean
   message: MessageModel
   conversation: ConversationModel
   postbackAction: string | null
@@ -90,6 +92,7 @@ export const receiveMessage = async (
     quickReplyAction,
     ref,
   } = parsedMessage
+  const attachmentCount = incomingMessage.attachments?.length ?? 0
 
   const { contactInbox, conversation } = await detectContactAndConversation({
     incomingContact,
@@ -216,6 +219,8 @@ export const receiveMessage = async (
   }
 
   return {
+    attachmentCount,
+    hasAttachments: attachmentCount > 0,
     message: newMessage,
     conversation,
     postbackAction,

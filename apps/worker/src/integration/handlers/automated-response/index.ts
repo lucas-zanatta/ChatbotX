@@ -11,12 +11,35 @@ import { trackBotResponse } from "./track-bot-response"
 export async function processAutomatedResponse(
   props: IntegrationJobProcessAutomatedResponse["data"],
 ) {
-  const { conversationId, contactInboxId } = props
+  const { conversationId, contactInboxId, messageId } = props
   const { conversation, contactInbox } =
     await detectConversationAndContactInbox({
       conversationId,
       contactInboxId,
     })
+
+  const triggerMessage = await db.query.messageModel.findFirst({
+    where: {
+      id: messageId,
+      conversationId: conversation.id,
+    },
+    columns: {
+      id: true,
+      text: true,
+      senderType: true,
+    },
+    with: {
+      attachments: {
+        columns: {
+          id: true,
+        },
+      },
+    },
+  })
+  const isFileOnlyTrigger =
+    triggerMessage?.senderType === "contact" &&
+    !triggerMessage.text &&
+    (triggerMessage.attachments?.length ?? 0) > 0
 
   const repliedByAutomatedResponse = await automatedResponseService.process({
     conversation,
@@ -38,7 +61,7 @@ export async function processAutomatedResponse(
       await trackBotResponse({
         workspaceId: conversation.workspaceId,
         conversationId: conversation.id,
-        messageId: "",
+        messageId,
         hasResponse: false,
         responseType: "none",
         routeType: "fallback",
@@ -81,11 +104,21 @@ export async function processAutomatedResponse(
     }
     messages.reverse()
 
+    if (isFileOnlyTrigger) {
+      messages.push({
+        role: aiMessageRoles.enum.user,
+        content:
+          "I uploaded a document. Please read it, provide a short summary, then ask what specific part I want to know more about.",
+      })
+    }
+
     const startTime = Date.now()
     const aiResult = await replyByAI({
       conversation,
       messages,
       aiAgent,
+      triggerMessageId: messageId,
+      fileOnlyTrigger: isFileOnlyTrigger,
     })
 
     if (aiResult) {
@@ -93,7 +126,7 @@ export async function processAutomatedResponse(
       await trackBotResponse({
         workspaceId: conversation.workspaceId,
         conversationId: conversation.id,
-        messageId: "",
+        messageId,
         hasResponse: true,
         responseType: "ai_agent",
         routeType: "agent",
@@ -110,7 +143,7 @@ export async function processAutomatedResponse(
     await trackBotResponse({
       workspaceId: conversation.workspaceId,
       conversationId: conversation.id,
-      messageId: "",
+      messageId,
       hasResponse: false,
       responseType: "ai_agent",
       routeType: "agent",

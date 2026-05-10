@@ -105,17 +105,15 @@ export async function handleCreateWebchatMessage({
         `public/space/${parsedInput.workspaceId}/conversations/${conversation.id}`,
       )
     }
+    const incomingText = "text" in parsedInput ? parsedInput.text : null
 
-    if (
-      "text" in parsedInput &&
-      (parsedInput.text || uploadedFiles.length > 0)
-    ) {
+    if (incomingText || uploadedFiles.length > 0) {
       const newMessage: MessageResource & {
         attachments?: AttachmentResource[]
       } = await tx
         .insert(messageModel)
         .values({
-          text: parsedInput.text,
+          text: incomingText,
           messageType: "incoming",
           workspaceId: conversation.workspaceId,
           conversationId: conversation.id,
@@ -206,7 +204,7 @@ export async function handleCreateWebchatMessage({
         )
       } else if (
         conversation.botEnabled &&
-        newMessage.text &&
+        (newMessage.text || uploadedFiles.length > 0) &&
         !("postback" in parsedInput && parsedInput.postback)
       ) {
         promises.push(
