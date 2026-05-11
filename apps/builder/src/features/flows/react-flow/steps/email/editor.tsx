@@ -23,7 +23,7 @@ import { useFieldArray, useFormContext } from "react-hook-form"
 import { TiptapEditorField } from "@/components/tiptap/tiptap-editor-field"
 import { useSmtpInboxOptions } from "@/features/inboxes/provider/inbox-hook"
 import { PageElementBuilder } from "../../components/page-element-builder"
-import { PAGE_ELEMENT_MENU } from "./page-node-menu"
+import { PAGE_ELEMENTS } from "./page-node-menu"
 
 type EmailStepEditorProps = {
   parentName: string
@@ -86,40 +86,34 @@ export default function EmailStepEditor(props: EmailStepEditorProps) {
         >
           <SortableContent asChild>
             <div className="flex flex-col gap-2">
-              {(fields as unknown as PageElementSchema[]).map(
-                (field, index) => (
-                  <SortableItem asChild key={field.id} value={field.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <PageElementBuilder
-                          parentName={`${parentName}.elements.${index}`}
-                          type={field.type}
-                        />
-                      </div>
-                      <div className="flex flex-col">
-                        <Button
-                          className="size-8 shrink-0"
-                          onClick={() => remove(index)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <XIcon aria-hidden="true" className="size-4" />
-                        </Button>
-                        <SortableItemHandle asChild>
-                          <Button
-                            className="size-8"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoveVerticalIcon className="h-4 w-4" />
-                          </Button>
-                        </SortableItemHandle>
-                      </div>
+              {(fields as PageElementSchema[]).map((field, index) => (
+                <SortableItem asChild key={field.id} value={field.id}>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <PageElementBuilder
+                        parentName={`${parentName}.elements.${index}`}
+                        type={field.type}
+                      />
                     </div>
-                  </SortableItem>
-                ),
-              )}
+                    <div className="flex flex-col">
+                      <Button
+                        className="size-8 shrink-0"
+                        onClick={() => remove(index)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <XIcon aria-hidden="true" className="size-4" />
+                      </Button>
+                      <SortableItemHandle asChild>
+                        <Button className="size-8" size="icon" variant="ghost">
+                          <MoveVerticalIcon className="h-4 w-4" />
+                        </Button>
+                      </SortableItemHandle>
+                    </div>
+                  </div>
+                </SortableItem>
+              ))}
             </div>
           </SortableContent>
         </Sortable>
@@ -133,7 +127,7 @@ export default function EmailStepEditor(props: EmailStepEditorProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          {PAGE_ELEMENT_MENU.map((item) => (
+          {PAGE_ELEMENTS.map((item) => (
             <DropdownMenuItem
               key={item.stepType}
               onClick={() => onAddNode(item.defaultFn)}

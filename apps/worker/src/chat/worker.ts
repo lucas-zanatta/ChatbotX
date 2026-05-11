@@ -11,7 +11,6 @@ import {
 import { type Job, Worker } from "bullmq"
 import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
-import { handleSendEmail } from "./handlers/send-email"
 import { sendChatMessage, sendFlowStep } from "./handlers/send-flow-step"
 import { sendMessageToChannel } from "./handlers/send-message"
 import { sendWhatsappTemplateMessage } from "./handlers/send-whatsapp-template"

@@ -1,11 +1,12 @@
 import { createRequire } from "node:module"
 import type { MJMLParseResults } from "mjml-core"
-import nodemailer from "nodemailer"
+import type nodemailer from "nodemailer"
 import {
   buildMjmlTemplate,
   type DynamicEmailProps,
 } from "./emails/dynamic-template"
 import { keys } from "./keys"
+import { createSmtpTransporter } from "./transport"
 
 const _require = createRequire(import.meta.url)
 const mjml2html = _require("mjml") as (
@@ -17,21 +18,6 @@ export type {
   DynamicEmailProps,
   MailElementSchema,
 } from "./emails/dynamic-template"
-
-export type SmtpTransportOptions = {
-  host: string
-  port: number
-  username: string
-  password: string
-}
-
-export const createSmtpTransporter = (options: SmtpTransportOptions) =>
-  nodemailer.createTransport({
-    host: options.host,
-    port: options.port,
-    secure: options.port === 465,
-    auth: { user: options.username, pass: options.password },
-  })
 
 export async function renderDynamicEmailHtml(
   props: DynamicEmailProps,
@@ -56,8 +42,8 @@ export const sendDynamicEmail = async (
 ) => {
   const env = keys()
   const html = await renderDynamicEmailHtml(props)
-  const t = options?.transporter ?? nodemailer.createTransport(env.SMTP_SERVER)
-  await t.sendMail({
+  const transporter = options?.transporter ?? createSmtpTransporter()
+  await transporter.sendMail({
     from: options?.from ?? env.NEXT_PUBLIC_SMTP_FROM,
     to: email,
     subject: props.subject,

@@ -196,12 +196,12 @@ export function ReactFlowWrapper({
         ) {
           const element = elements[elementIndex]
           if (
-            element.type === pageElementTypes.enum.Button &&
+            element.type === pageElementTypes.enum.button &&
             element.beforeStep &&
             element.beforeStep.id === handleId
           ) {
-            element.beforeStep.buttonType = buttonTypes.enum.startAnotherNode
-            element.beforeStep.beforeStep = startAnotherNodeStepDefaultFn({
+            element.beforeStep.stepType = buttonTypes.enum.startAnotherNode
+            element.beforeStep = startAnotherNodeStepDefaultFn({
               nodeId: toNodeId,
               viewOnly: true,
             })
@@ -404,12 +404,11 @@ export function ReactFlowWrapper({
             }
             for (const element of (step as EmailStepSchema).elements) {
               if (
-                element.type === pageElementTypes.enum.Button &&
+                element.type === pageElementTypes.enum.button &&
                 element.beforeStep &&
                 element.beforeStep.id === edge.sourceHandle
               ) {
-                element.beforeStep.buttonType = null
-                element.beforeStep.beforeStep = null
+                Object.assign(element, { buttonType: null, beforeStep: null })
                 updateNodeData(foundedNode.id, data)
                 elementFound = true
                 break

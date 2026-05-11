@@ -1,34 +1,34 @@
 import { z } from "zod"
 
 export const mailElementTypes = z.enum([
-  "Heading",
-  "Text",
-  "Image",
-  "Button",
-  "Spacing",
-  "Code",
-  "Line",
+  "heading",
+  "text",
+  "image",
+  "button",
+  "spacing",
+  "code",
+  "line",
 ])
 export type MailElementType = z.infer<typeof mailElementTypes>
 
 export const mailElementSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.enum([
-      mailElementTypes.enum.Heading,
-      mailElementTypes.enum.Text,
-      mailElementTypes.enum.Code,
+      mailElementTypes.enum.heading,
+      mailElementTypes.enum.text,
+      mailElementTypes.enum.code,
     ]),
     text: z.string(),
   }),
   z.object({
-    type: z.enum([mailElementTypes.enum.Image]),
+    type: z.enum([mailElementTypes.enum.image]),
     url: z.string().optional(),
   }),
   z.object({
-    type: z.enum([mailElementTypes.enum.Line, mailElementTypes.enum.Spacing]),
+    type: z.enum([mailElementTypes.enum.line, mailElementTypes.enum.spacing]),
   }),
   z.object({
-    type: z.literal(mailElementTypes.enum.Button),
+    type: z.literal(mailElementTypes.enum.button),
     label: z.string().optional(),
     url: z.string().optional(),
   }),
@@ -39,80 +39,73 @@ export const elements = z.array(mailElementSchema)
 
 export type DynamicEmailProps = {
   brandName: string
-  brandLogoUrl: string
-  brandUrl: string
   subject: string
   preheader: string
   elements: MailElementSchema[]
 }
 
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
-
 export function elementToMjml(element: MailElementSchema): string {
   switch (element.type) {
-    case "Heading":
+    case "heading":
       return `
         <mj-section>
           <mj-column>
-            <mj-text font-size="20px" font-weight="700" color="#1d1c1d" line-height="28px" padding="0">
-              ${escapeHtml(element.text)}
-            </mj-text>
+            <mj-raw>
+              <div style="font-size:20px;font-weight:700;color:#1d1c1d;line-height:28px;padding:0;">
+                ${element.text}
+              </div>
+            </mj-raw>
           </mj-column>
         </mj-section>`
 
-    case "Text":
+    case "text":
       return `
         <mj-section>
           <mj-column>
-            <mj-text font-size="16px" color="#3c3f44" line-height="24px" padding="0">
-              ${escapeHtml(element.text)}
-            </mj-text>
+            <mj-raw>
+              <div style="font-size:16px;color:#3c3f44;line-height:24px;padding:0;">
+                ${element.text}
+              </div>
+            </mj-raw>
           </mj-column>
         </mj-section>`
 
-    case "Code":
+    case "code":
       return `
         <mj-section>
           <mj-column>
-            <mj-text font-family="monospace, Courier New" font-size="14px" color="#3c3f44"
-              line-height="22px" background-color="#f4f4f5" padding="12px"
-              container-background-color="#f4f4f5">
-              ${escapeHtml(element.text).replace(/\n/g, "<br />")}
-            </mj-text>
+            <mj-raw>
+              <div style="font-family:monospace,'Courier New';font-size:14px;color:#3c3f44;line-height:22px;background-color:#f4f4f5;padding:12px;">
+                ${element.text.replace(/\n/g, "<br />")}
+              </div>
+            </mj-raw>
           </mj-column>
         </mj-section>`
 
-    case "Image":
+    case "image":
       return element.url
         ? `
         <mj-section>
           <mj-column>
-            <mj-image src="${escapeHtml(element.url)}" alt="" />
+            <mj-image src="${element.url}" alt="" />
           </mj-column>
         </mj-section>`
         : ""
 
-    case "Button":
+    case "button":
       return element.url
         ? `
         <mj-section>
           <mj-column>
             <mj-button background-color="#111111" color="#ffffff" font-size="14px"
-              font-weight="700" border-radius="4px" href="${escapeHtml(element.url)}">
-              ${escapeHtml(element.label || "Click here")}
+              font-weight="700" border-radius="4px" href="${element.url}">
+              ${element.label || "Click here"}
             </mj-button>
           </mj-column>
         </mj-section>`
         : ""
 
-    case "Line":
+    case "line":
       return `
         <mj-section>
           <mj-column>
@@ -120,7 +113,7 @@ export function elementToMjml(element: MailElementSchema): string {
           </mj-column>
         </mj-section>`
 
-    case "Spacing":
+    case "spacing":
       return `<mj-section padding="12px 0" />`
 
     default:
@@ -136,7 +129,7 @@ export function buildMjmlTemplate(props: DynamicEmailProps): string {
     <mjml>
       <mj-head>
         <mj-preview>
-          ${escapeHtml(props.preheader)}
+          ${props.preheader}
         </mj-preview>
       </mj-head>
       <mj-body background-color="#ffffff">

@@ -25,7 +25,8 @@
   },
   "exports": {
     ".": "./src/index.tsx",
-    "./render": "./src/render-dynamic-email.ts",
+    "./transport": "./src/transport.ts",
+    "./dynamic": "./src/dynamic-email.ts",
     "./emails/*": "./src/emails/*.tsx",
     "./keys": "./src/keys.ts"
   },

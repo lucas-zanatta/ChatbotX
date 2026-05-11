@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./integration": "./src/integration.ts",
     "./**/*": "./src/**/*.ts"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
     "@chatbotx.io/typescript-config": "workspace:*",
     "@chatbotx.io/vitest-config": "workspace:*",
     "@types/node": "^24.10.4",
+    "@types/nodemailer": "^8.0.0",
     "typescript": "^5",
     "vitest": "^3.2.4"
   },

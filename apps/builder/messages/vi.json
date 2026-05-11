@@ -1352,6 +1352,7 @@
     "success": "Thành công",
     "failed": "Thất bại",
     "copiedToClipboard": "Đã sao chép vào bộ nhớ tạm",
+    "copyFailed": "Sao chép thất bại",
     "createdFailed": "Tạo {feature} thất bại",
     "deletedSuccess": "{feature} đã được xóa thành công",
     "deleteFileComingSoon": "Chức năng xóa tệp sẽ sớm có",

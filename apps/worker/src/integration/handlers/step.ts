@@ -1,6 +1,5 @@
 import {
   type EdgeSchema,
-  type EmailStepSchema,
   type SplitTrafficStepSchema,
   type StartAnotherNodeStepSchema,
   type StartExternalFlowStepSchema,
@@ -31,6 +30,7 @@ import {
 import type { ExecuteStepProps } from "./flow"
 import { handleAIGenerateText } from "./generate-text"
 import { getUserData } from "./get-user-data"
+import { sendEmail } from "./send-email"
 import {
   clearSpreadsheetRow,
   getSpreadsheetRandomRow,
@@ -70,25 +70,6 @@ export async function sendFlowMessage(
       flowVersionId: flowVersion.id,
       step,
       trackingContext,
-      metadata,
-    },
-  })
-}
-
-export async function sendEmail({
-  conversation,
-  contactInbox,
-  flowVersion,
-  step,
-  metadata,
-}: ExecuteStepProps<EmailStepSchema>) {
-  await chatQueue.add(ChatJobAction.sendEmail, {
-    type: ChatJobAction.sendEmail,
-    data: {
-      conversationId: conversation.id,
-      flowId: flowVersion.flowId,
-      contactInboxId: contactInbox.id,
-      step,
       metadata,
     },
   })

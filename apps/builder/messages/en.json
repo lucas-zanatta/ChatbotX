@@ -1336,6 +1336,7 @@
     "success": "Success",
     "failed": "Failed",
     "copiedToClipboard": "Copied to clipboard",
+    "copyFailed": "Failed to copy to clipboard",
     "createdFailed": "{feature} creation failed",
     "deletedSuccess": "{feature} deleted successfully",
     "deleteFileComingSoon": "Delete file functionality coming soon",

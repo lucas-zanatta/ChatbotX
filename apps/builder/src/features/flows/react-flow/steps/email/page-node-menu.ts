@@ -1,5 +1,4 @@
 import {
-  buttonStepDefaultFn,
   type PageElementSchema,
   pageElementTypes,
 } from "@chatbotx.io/flow-config"
@@ -14,55 +13,55 @@ import {
   TextAlignStartIcon,
 } from "lucide-react"
 
-export const PAGE_ELEMENT_MENU = [
+export const PAGE_ELEMENTS = [
   {
     labelKey: "fields.heading.label",
     icon: HeadingIcon,
     defaultFn: headingElementDefaultFn,
-    stepType: pageElementTypes.enum.Heading,
+    stepType: pageElementTypes.enum.heading,
   },
   {
     labelKey: "fields.text.label",
     icon: TextAlignStartIcon,
     defaultFn: textElementDefaultFn,
-    stepType: pageElementTypes.enum.Text,
+    stepType: pageElementTypes.enum.text,
   },
   {
     labelKey: "fields.image.label",
     icon: ImageIcon,
     defaultFn: imageElementDefaultFn,
-    stepType: pageElementTypes.enum.Image,
+    stepType: pageElementTypes.enum.image,
   },
   {
     labelKey: "fields.button.label",
     icon: RectangleHorizontalIcon,
     defaultFn: buttonElementDefaultFn,
-    stepType: pageElementTypes.enum.Button,
+    stepType: pageElementTypes.enum.button,
   },
   {
     labelKey: "fields.line.label",
     icon: MinusIcon,
     defaultFn: lineElementDefaultFn,
-    stepType: pageElementTypes.enum.Line,
+    stepType: pageElementTypes.enum.line,
   },
   {
     labelKey: "fields.spacing.label",
     icon: MoveVerticalIcon,
     defaultFn: spacingElementDefaultFn,
-    stepType: pageElementTypes.enum.Spacing,
+    stepType: pageElementTypes.enum.spacing,
   },
   {
     labelKey: "fields.code.label",
     icon: CodeIcon,
     defaultFn: codeElementDefaultFn,
-    stepType: pageElementTypes.enum.Code,
+    stepType: pageElementTypes.enum.code,
   },
 ]
 
 function headingElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Heading,
+    type: pageElementTypes.enum.heading,
     text: "",
   }
 }
@@ -70,7 +69,7 @@ function headingElementDefaultFn(): PageElementSchema {
 function textElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Text,
+    type: pageElementTypes.enum.text,
     text: "",
   }
 }
@@ -78,7 +77,7 @@ function textElementDefaultFn(): PageElementSchema {
 function imageElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Image,
+    type: pageElementTypes.enum.image,
     mode: "file",
     url: "",
   }
@@ -87,29 +86,32 @@ function imageElementDefaultFn(): PageElementSchema {
 function buttonElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Button,
-    beforeStep: buttonStepDefaultFn(),
+    label: "",
+    type: pageElementTypes.enum.button,
+    buttonType: null,
+    beforeStep: null,
+    steps: [],
   }
 }
 
 function lineElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Line,
+    type: pageElementTypes.enum.line,
   }
 }
 
 function spacingElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Spacing,
+    type: pageElementTypes.enum.spacing,
   }
 }
 
 function codeElementDefaultFn(): PageElementSchema {
   return {
     id: createId(),
-    type: pageElementTypes.enum.Code,
+    type: pageElementTypes.enum.code,
     text: "",
   }
 }

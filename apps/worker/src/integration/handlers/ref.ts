@@ -1,3 +1,4 @@
+import { decodeRef, type RefConfig } from "@chatbotx.io/business"
 import { findOrFail } from "@chatbotx.io/database/client"
 import {
   flowModel,
@@ -27,10 +28,14 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
       contactInboxId,
     })
 
-  // Trigger draft flow
-  if (ref.startsWith("draft-")) {
+  const refData = decodeRef(ref)
+  if (!refData) {
+    return
+  }
+
+  if (refData.type === "draft") {
     logger.debug(`Draft ref: ${ref}`)
-    const flowId = ref.replace("draft-", "").trim()
+    const { f: flowId } = refData as { type: "draft"; f: string }
     if (!flowId) {
       logger.warn(`Invalid draft ref: ${ref}`)
       return
@@ -54,11 +59,13 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
     return
   }
 
-  // Trigger published flow. Format: flow-<flowId> or flow-<flowId>:<nodeId>
-  if (ref.startsWith("flow-")) {
+  if (refData.type === "flow") {
     logger.debug(`Start flow ref: ${ref}`)
-    const refValue = ref.replace("flow-", "").trim()
-    const [flowId, nodeId] = refValue.split(":").map((part) => part.trim())
+    const { f: flowId, n: nodeId } = refData as {
+      type: "flow"
+      f: string
+      n?: string
+    }
     if (!flowId) {
       logger.warn(`Invalid flow ref: ${ref}`)
       return
@@ -76,7 +83,7 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
         conversationId: conversation,
         contactInboxId: contactInbox,
         flowId: flow.id,
-        nodeId: nodeId || undefined,
+        nodeId,
       },
     })
     return
@@ -86,19 +93,24 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
   handleReflink({
     conversation,
     contactInbox,
-    ref,
+    refData,
   })
 }
 
 async function handleReflink(props: {
   conversation: ConversationModel
   contactInbox: ContactInboxModel
-  ref: string
+  refData: RefConfig
 }) {
-  const { conversation, contactInbox, ref } = props
+  const { conversation, contactInbox } = props
+  const refData = props.refData as { type: "reflink"; r: string }
+
   const reflink = await findOrFail({
     table: reflinkModel,
-    where: { name: ref, workspaceId: conversation.workspaceId },
+    where: {
+      name: refData.r,
+      workspaceId: conversation.workspaceId,
+    },
     message: "Reflink not found",
   })
 
@@ -130,7 +142,7 @@ async function handleReflink(props: {
     await saveResultToCustomField({
       contactId: conversation.contactId,
       customFieldId: reflink.customFieldId,
-      text: ref,
+      text: refData.r,
     })
   }
 

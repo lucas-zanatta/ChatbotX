@@ -20,31 +20,31 @@ type BuilderProps = {
 export function PageElementBuilder({ type, parentName }: BuilderProps) {
   const t = useTranslations()
   switch (type) {
-    case pageElementTypes.enum.Heading:
+    case pageElementTypes.enum.heading:
       return (
         <TiptapEditorField
           name={`${parentName}.text`}
           placeholder={t("fields.heading.placeholder")}
         />
       )
-    case pageElementTypes.enum.Text:
+    case pageElementTypes.enum.text:
       return (
         <TiptapEditorField
           name={`${parentName}.text`}
           placeholder={t("fields.text.placeholder")}
         />
       )
-    case pageElementTypes.enum.Image:
+    case pageElementTypes.enum.image:
       return (
         <DirectUploadOrInsertLink fileType="image" parentName={parentName} />
       )
-    case pageElementTypes.enum.Button:
-      return <ButtonStepEditor parentName={`${parentName}.beforeStep`} />
-    case pageElementTypes.enum.Line:
+    case pageElementTypes.enum.button:
+      return <ButtonStepEditor parentName={`${parentName}`} />
+    case pageElementTypes.enum.line:
       return <Separator />
-    case pageElementTypes.enum.Spacing:
+    case pageElementTypes.enum.spacing:
       return <div className="h-4" />
-    case pageElementTypes.enum.Code:
+    case pageElementTypes.enum.code:
       return (
         <TiptapEditorField
           name={`${parentName}.text`}
@@ -61,11 +61,11 @@ type ViewerProps = {
 }
 export function PageElementViewer({ data }: ViewerProps) {
   switch (data.type) {
-    case pageElementTypes.enum.Heading:
+    case pageElementTypes.enum.heading:
       return <p className="font-semibold">{data.text}</p>
-    case pageElementTypes.enum.Text:
+    case pageElementTypes.enum.text:
       return <p>{data.text}</p>
-    case pageElementTypes.enum.Image:
+    case pageElementTypes.enum.image:
       return (
         <div className="relative h-37.5">
           {data.url?.startsWith("https") ? (
@@ -73,15 +73,13 @@ export function PageElementViewer({ data }: ViewerProps) {
           ) : null}
         </div>
       )
-    case pageElementTypes.enum.Button:
-      return data.beforeStep ? (
-        <ButtonStepViewer data={data.beforeStep} />
-      ) : null
-    case pageElementTypes.enum.Line:
+    case pageElementTypes.enum.button:
+      return data.beforeStep ? <ButtonStepViewer data={data} /> : null
+    case pageElementTypes.enum.line:
       return <Separator />
-    case pageElementTypes.enum.Spacing:
+    case pageElementTypes.enum.spacing:
       return <div className="h-4" />
-    case pageElementTypes.enum.Code:
+    case pageElementTypes.enum.code:
       return <p className="font-mono text-sm">{data.text}</p>
     default:
       return null

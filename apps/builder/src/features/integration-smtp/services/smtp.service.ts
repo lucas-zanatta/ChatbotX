@@ -4,7 +4,7 @@ import { channelTypes, inboxStatuses } from "@chatbotx.io/database/partials"
 import { inboxModel, integrationSmtpModel } from "@chatbotx.io/database/schema"
 import type { SmtpAuthValue } from "@chatbotx.io/integration-smtp"
 import { smtpHostMap } from "@chatbotx.io/integration-smtp"
-import { createSmtpTransporter } from "@chatbotx.io/mail/render"
+import { createSmtpTransporter } from "@chatbotx.io/mail/transport"
 import { createId } from "@chatbotx.io/utils"
 import { getTranslations } from "next-intl/server"
 import type { CreateSmtpRequest, UpdateSmtpRequest } from "../schemas/mutation"
@@ -33,8 +33,13 @@ export async function verifySmtpConnection(input: CreateSmtpRequest) {
   }
 }
 
-export function createSmtp(workspaceId: string, input: CreateSmtpRequest) {
+export async function createSmtp(
+  workspaceId: string,
+  input: CreateSmtpRequest,
+) {
   let { host, port, ...rest } = input
+  await verifySmtpConnection(input)
+
   if (input.provider !== "other") {
     const defaultHostAndPort = smtpHostMap[input.provider]
     host = defaultHostAndPort.host
@@ -78,6 +83,8 @@ export async function updateSmtp(
   id: string,
   input: UpdateSmtpRequest,
 ) {
+  await verifySmtpConnection(input)
+
   const integration = await findOrFail({
     table: integrationSmtpModel,
     where: { id, workspaceId },
