@@ -4,7 +4,7 @@ import { workspaceIdrequestParams } from "@/features/common/schemas"
 import { identifyWorkspaceAndOrganizationFromRequest } from "@/features/integrations/uitls"
 import { workspaceActionClient } from "@/lib/safe-action"
 import { createSmtpRequest } from "../schemas/mutation"
-import { createSmtp } from "../services/smtp.service"
+import { createSmtp, verifySmtpConnection } from "../services/smtp.service"
 
 export const createSmtpAction = workspaceActionClient
   .bindArgsSchemas(workspaceIdrequestParams)
@@ -15,6 +15,7 @@ export const createSmtpAction = workspaceActionClient
       parsedInput,
     } = props
     await identifyWorkspaceAndOrganizationFromRequest(workspaceId)
+    await verifySmtpConnection(parsedInput)
 
     const inbox = await createSmtp(workspaceId, parsedInput)
 

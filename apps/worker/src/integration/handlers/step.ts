@@ -1,5 +1,6 @@
 import {
   type EdgeSchema,
+  type EmailStepSchema,
   type SplitTrafficStepSchema,
   type StartAnotherNodeStepSchema,
   type StartExternalFlowStepSchema,
@@ -69,6 +70,25 @@ export async function sendFlowMessage(
       flowVersionId: flowVersion.id,
       step,
       trackingContext,
+      metadata,
+    },
+  })
+}
+
+export async function sendEmail({
+  conversation,
+  contactInbox,
+  flowVersion,
+  step,
+  metadata,
+}: ExecuteStepProps<EmailStepSchema>) {
+  await chatQueue.add(ChatJobAction.sendEmail, {
+    type: ChatJobAction.sendEmail,
+    data: {
+      conversationId: conversation.id,
+      flowId: flowVersion.flowId,
+      contactInboxId: contactInbox.id,
+      step,
       metadata,
     },
   })
@@ -248,14 +268,7 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.subscribeSequence]: addContactSequence,
   [stepTypes.enum.unsubscribeSequence]: removeContactSequence,
   [stepTypes.enum.sendQuickReply]: sendFlowMessage,
-  [stepTypes.enum.emailH3]: undefined,
-  [stepTypes.enum.emailText]: undefined,
-  [stepTypes.enum.emailImage]: undefined,
-  [stepTypes.enum.emailButton]: undefined,
-  [stepTypes.enum.emailLine]: undefined,
-  [stepTypes.enum.emailSpacing]: undefined,
-  [stepTypes.enum.emailCode]: undefined,
-  [stepTypes.enum.emailHeader]: undefined,
+  [stepTypes.enum.email]: sendEmail,
   [stepTypes.enum.typing]: stepSendTyping,
   [stepTypes.enum.sendWaTemplateMessage]: sendFlowMessage,
 }

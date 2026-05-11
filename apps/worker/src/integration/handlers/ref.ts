@@ -54,10 +54,11 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
     return
   }
 
-  // Trigger published flow
+  // Trigger published flow. Format: flow-<flowId> or flow-<flowId>:<nodeId>
   if (ref.startsWith("flow-")) {
     logger.debug(`Start flow ref: ${ref}`)
-    const flowId = ref.replace("flow-", "").trim()
+    const refValue = ref.replace("flow-", "").trim()
+    const [flowId, nodeId] = refValue.split(":").map((part) => part.trim())
     if (!flowId) {
       logger.warn(`Invalid flow ref: ${ref}`)
       return
@@ -75,6 +76,7 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
         conversationId: conversation,
         contactInboxId: contactInbox,
         flowId: flow.id,
+        nodeId: nodeId || undefined,
       },
     })
     return
