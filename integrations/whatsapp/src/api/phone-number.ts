@@ -225,9 +225,11 @@ export const findConversationalAutomation = async (
       )
       .json()
 
-    const conversationalAutomation = result.conversational_automation ?? {
-      prompts: [],
-      commands: [],
+    const conversationalAutomation: ConversationalAutomation = {
+      enable_welcome_message:
+        result.conversational_automation?.enable_welcome_message ?? false,
+      prompts: result.conversational_automation?.prompts ?? [],
+      commands: result.conversational_automation?.commands ?? [],
     }
 
     return conversationalAutomation

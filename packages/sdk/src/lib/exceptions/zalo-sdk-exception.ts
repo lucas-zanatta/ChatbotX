@@ -16,6 +16,7 @@ export class ZaloSdkException extends SdkException {
       }
 
       return Promise.resolve({
+        type: error?.type,
         message: error?.message,
         code: error?.code,
         statusCode: body?.statusCode,

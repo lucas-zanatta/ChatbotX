@@ -12,12 +12,14 @@ export class SdkException extends Error {
   httpStatusCode: number
   subCode?: string | number | null
   originError?: Error
+  type?: string
 
   constructor(
     message: string,
     code = "sysmtemError",
     httpStatusCode = 400,
     subCode = null,
+    type?: string,
   ) {
     super(message)
 
@@ -25,6 +27,7 @@ export class SdkException extends Error {
     this.code = code
     this.httpStatusCode = httpStatusCode
     this.subCode = subCode
+    this.type = type
 
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, SdkException)
@@ -44,10 +47,15 @@ export class SdkException extends Error {
   async getErrorData(): Promise<ParsedError> {
     return await Promise.resolve({
       message: this.message,
+      type: this.type,
       code: this.code,
       statusCode: this.httpStatusCode,
       subcode: this.subCode,
     } as ParsedError)
+  }
+
+  getOriginError() {
+    return this.originError
   }
 }
 

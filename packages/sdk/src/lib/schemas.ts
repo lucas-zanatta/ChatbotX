@@ -5,6 +5,7 @@ export const integrationPropsSchema = z.object({
 })
 
 export const parsedErrorSchema = z.object({
+  type: z.string().optional(),
   code: z.union([z.string(), z.number()]),
   message: z.string(),
   statusCode: z.number(),

@@ -1,4 +1,4 @@
-import ky, { isHTTPError, type KyInstance } from "ky"
+import ky, { HTTPError, isHTTPError, type KyInstance } from "ky"
 import { MessengerAPIException } from "../exception"
 import { logger } from "./logger"
 
@@ -86,10 +86,17 @@ class MessengerHttpClient {
     try {
       return await this.client.delete(url, options).json<T>()
     } catch (error) {
-      throw new MessengerAPIException(
-        `DELETE request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        url,
-      ).setOriginError(error)
+      let message = "Unknown error"
+
+      if (error instanceof Error) {
+        message = error.message
+      }
+
+      if (error instanceof HTTPError) {
+        message = error.data?.error?.message || message
+      }
+
+      throw new MessengerAPIException(message, url).setOriginError(error)
     }
   }
 }

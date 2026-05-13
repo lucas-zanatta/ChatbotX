@@ -17,6 +17,7 @@ export class MessengerSdkException extends SdkException {
 
       return Promise.resolve({
         message: error?.message,
+        type: error?.type,
         code: error?.code,
         statusCode: error?.statusCode,
         subcode: error?.subcode || error.error_subcode,

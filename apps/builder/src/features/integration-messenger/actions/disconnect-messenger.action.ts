@@ -8,6 +8,7 @@ import {
 } from "@chatbotx.io/database/schema"
 import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger"
 import { unsubscribePageFromAppWebhook } from "@chatbotx.io/integration-messenger/apis/page"
+import { MessengerAPIException } from "@chatbotx.io/integration-messenger/exception"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
@@ -38,11 +39,21 @@ const disconnectMessenger = async (ctx: {
   await db.transaction(async (tx) => {
     // Unsubscribe from app
     const authValue = integrationMessenger.auth as MessengerAuthValue
-    await unsubscribePageFromAppWebhook({
-      pageId: integrationMessenger.pageId,
-      accessToken: authValue.tokens.accessToken as string,
-      version: authValue.metadata.version,
-    })
+
+    try {
+      await unsubscribePageFromAppWebhook({
+        pageId: integrationMessenger.pageId,
+        accessToken: authValue.tokens.accessToken as string,
+        version: authValue.metadata.version,
+      })
+    } catch (error) {
+      if (error instanceof MessengerAPIException) {
+        const isRevoked = await error.isRevokedTokenError()
+        if (!isRevoked) {
+          throw error
+        }
+      }
+    }
 
     await tx
       .delete(integrationMessengerModel)

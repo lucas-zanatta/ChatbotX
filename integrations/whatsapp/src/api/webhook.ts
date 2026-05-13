@@ -74,10 +74,16 @@ export async function unsubscribeWebhook({
       throw new WhatsappException("Failed to unsubscribe webhook")
     }
   } catch (error) {
-    console.error("Failed to unsubscribe webhook", error)
+    let message = "Failed to unsubscribe webhook"
 
-    throw new WhatsappException("Failed to unsubscribe webhook").setOriginError(
-      error,
-    )
+    if (error instanceof Error) {
+      message = error.message
+    }
+
+    if (error instanceof HTTPError) {
+      message = error.data?.error?.message || message
+    }
+
+    throw new WhatsappException(message).setOriginError(error)
   }
 }
