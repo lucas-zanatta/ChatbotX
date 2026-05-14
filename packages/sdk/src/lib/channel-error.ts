@@ -3,8 +3,14 @@ import {
   PERMANENT_CATEGORIES,
   RETRYABLE_CATEGORIES,
 } from "./channel-error-codes"
-import { SdkException } from "./exception"
-import type { ParsedError } from "./schemas"
+import { SdkException, UNKNOWN_ERROR } from "./exception"
+
+export type ChannelErrorOptions = {
+  code?: string | number
+  httpStatusCode?: number
+  subCode?: string | number | null
+  type?: string
+}
 
 export class ChannelError extends SdkException {
   readonly category: ChannelErrorCategory
@@ -14,29 +20,20 @@ export class ChannelError extends SdkException {
   constructor(
     message: string,
     category: ChannelErrorCategory,
-    code: string | number = -1,
-    httpStatusCode = 400,
-    subCode?: string | number | null,
+    options: ChannelErrorOptions = {},
   ) {
-    super(message, "channelError", httpStatusCode)
-    // Override base class fields with actual typed values
+    const {
+      code = UNKNOWN_ERROR.code,
+      httpStatusCode = 400,
+      subCode = null,
+      type,
+    } = options
+
+    super(message, "channelError", httpStatusCode, null, type)
     this.code = code
-    this.subCode = subCode ?? null
+    this.subCode = subCode
     this.category = category
     this.isRetryable = RETRYABLE_CATEGORIES.has(category)
     this.isPermanent = PERMANENT_CATEGORIES.has(category)
-  }
-
-  getErrorData(): Promise<ParsedError> {
-    return Promise.resolve({
-      message: this.message,
-      type: this.type,
-      code: this.code,
-      statusCode: this.httpStatusCode,
-      subcode: this.subCode ?? -1,
-      category: this.category,
-      isRetryable: this.isRetryable,
-      isPermanent: this.isPermanent,
-    })
   }
 }

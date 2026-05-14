@@ -1,11 +1,13 @@
 import ky, { isHTTPError, type KyInstance } from "ky"
-import { TelegramAPIException } from "../exception"
+import { parseOriginError, TelegramAPIException } from "../exception"
 import { logger } from "./logger"
 
-type TelegramErrorBody = {
-  ok: false
-  error_code?: number
-  description?: string
+type GetOptions = {
+  searchParams?: Record<string, string>
+}
+
+type PostOptions = {
+  json?: unknown
 }
 
 class TelegramHttpClient {
@@ -40,50 +42,33 @@ class TelegramHttpClient {
     })
   }
 
-  private async buildException(
-    endpoint: string,
-    error: unknown,
-  ): Promise<TelegramAPIException> {
-    if (isHTTPError(error)) {
-      let body: TelegramErrorBody | undefined
-      try {
-        body = (await error.response.clone().json()) as TelegramErrorBody
-      } catch {
-        // response body unreadable — proceed without it
-      }
-      const description = body?.description ?? `${endpoint} failed`
-      const httpStatus = error.response.status
-      const errorCode = body?.error_code ?? httpStatus
-      return new TelegramAPIException(
-        description,
-        endpoint,
-        httpStatus,
-        errorCode,
-      ).setOriginError(error) as TelegramAPIException
-    }
+  private toException(error: unknown): TelegramAPIException {
+    const sdkException = parseOriginError(error)
+
     return new TelegramAPIException(
-      `${endpoint} failed: ${String(error)}`,
-      endpoint,
-    ).setOriginError(error) as TelegramAPIException
+      sdkException.message ?? "Telegram API call failed",
+      sdkException.httpStatusCode,
+      sdkException.code,
+      sdkException.subCode,
+      sdkException.type,
+      error,
+    )
   }
 
-  async post<T>(endpoint: string, options?: { json?: unknown }): Promise<T> {
+  private async request<T>(call: () => Promise<T>): Promise<T> {
     try {
-      return await this.client.post(endpoint, options).json<T>()
+      return await call()
     } catch (error) {
-      throw await this.buildException(endpoint, error)
+      throw this.toException(error)
     }
   }
 
-  async get<T>(
-    endpoint: string,
-    options?: { searchParams?: Record<string, string> },
-  ): Promise<T> {
-    try {
-      return await this.client.get(endpoint, options).json<T>()
-    } catch (error) {
-      throw await this.buildException(endpoint, error)
-    }
+  get<T>(endpoint: string, options?: GetOptions): Promise<T> {
+    return this.request(() => this.client.get(endpoint, options).json<T>())
+  }
+
+  post<T>(endpoint: string, options?: PostOptions): Promise<T> {
+    return this.request(() => this.client.post(endpoint, options).json<T>())
   }
 }
 

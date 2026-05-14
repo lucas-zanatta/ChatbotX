@@ -7,8 +7,7 @@ import {
   integrationWhatsappModel,
 } from "@chatbotx.io/database/schema"
 import type { WhatsappAuthValue } from "@chatbotx.io/integration-whatsapp"
-import { mapToChannelError } from "@chatbotx.io/integration-whatsapp"
-import { ChannelErrorCategory } from "@chatbotx.io/sdk"
+import { isRevokedTokenError } from "@chatbotx.io/integration-whatsapp"
 import {
   type WorkspaceIdAndIdRequestParams,
   workspaceIdAndIdRequestParams,
@@ -39,9 +38,8 @@ export const disconnectWhatsappAction = authActionClient
           integrationWhatsapp.auth as WhatsappAuthValue,
         )
       } catch (error) {
-        const channelError = mapToChannelError(error)
-        if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
-          throw channelError
+        if (!isRevokedTokenError(error)) {
+          throw error
         }
       }
 

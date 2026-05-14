@@ -6,9 +6,10 @@ import {
   inboxModel,
   integrationMessengerModel,
 } from "@chatbotx.io/database/schema"
-import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger"
-import { mapToChannelError } from "@chatbotx.io/integration-messenger"
-import { ChannelErrorCategory } from "@chatbotx.io/sdk"
+import {
+  isRevokedTokenError,
+  type MessengerAuthValue,
+} from "@chatbotx.io/integration-messenger"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { integrations } from "@/integration"
 import { revalidateCacheTags } from "@/lib/cache-helper"
@@ -44,9 +45,8 @@ const disconnectMessenger = async (ctx: {
     try {
       await integrations.messenger.disconnect(authValue)
     } catch (error) {
-      const channelError = mapToChannelError(error)
-      if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
-        throw channelError
+      if (!isRevokedTokenError(error)) {
+        throw error
       }
     }
 

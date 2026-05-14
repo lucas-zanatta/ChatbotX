@@ -6,11 +6,8 @@ import {
   inboxModel,
   integrationTelegramModel,
 } from "@chatbotx.io/database/schema"
-import {
-  mapToChannelError,
-  type TelegramAuthValue,
-} from "@chatbotx.io/integration-telegram"
-import { ChannelErrorCategory } from "@chatbotx.io/sdk"
+import type { TelegramAuthValue } from "@chatbotx.io/integration-telegram"
+import { isRevokedTokenError } from "@chatbotx.io/integration-telegram"
 import {
   type WorkspaceIdAndIdRequestParams,
   workspaceIdAndIdRequestParams,
@@ -48,9 +45,8 @@ export const disconnectTelegramAction = workspaceActionClient
           integrationTelegram.auth as TelegramAuthValue,
         )
       } catch (error) {
-        const channelError = mapToChannelError(error)
-        if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
-          throw channelError
+        if (!isRevokedTokenError(error)) {
+          throw error
         }
       }
 

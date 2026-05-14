@@ -1,140 +1,143 @@
-import { ChannelError, ChannelErrorCategory } from "@chatbotx.io/sdk"
-import { MessengerException } from "../exception"
+import {
+  ChannelError,
+  ChannelErrorCategory,
+  UNKNOWN_ERROR,
+} from "@chatbotx.io/sdk"
+import {
+  type ChannelErrorSource,
+  MessengerException,
+  parseOriginError,
+} from "../exception"
 
-type FbApiError = {
-  code: number
-  message?: string
-  type?: string
-  error_subcode?: number
-  subcode?: number
-}
-
-type FbOrigin = {
-  errorBody?: { error?: FbApiError }
-  response?: { error?: FbApiError }
-  httpStatus?: number
-}
-
-function isFbApiError(v: unknown): v is FbApiError {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as FbApiError).code === "number"
-  )
-}
-
-function extractFbFields(exc: MessengerException): {
-  code: number | undefined
-  subcode: number | undefined
-  type: string | undefined
-  httpStatus: number | undefined
-} {
-  const raw = exc.originError as unknown as FbOrigin
-  const fbError: Partial<FbApiError> =
-    raw?.errorBody?.error ?? raw?.response?.error ?? {}
+function extractApiFields(exc: MessengerException): ChannelErrorSource {
   return {
-    code: fbError.code,
-    subcode: fbError.error_subcode ?? fbError.subcode,
-    type: fbError.type,
-    httpStatus: raw?.httpStatus ?? exc.httpStatusCode,
+    message: exc.message,
+    code: exc.code,
+    subCode: exc.subCode ?? null,
+    type: exc.type,
+    httpStatusCode: exc.httpStatusCode,
   }
 }
 
-function mapFbFields(
-  message: string,
+// === Facebook API base error code categorization ===
+
+const AUTH_FAILED_CODES = new Set([
+  102, // Invalid API session
+  190, // Access token expired
+  458, // App not installed / user not authenticated
+  459, // User checkpoint required
+  460, // Password changed
+  463, // Access token expired
+  464, // Unconfirmed user
+  467, // Invalid access token
+  492, // Invalid session / user has no role on page
+])
+
+const PERMISSION_DENIED_CODES = new Set([
+  3, // Missing capability or permissions
+  10, // Permission denied
+  341, // Application limit reached
+  368, // Temporarily blocked for policy violations
+])
+
+const RATE_LIMITED_CODES = new Set([
+  4, // API rate limit reached
+  17, // User API rate limit reached
+])
+
+const PAYLOAD_INVALID_CODES = new Set([
+  506, // Duplicate post
+  1_609_005, // Error scraping link preview
+])
+
+const NETWORK_ERROR_CODES = new Set([
+  1, // Unknown API error
+  2, // Service unavailable
+])
+
+function categorize(
   code: number | undefined,
-  subcode: number | undefined,
   type: string | undefined,
-  httpStatus: number | undefined,
-): ChannelError {
-  if (httpStatus === 429 || code === 613) {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.RATE_LIMITED,
-      code ?? 613,
-      httpStatus ?? 429,
-    )
+): ChannelErrorCategory {
+  if (type === "OAuthException") {
+    return ChannelErrorCategory.AUTH_FAILED
   }
 
-  if (httpStatus !== undefined && httpStatus >= 500) {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.NETWORK_ERROR,
-      code ?? httpStatus,
-      httpStatus,
-    )
+  if (code === undefined) {
+    return ChannelErrorCategory.UNKNOWN
   }
 
-  // 190 OAuthException — invalid/revoked token
-  if (code === 190 || type === "OAuthException") {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.AUTH_FAILED,
-      code ?? 190,
-      httpStatus ?? 400,
-      subcode,
-    )
+  if (AUTH_FAILED_CODES.has(code)) {
+    return ChannelErrorCategory.AUTH_FAILED
   }
 
-  // 200 subcode 2018028 — 24h window quota
-  if (code === 200 && subcode === 2_018_028) {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.QUOTA_EXCEEDED,
-      code,
-      httpStatus ?? 400,
-      subcode,
-    )
+  if (RATE_LIMITED_CODES.has(code)) {
+    return ChannelErrorCategory.RATE_LIMITED
   }
 
-  // 10, 200, 368 — permission
-  if (code === 10 || code === 200 || code === 368) {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.PERMISSION_DENIED,
-      code,
-      httpStatus ?? 400,
-      subcode,
-    )
+  // 200-299 = API Permission range
+  if (PERMISSION_DENIED_CODES.has(code) || (code >= 200 && code <= 299)) {
+    return ChannelErrorCategory.PERMISSION_DENIED
   }
 
-  // 551 — user blocked / account unavailable
-  if (code === 551) {
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.USER_BLOCKED,
-      code,
-      httpStatus ?? 400,
-      subcode,
-    )
+  if (NETWORK_ERROR_CODES.has(code)) {
+    return ChannelErrorCategory.NETWORK_ERROR
   }
 
-  // 100 — bad parameter; subcode 2018001 = invalid PSID
-  if (code === 100) {
-    if (subcode === 2_018_001) {
-      return new ChannelError(
-        message,
-        ChannelErrorCategory.INVALID_RECIPIENT,
-        code,
-        httpStatus ?? 400,
-        subcode,
-      )
-    }
-    return new ChannelError(
-      message,
-      ChannelErrorCategory.PAYLOAD_INVALID,
-      code,
-      httpStatus ?? 400,
-      subcode,
-    )
+  if (PAYLOAD_INVALID_CODES.has(code)) {
+    return ChannelErrorCategory.PAYLOAD_INVALID
   }
 
-  return new ChannelError(
-    message,
-    ChannelErrorCategory.UNKNOWN,
-    code ?? -1,
-    httpStatus ?? 400,
-    subcode,
+  return ChannelErrorCategory.UNKNOWN
+}
+
+function defaultHttpStatus(category: ChannelErrorCategory): number {
+  switch (category) {
+    case ChannelErrorCategory.RATE_LIMITED:
+      return 429
+    case ChannelErrorCategory.AUTH_FAILED:
+      return 401
+    case ChannelErrorCategory.PERMISSION_DENIED:
+    case ChannelErrorCategory.USER_BLOCKED:
+      return 403
+    case ChannelErrorCategory.NETWORK_ERROR:
+      return 503
+    default:
+      return 400
+  }
+}
+
+function mapApiFields(fields: ChannelErrorSource): ChannelError {
+  const numCode = typeof fields.code === "number" ? fields.code : undefined
+  const category = categorize(numCode, fields.type)
+  return new ChannelError(fields.message ?? UNKNOWN_ERROR.message, category, {
+    code: fields.code ?? UNKNOWN_ERROR.code,
+    httpStatusCode: fields.httpStatusCode ?? defaultHttpStatus(category),
+    subCode: fields.subCode,
+    type: fields.type,
+  })
+}
+
+// === Revoked / invalidated access token detection ===
+// FB Graph signals revoked tokens via OAuthException + code 190 + specific subcodes:
+//   458 = app not installed / user not authenticated
+//   460 = password changed
+//   463 = access token expired
+//   467 = invalid access token
+const REVOKED_TOKEN_SUBCODES = new Set([458, 460, 463, 467])
+
+export function isRevokedTokenError(error: unknown): boolean {
+  if (!(error instanceof MessengerException)) {
+    return false
+  }
+
+  const mappedError = mapToChannelError(error)
+
+  return (
+    mappedError.category === ChannelErrorCategory.AUTH_FAILED &&
+    mappedError.code === 190 &&
+    mappedError.subCode !== null &&
+    REVOKED_TOKEN_SUBCODES.has(Number(mappedError.subCode))
   )
 }
 
@@ -144,20 +147,8 @@ export function mapToChannelError(rawError: unknown): ChannelError {
   }
 
   if (rawError instanceof MessengerException) {
-    const { code, subcode, type, httpStatus } = extractFbFields(rawError)
-    return mapFbFields(rawError.message, code, subcode, type, httpStatus)
+    return mapApiFields(extractApiFields(rawError))
   }
 
-  if (isFbApiError(rawError)) {
-    return mapFbFields(
-      rawError.message ?? "Unknown error",
-      rawError.code,
-      rawError.error_subcode ?? rawError.subcode,
-      rawError.type,
-      undefined,
-    )
-  }
-
-  const message = rawError instanceof Error ? rawError.message : "Unknown error"
-  return new ChannelError(message, ChannelErrorCategory.UNKNOWN)
+  return mapApiFields(parseOriginError(rawError))
 }

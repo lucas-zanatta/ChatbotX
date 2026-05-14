@@ -1,51 +1,89 @@
-import type { ParsedError } from "@chatbotx.io/sdk"
-import { SdkException, UNKNOWN_ERROR } from "@chatbotx.io/sdk"
+import { SdkException } from "@chatbotx.io/sdk"
+import { isHTTPError } from "ky"
 import { logger } from "./lib/logger"
 
-function extractFbError(originError: unknown): {
-  code?: number
+function asObject<T>(value: unknown): T | undefined {
+  return typeof value === "object" && value !== null ? (value as T) : undefined
+}
+
+const FALLBACK_HTTP_STATUS = 400
+
+type ErrorBody = {
+  error?: {
+    code?: number
+    type?: string
+    message?: string
+    error_subcode?: number | string
+    subcode?: number | string
+  }
+}
+type OriginShape = { httpStatus?: number; errorBody?: ErrorBody }
+type ExplicitShape = { response?: { error?: ErrorBody["error"] } }
+
+export type ChannelErrorSource = {
+  httpStatusCode: number
+  code?: number | string
+  subCode?: number | string | null
   type?: string
   message?: string
-  subcode?: number
-} {
-  // biome-ignore lint/suspicious/noExplicitAny: raw error shape
-  const raw = originError as any
-  // Shape from buildOrigin: { httpStatus, errorBody: { error: { ... } } }
-  const fromHttpClient = raw?.errorBody?.error
-  if (fromHttpClient) {
-    return fromHttpClient
+}
+
+export function parseOriginError(originError: unknown): ChannelErrorSource {
+  if (isHTTPError(originError)) {
+    const body = asObject<ErrorBody>(originError.data)
+    const err = body?.error
+    return {
+      httpStatusCode: originError.response.status,
+      code: err?.code,
+      subCode: err?.error_subcode ?? err?.subcode,
+      type: err?.type,
+      message: err?.message,
+    }
   }
 
-  // Shape from explicit setOriginError: { response: { error: { ... } } }
-  const fromExplicit = raw?.response?.error
-  if (fromExplicit) {
-    return fromExplicit
+  const shaped = asObject<OriginShape>(originError)
+  if (shaped?.httpStatus !== undefined) {
+    const err = shaped.errorBody?.error
+    return {
+      httpStatusCode: shaped.httpStatus,
+      code: err?.code,
+      subCode: err?.error_subcode ?? err?.subcode,
+      type: err?.type,
+      message: err?.message,
+    }
   }
 
-  return {}
+  const explicit = asObject<ExplicitShape>(originError)
+  if (explicit?.response?.error) {
+    const err = explicit.response.error
+    return {
+      httpStatusCode: FALLBACK_HTTP_STATUS,
+      code: err.code,
+      subCode: err.error_subcode ?? err.subcode,
+      type: err.type,
+      message: err.message,
+    }
+  }
+
+  return {
+    httpStatusCode: FALLBACK_HTTP_STATUS,
+    message: originError instanceof Error ? originError.message : undefined,
+  }
 }
 
 export class InstagramException extends SdkException {
-  getErrorData(): Promise<ParsedError> {
-    const fbError = extractFbError(this.originError)
-
-    if (fbError && Object.keys(fbError).length > 0) {
-      return Promise.resolve({
-        message: fbError.message ?? UNKNOWN_ERROR.message,
-        type: fbError.type,
-        code: fbError.code ?? UNKNOWN_ERROR.code,
-        statusCode:
-          (this.originError as { httpStatus?: number })?.httpStatus ??
-          UNKNOWN_ERROR.statusCode,
-        subcode: fbError.subcode ?? UNKNOWN_ERROR.subcode,
-      })
+  constructor(
+    message: string,
+    httpStatusCode: number = FALLBACK_HTTP_STATUS,
+    code: string | number = "instagramError",
+    subCode?: string | number | null,
+    type?: string,
+    originError?: unknown,
+  ) {
+    super(message, code, httpStatusCode, subCode, type)
+    if (originError !== undefined) {
+      this.setOriginError(originError)
     }
-
-    logger.error(
-      { originError: this.originError },
-      "InstagramException: could not extract error data",
-    )
-    return Promise.resolve(UNKNOWN_ERROR)
   }
 }
 
@@ -67,11 +105,36 @@ export class InstagramWebhookException extends InstagramException {
   }
 }
 
-export class InstagramAPIException extends InstagramException {
-  readonly apiEndpoint?: string
+export class InstagramAPIException extends InstagramException {}
 
-  constructor(message: string, apiEndpoint?: string) {
-    super(`API error: ${message}`)
-    this.apiEndpoint = apiEndpoint
+/**
+ * Wraps an async API call with standardized Instagram error handling.
+ * Unwraps typed exceptions one level so the raw IG/FB Graph error body is
+ * preserved on `originError` for the mapToChannelError() step.
+ */
+export const rescue = async <T>(
+  endpoint: string,
+  fn: () => Promise<T>,
+): Promise<T> => {
+  try {
+    return await fn()
+  } catch (error) {
+    logger.error(error, `Instagram API call failed: ${endpoint}`)
+
+    let originError: unknown = error
+    if (error instanceof InstagramException) {
+      originError = error.getOriginError() ?? error
+    }
+
+    const sdkException = parseOriginError(originError)
+
+    throw new InstagramAPIException(
+      sdkException.message ?? endpoint,
+      sdkException.httpStatusCode,
+      sdkException.code,
+      sdkException.subCode,
+      sdkException.type,
+      originError,
+    )
   }
 }
