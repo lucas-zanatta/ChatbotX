@@ -8,8 +8,10 @@ import {
 } from "@chatbotx.io/database/schema"
 import {
   type InstagramAuthValue,
+  mapToChannelError,
   unsubscribePageFromInstagramWebhook,
 } from "@chatbotx.io/integration-instagram"
+import { ChannelErrorCategory } from "@chatbotx.io/sdk"
 import {
   type WorkspaceIdAndIdRequestParams,
   workspaceIdAndIdRequestParams,
@@ -36,11 +38,18 @@ export const disconnectInstagramAction = workspaceActionClient
 
       await db.transaction(async (tx) => {
         const authValue = integrationInstagram.auth as InstagramAuthValue
-        await unsubscribePageFromInstagramWebhook({
-          pageId: integrationInstagram.pageId,
-          accessToken: authValue.tokens.accessToken as string,
-          version: authValue.metadata.version,
-        })
+        try {
+          await unsubscribePageFromInstagramWebhook({
+            pageId: integrationInstagram.pageId,
+            accessToken: authValue.tokens.accessToken as string,
+            version: authValue.metadata.version,
+          })
+        } catch (error) {
+          const channelError = mapToChannelError(error)
+          if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
+            throw channelError
+          }
+        }
 
         await tx
           .delete(integrationInstagramModel)

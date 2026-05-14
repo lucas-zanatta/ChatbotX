@@ -35,6 +35,7 @@ import {
 } from "@chatbotx.io/flow-config"
 import { RealtimeEventType } from "@chatbotx.io/partysocket-config"
 import {
+  ChannelError,
   IntegrationException,
   type MessageButtonTemplate,
   type MessageCardTemplate,
@@ -366,8 +367,11 @@ export async function sendFlowStep({
       })
     }
   } catch (error) {
+    const parsedError = await parseSdkError(error)
+    const isChannelError = error instanceof ChannelError
+
     logger.error(
-      error,
+      { error, category: isChannelError ? error.category : undefined },
       `sendFlowStep error for conversationId: ${conversationId}`,
     )
 
@@ -377,7 +381,7 @@ export async function sendFlowStep({
         messageId: "",
         flowId,
       },
-      errorData: await parseSdkError(error),
+      errorData: parsedError,
       occurredAt: new Date(),
     })
 
@@ -399,6 +403,20 @@ export async function sendFlowStep({
         },
       })
     }
+
+    if (isChannelError && error.isPermanent) {
+      logger.warn({ parsedError }, "Permanent channel error — skipping retry")
+      return
+    }
+
+    if (!isChannelError || error.isRetryable) {
+      throw error
+    }
+
+    logger.error(
+      { parsedError },
+      "Non-retryable channel error — skipping retry",
+    )
   }
 }
 

@@ -14,8 +14,16 @@ export class TelegramWebhookException extends TelegramException {
 export class TelegramAPIException extends TelegramException {
   readonly apiEndpoint?: string
 
-  constructor(message: string, apiEndpoint?: string) {
-    super(`API error: ${message}`)
+  constructor(
+    message: string,
+    apiEndpoint?: string,
+    httpStatusCode?: number,
+    errorCode?: number,
+  ) {
+    super(`API error: ${message}`, "telegramError", httpStatusCode ?? 400)
+    if (errorCode !== undefined) {
+      this.code = errorCode
+    }
     this.apiEndpoint = apiEndpoint
   }
 }

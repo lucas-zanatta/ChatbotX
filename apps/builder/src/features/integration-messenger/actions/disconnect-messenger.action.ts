@@ -1,6 +1,5 @@
 "use server"
 
-import { buildContext } from "@chatbotx.io/business"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
@@ -8,7 +7,8 @@ import {
   integrationMessengerModel,
 } from "@chatbotx.io/database/schema"
 import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger"
-import { MessengerAPIException } from "@chatbotx.io/integration-messenger/exception"
+import { mapToChannelError } from "@chatbotx.io/integration-messenger"
+import { ChannelErrorCategory } from "@chatbotx.io/sdk"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { integrations } from "@/integration"
 import { revalidateCacheTags } from "@/lib/cache-helper"
@@ -42,23 +42,11 @@ const disconnectMessenger = async (ctx: {
     const authValue = integrationMessenger.auth as MessengerAuthValue
 
     try {
-      const botContext = await buildContext({
-        workspaceId: ctx.workspaceId,
-        integrationType: "messenger",
-        integration: {
-          ...integrationMessenger,
-          auth: authValue,
-        },
-      })
-      await integrations.messenger.runAction("unsubscribePageFromAppWebhook", {
-        ctx: botContext,
-      })
+      await integrations.messenger.disconnect(authValue)
     } catch (error) {
-      if (error instanceof MessengerAPIException) {
-        const isRevoked = await error.isRevokedTokenError()
-        if (!isRevoked) {
-          throw error
-        }
+      const channelError = mapToChannelError(error)
+      if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
+        throw channelError
       }
     }
 

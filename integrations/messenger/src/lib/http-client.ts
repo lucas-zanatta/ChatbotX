@@ -1,6 +1,21 @@
-import ky, { HTTPError, isHTTPError, type KyInstance } from "ky"
+import ky, { isHTTPError, type KyInstance } from "ky"
 import { MessengerAPIException } from "../exception"
 import { logger } from "./logger"
+
+type FbErrorOrigin = {
+  httpStatus: number
+  errorBody:
+    | {
+        error?: {
+          code?: number
+          type?: string
+          message?: string
+          error_subcode?: number
+          subcode?: number
+        }
+      }
+    | undefined
+}
 
 type HttpClientConfig = {
   baseUrl: string
@@ -41,6 +56,23 @@ class MessengerHttpClient {
     })
   }
 
+  private async buildOrigin(
+    error: unknown,
+  ): Promise<FbErrorOrigin | undefined> {
+    if (isHTTPError(error)) {
+      let errorBody: FbErrorOrigin["errorBody"]
+      try {
+        errorBody = (await error.response
+          .clone()
+          .json()) as FbErrorOrigin["errorBody"]
+      } catch {
+        // response body unreadable — proceed without it
+      }
+      return { httpStatus: error.response.status, errorBody }
+    }
+    return
+  }
+
   async get<T>(
     url: string,
     options?: {
@@ -51,10 +83,14 @@ class MessengerHttpClient {
     try {
       return await this.client.get(url, options).json<T>()
     } catch (error) {
+      const origin = await this.buildOrigin(error)
+      const message =
+        origin?.errorBody?.error?.message ??
+        (error instanceof Error ? error.message : "Unknown error")
       throw new MessengerAPIException(
-        `GET request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `GET request failed: ${message}`,
         url,
-      ).setOriginError(error)
+      ).setOriginError(origin ?? error)
     }
   }
 
@@ -68,10 +104,14 @@ class MessengerHttpClient {
     try {
       return await this.client.post(url, options).json<T>()
     } catch (error) {
+      const origin = await this.buildOrigin(error)
+      const message =
+        origin?.errorBody?.error?.message ??
+        (error instanceof Error ? error.message : "Unknown error")
       throw new MessengerAPIException(
-        `POST request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `POST request failed: ${message}`,
         url,
-      ).setOriginError(error)
+      ).setOriginError(origin ?? error)
     }
   }
 
@@ -86,17 +126,13 @@ class MessengerHttpClient {
     try {
       return await this.client.delete(url, options).json<T>()
     } catch (error) {
-      let message = "Unknown error"
-
-      if (error instanceof Error) {
-        message = error.message
-      }
-
-      if (error instanceof HTTPError) {
-        message = error.data?.error?.message || message
-      }
-
-      throw new MessengerAPIException(message, url).setOriginError(error)
+      const origin = await this.buildOrigin(error)
+      const message =
+        origin?.errorBody?.error?.message ??
+        (error instanceof Error ? error.message : "Unknown error")
+      throw new MessengerAPIException(message, url).setOriginError(
+        origin ?? error,
+      )
     }
   }
 }

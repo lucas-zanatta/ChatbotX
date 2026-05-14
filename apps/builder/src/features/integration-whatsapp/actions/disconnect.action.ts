@@ -1,6 +1,5 @@
 "use server"
 
-import { buildContext } from "@chatbotx.io/business"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
@@ -8,7 +7,8 @@ import {
   integrationWhatsappModel,
 } from "@chatbotx.io/database/schema"
 import type { WhatsappAuthValue } from "@chatbotx.io/integration-whatsapp"
-import { WhatsappException } from "@chatbotx.io/integration-whatsapp/exception"
+import { mapToChannelError } from "@chatbotx.io/integration-whatsapp"
+import { ChannelErrorCategory } from "@chatbotx.io/sdk"
 import {
   type WorkspaceIdAndIdRequestParams,
   workspaceIdAndIdRequestParams,
@@ -35,23 +35,13 @@ export const disconnectWhatsappAction = authActionClient
       })
 
       try {
-        const ctx = await buildContext({
-          workspaceId,
-          integrationType: "whatsapp",
-          integration: {
-            ...integrationWhatsapp,
-            auth: integrationWhatsapp.auth as WhatsappAuthValue,
-          },
-        })
-        await integrations.whatsapp.runAction("unsubscribeWebhook", {
-          ctx,
-        })
+        await integrations.whatsapp.disconnect(
+          integrationWhatsapp.auth as WhatsappAuthValue,
+        )
       } catch (error) {
-        if (error instanceof WhatsappException) {
-          const isRevoked = await error.isRevokedTokenError()
-          if (!isRevoked) {
-            throw error
-          }
+        const channelError = mapToChannelError(error)
+        if (channelError.category !== ChannelErrorCategory.AUTH_FAILED) {
+          throw channelError
         }
       }
 

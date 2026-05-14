@@ -2,6 +2,12 @@ import ky, { isHTTPError, type KyInstance } from "ky"
 import { TelegramAPIException } from "../exception"
 import { logger } from "./logger"
 
+type TelegramErrorBody = {
+  ok: false
+  error_code?: number
+  description?: string
+}
+
 class TelegramHttpClient {
   private readonly client: KyInstance
 
@@ -34,14 +40,38 @@ class TelegramHttpClient {
     })
   }
 
+  private async buildException(
+    endpoint: string,
+    error: unknown,
+  ): Promise<TelegramAPIException> {
+    if (isHTTPError(error)) {
+      let body: TelegramErrorBody | undefined
+      try {
+        body = (await error.response.clone().json()) as TelegramErrorBody
+      } catch {
+        // response body unreadable — proceed without it
+      }
+      const description = body?.description ?? `${endpoint} failed`
+      const httpStatus = error.response.status
+      const errorCode = body?.error_code ?? httpStatus
+      return new TelegramAPIException(
+        description,
+        endpoint,
+        httpStatus,
+        errorCode,
+      ).setOriginError(error) as TelegramAPIException
+    }
+    return new TelegramAPIException(
+      `${endpoint} failed: ${String(error)}`,
+      endpoint,
+    ).setOriginError(error) as TelegramAPIException
+  }
+
   async post<T>(endpoint: string, options?: { json?: unknown }): Promise<T> {
     try {
       return await this.client.post(endpoint, options).json<T>()
     } catch (error) {
-      throw new TelegramAPIException(
-        `POST ${endpoint} failed: ${String(error)}`,
-        endpoint,
-      )
+      throw await this.buildException(endpoint, error)
     }
   }
 
@@ -52,10 +82,7 @@ class TelegramHttpClient {
     try {
       return await this.client.get(endpoint, options).json<T>()
     } catch (error) {
-      throw new TelegramAPIException(
-        `GET ${endpoint} failed: ${String(error)}`,
-        endpoint,
-      )
+      throw await this.buildException(endpoint, error)
     }
   }
 }

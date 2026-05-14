@@ -31,8 +31,6 @@ const config: IntegrationDefinition<
     },
   },
   actions: {
-    unsubscribePageFromAppWebhook: async ({ ctx }) =>
-      await unsubscribePageFromAppWebhook(ctx.auth),
     updatePersona,
   },
   handleRequest: async (props) => {
@@ -49,8 +47,8 @@ const config: IntegrationDefinition<
         )
     }
   },
-  disconnect: (_props: MessengerAuthValue): Promise<void> => {
-    throw new Error("Method is not implemented.")
+  disconnect: async (auth: MessengerAuthValue): Promise<void> => {
+    await unsubscribePageFromAppWebhook(auth)
   },
 }
 

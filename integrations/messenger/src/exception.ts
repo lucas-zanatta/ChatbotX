@@ -1,4 +1,6 @@
-import { MessengerSdkException } from "@chatbotx.io/sdk"
+import type { ParsedError } from "@chatbotx.io/sdk"
+import { SdkException, UNKNOWN_ERROR } from "@chatbotx.io/sdk"
+import { logger } from "./lib/logger"
 
 export const META_OAUTH_ERROR = {
   TYPE: "OAuthException",
@@ -11,19 +13,50 @@ export const META_OAUTH_ERROR = {
   },
 } as const
 
-const REVOKED_TOKEN_SUBCODES: readonly number[] = Object.values(
-  META_OAUTH_ERROR.SUBCODE,
-)
+function extractFbError(originError: unknown): {
+  code?: number
+  type?: string
+  message?: string
+  subcode?: number
+} {
+  // biome-ignore lint/suspicious/noExplicitAny: raw error shape
+  const raw = originError as any
+  // Shape from buildOrigin: { httpStatus, errorBody: { error: { ... } } }
+  const fromHttpClient = raw?.errorBody?.error
+  if (fromHttpClient) {
+    return fromHttpClient
+  }
 
-export class MessengerException extends MessengerSdkException {
-  async isRevokedTokenError(): Promise<boolean> {
-    const errorData = await this.getErrorData()
+  // Shape from explicit setOriginError: { response: { error: { ... } } }
+  const fromExplicit = raw?.response?.error
+  if (fromExplicit) {
+    return fromExplicit
+  }
 
-    return (
-      errorData.type === META_OAUTH_ERROR.TYPE &&
-      errorData.code === META_OAUTH_ERROR.CODE &&
-      REVOKED_TOKEN_SUBCODES.includes(errorData.subcode as number)
+  return {}
+}
+
+export class MessengerException extends SdkException {
+  getErrorData(): Promise<ParsedError> {
+    const fbError = extractFbError(this.originError)
+
+    if (fbError && Object.keys(fbError).length > 0) {
+      return Promise.resolve({
+        message: fbError.message ?? UNKNOWN_ERROR.message,
+        type: fbError.type,
+        code: fbError.code ?? UNKNOWN_ERROR.code,
+        statusCode:
+          (this.originError as { httpStatus?: number })?.httpStatus ??
+          UNKNOWN_ERROR.statusCode,
+        subcode: fbError.subcode ?? UNKNOWN_ERROR.subcode,
+      })
+    }
+
+    logger.error(
+      { originError: this.originError },
+      "MessengerException: could not extract error data",
     )
+    return Promise.resolve(UNKNOWN_ERROR)
   }
 }
 
