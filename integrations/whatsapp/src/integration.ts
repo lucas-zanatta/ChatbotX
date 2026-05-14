@@ -9,6 +9,7 @@ import {
   updateConversationalAutomation,
 } from "./api/phone-number"
 import { listFlows, listMessageTemplates } from "./api/waba"
+import { unsubscribeWebhook } from "./api/webhook"
 import { uploadMedia, verifyAccessToken } from "./client"
 import { conversationHandlers } from "./handlers/conversation"
 import { messageHandlers } from "./handlers/message"
@@ -32,6 +33,8 @@ const config: IntegrationDefinition<
     },
   },
   actions: {
+    unsubscribeWebhook: async ({ ctx }) =>
+      await unsubscribeWebhook({ auth: ctx.auth }),
     verifyAccessToken: async ({ ctx }) => await verifyAccessToken(ctx),
     uploadMedia: async ({ ctx, file }) => await uploadMedia(ctx.auth, file),
     listMessageTemplates: async ({ ctx }) =>

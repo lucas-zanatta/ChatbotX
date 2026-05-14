@@ -1,5 +1,6 @@
 "use server"
 
+import { buildContext } from "@chatbotx.io/business"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
@@ -7,12 +8,12 @@ import {
   integrationWhatsappModel,
 } from "@chatbotx.io/database/schema"
 import type { WhatsappAuthValue } from "@chatbotx.io/integration-whatsapp"
-import { unsubscribeWebhook } from "@chatbotx.io/integration-whatsapp/api/webhook"
 import { WhatsappException } from "@chatbotx.io/integration-whatsapp/exception"
 import {
   type WorkspaceIdAndIdRequestParams,
   workspaceIdAndIdRequestParams,
 } from "@/features/common/schemas"
+import { integrations } from "@/integration"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { authActionClient } from "@/lib/safe-action"
 
@@ -34,8 +35,16 @@ export const disconnectWhatsappAction = authActionClient
       })
 
       try {
-        await unsubscribeWebhook({
-          auth: integrationWhatsapp.auth as WhatsappAuthValue,
+        const ctx = await buildContext({
+          workspaceId,
+          integrationType: "whatsapp",
+          integration: {
+            ...integrationWhatsapp,
+            auth: integrationWhatsapp.auth as WhatsappAuthValue,
+          },
+        })
+        await integrations.whatsapp.runAction("unsubscribeWebhook", {
+          ctx,
         })
       } catch (error) {
         if (error instanceof WhatsappException) {

@@ -14,12 +14,11 @@ export abstract class BaseRepository {
   protected query<T>(
     sql: string,
     params?: Record<string, unknown>,
-    isProd?: boolean,
   ): Promise<T[]> {
     if (!this.isClickhouseEnabled) {
       return Promise.resolve([])
     }
-    return executeQuery<T>(sql, params, isProd)
+    return executeQuery<T>(sql, params)
   }
 
   /**

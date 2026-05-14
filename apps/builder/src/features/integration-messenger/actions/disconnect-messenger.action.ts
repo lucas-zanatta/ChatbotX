@@ -1,5 +1,6 @@
 "use server"
 
+import { buildContext } from "@chatbotx.io/business"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
@@ -7,9 +8,9 @@ import {
   integrationMessengerModel,
 } from "@chatbotx.io/database/schema"
 import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger"
-import { unsubscribePageFromAppWebhook } from "@chatbotx.io/integration-messenger/apis/page"
 import { MessengerAPIException } from "@chatbotx.io/integration-messenger/exception"
 import { zodBigintAsString } from "@chatbotx.io/utils"
+import { integrations } from "@/integration"
 import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
@@ -41,10 +42,16 @@ const disconnectMessenger = async (ctx: {
     const authValue = integrationMessenger.auth as MessengerAuthValue
 
     try {
-      await unsubscribePageFromAppWebhook({
-        pageId: integrationMessenger.pageId,
-        accessToken: authValue.tokens.accessToken as string,
-        version: authValue.metadata.version,
+      const botContext = await buildContext({
+        workspaceId: ctx.workspaceId,
+        integrationType: "messenger",
+        integration: {
+          ...integrationMessenger,
+          auth: authValue,
+        },
+      })
+      await integrations.messenger.runAction("unsubscribePageFromAppWebhook", {
+        ctx: botContext,
       })
     } catch (error) {
       if (error instanceof MessengerAPIException) {

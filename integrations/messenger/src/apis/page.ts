@@ -67,17 +67,15 @@ export const subscribePageToAppWebhook = async (props: {
   })
 }
 
-export const unsubscribePageFromAppWebhook = async (props: {
-  pageId: string
-  accessToken: string
-  version?: string
-}): Promise<void> => {
-  const { version = DEFAULT_API_VERSION } = props
+export const unsubscribePageFromAppWebhook = async (
+  auth: MessengerAuthValue,
+): Promise<void> => {
+  const { version = DEFAULT_API_VERSION } = auth.metadata
 
   try {
     await facebookGraphClient.delete(`${version}/me/subscribed_apps`, {
       headers: {
-        Authorization: `Bearer ${props.accessToken}`,
+        Authorization: `Bearer ${auth.tokens.accessToken}`,
       },
     })
   } catch (error) {
@@ -90,7 +88,7 @@ export const unsubscribePageFromAppWebhook = async (props: {
 
     throw new MessengerAPIException(
       "Unsubscribe Page From AppWebhook failed",
-      `${version}/${props.pageId}/subscribed_apps`,
+      `${version}/${auth.metadata.pageId}/subscribed_apps`,
     ).setOriginError(originError)
   }
 }

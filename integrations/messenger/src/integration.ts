@@ -3,7 +3,7 @@ import {
   Integration,
   type IntegrationDefinition,
 } from "@chatbotx.io/sdk"
-import { updatePersona } from "./apis/page"
+import { unsubscribePageFromAppWebhook, updatePersona } from "./apis/page"
 import { MessengerAPIException } from "./exception"
 import { botHandlers } from "./handlers/bot"
 import { contactHandlers } from "./handlers/contact"
@@ -31,6 +31,8 @@ const config: IntegrationDefinition<
     },
   },
   actions: {
+    unsubscribePageFromAppWebhook: async ({ ctx }) =>
+      await unsubscribePageFromAppWebhook(ctx.auth),
     updatePersona,
   },
   handleRequest: async (props) => {
