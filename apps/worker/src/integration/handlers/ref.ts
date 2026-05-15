@@ -35,7 +35,7 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
 
   if (refData.type === "draft") {
     logger.debug(`Draft ref: ${ref}`)
-    const { f: flowId } = refData as { type: "draft"; f: string }
+    const { flowId } = refData
     if (!flowId) {
       logger.warn(`Invalid draft ref: ${ref}`)
       return
@@ -61,11 +61,7 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
 
   if (refData.type === "flow") {
     logger.debug(`Start flow ref: ${ref}`)
-    const { f: flowId, n: nodeId } = refData as {
-      type: "flow"
-      f: string
-      n?: string
-    }
+    const { flowId, nodeId } = refData
     if (!flowId) {
       logger.warn(`Invalid flow ref: ${ref}`)
       return
@@ -100,15 +96,15 @@ export async function runRef(data: IntegrationJobRunRef["data"]) {
 async function handleReflink(props: {
   conversation: ConversationModel
   contactInbox: ContactInboxModel
-  refData: RefConfig
+  refData: Extract<RefConfig, { type: "reflink" }>
 }) {
   const { conversation, contactInbox } = props
-  const refData = props.refData as { type: "refLink"; r: string }
+  const refData = props.refData
 
   const reflink = await findOrFail({
     table: reflinkModel,
     where: {
-      name: refData.r,
+      name: refData.name,
       workspaceId: conversation.workspaceId,
     },
     message: "Reflink not found",
@@ -142,7 +138,7 @@ async function handleReflink(props: {
     await saveResultToCustomField({
       contactId: conversation.contactId,
       customFieldId: reflink.customFieldId,
-      text: refData.r,
+      text: refData.name,
     })
   }
 

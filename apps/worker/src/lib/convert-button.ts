@@ -1,4 +1,4 @@
-import { buildInboxLink } from "@chatbotx.io/business/inbox/utils"
+import { buildInboxLink } from "@chatbotx.io/business/utils"
 import type { InboxWithIntegrations } from "@chatbotx.io/database/types"
 import type { PageElementSchema } from "@chatbotx.io/flow-config"
 
@@ -23,14 +23,14 @@ export function resolveButtonUrl({
   if (button.buttonType === "startExternalFlow") {
     return buildInboxLink(appUrl, inbox, {
       type: "flow",
-      f: button.beforeStep.flowId,
+      flowId: button.beforeStep.flowId,
     })
   }
   if (button.buttonType === "startExternalNode") {
     return buildInboxLink(appUrl, inbox, {
       type: "flow",
-      f: button.beforeStep.flowId,
-      n: button.beforeStep.nodeId,
+      flowId: button.beforeStep.flowId,
+      nodeId: button.beforeStep.nodeId,
     })
   }
   if (
@@ -40,9 +40,9 @@ export function resolveButtonUrl({
   ) {
     const refConfig = flowId
       ? {
-          type: "flow",
-          f: flowId,
-          n: button.beforeStep.nodeId,
+          type: "flow" as const,
+          flowId,
+          nodeId: button.beforeStep.nodeId,
         }
       : undefined
     return buildInboxLink(appUrl, inbox, refConfig)

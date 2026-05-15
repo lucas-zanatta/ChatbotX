@@ -1388,6 +1388,9 @@ importers:
       '@chatbotx.io/filesystem':
         specifier: workspace:*
         version: link:../filesystem
+      '@chatbotx.io/logger':
+        specifier: workspace:*
+        version: link:../logger
       '@chatbotx.io/partysocket-config':
         specifier: workspace:*
         version: link:../partysocket-config

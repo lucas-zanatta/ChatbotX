@@ -1,5 +1,5 @@
 import type { RefConfig } from "@chatbotx.io/business"
-import { buildInboxLink } from "@chatbotx.io/business/inbox/utils"
+import { buildInboxLink } from "@chatbotx.io/business/utils"
 import type { ChannelType } from "@chatbotx.io/database/partials"
 import type { InboxWithIntegrations } from "@chatbotx.io/database/types"
 import { Button } from "@chatbotx.io/ui/components/ui/button"
@@ -71,7 +71,6 @@ function GetInboxUrlItem({
 
   const url = buildInboxLink(appUrl, inbox as InboxWithIntegrations, refConfig)
   const handleCopy = async () => {
-    console.log("copied url", url)
     if (url) {
       await copy(url)
       toast.success(t("messages.copiedToClipboard"))

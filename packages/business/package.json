@@ -5,11 +5,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
-    "./inbox/utils": "./src/inbox/utils.ts"
+    "./utils": "./src/utils.ts"
   },
   "dependencies": {
     "@chatbotx.io/database": "workspace:*",
     "@chatbotx.io/filesystem": "workspace:*",
+    "@chatbotx.io/logger": "workspace:*",
     "@chatbotx.io/partysocket-config": "workspace:*",
     "@chatbotx.io/redis": "workspace:*",
     "@chatbotx.io/sdk": "workspace:*",

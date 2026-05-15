@@ -1,8 +1,10 @@
 "use client"
 
 import type { IntegrationSmtpModel } from "@chatbotx.io/database/types"
-import type { SmtpAuthValue } from "@chatbotx.io/integration-smtp"
-import { smtpHostMap, smtpProviders } from "@chatbotx.io/integration-smtp"
+import {
+  smtpHostMap,
+  smtpProviders,
+} from "@chatbotx.io/integration-smtp/schema"
 import { InputField } from "@chatbotx.io/ui/components/form/input-field"
 import { SelectField } from "@chatbotx.io/ui/components/form/select-field"
 import { Button } from "@chatbotx.io/ui/components/ui/button"
@@ -35,8 +37,6 @@ export const EditSmtpForm = ({
   const t = useTranslations()
   const router = useRouter()
 
-  const auth = integrationSmtp.auth as SmtpAuthValue
-
   const providerOptions = useMemo(
     () =>
       smtpProviders.options.map((value) => ({
@@ -66,12 +66,12 @@ export const EditSmtpForm = ({
       },
       formProps: {
         defaultValues: {
-          provider: auth.provider,
-          host: auth.host,
-          port: auth.port,
-          username: auth.username,
+          provider: "other",
+          host: "",
+          port: "",
+          username: "",
           password: "",
-          fromAddress: auth.fromAddress,
+          fromAddress: "",
         },
       },
     },

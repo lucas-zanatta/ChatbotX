@@ -214,8 +214,8 @@ export function ReflinksTable({ workspaceId, promises }: ReflinksTableProps) {
           onOpenChange={() => setRowAction(null)}
           open={rowAction?.variant === "copyUrl"}
           refConfig={{
-            type: "refLink",
-            r: rowAction?.row.original?.name as string,
+            type: "reflink",
+            name: rowAction?.row.original?.name ?? "",
           }}
         />
 

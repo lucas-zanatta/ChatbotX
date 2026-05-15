@@ -1,6 +1,6 @@
 "use client"
 
-import { buildInboxLink } from "@chatbotx.io/business/inbox/utils"
+import { buildInboxLink } from "@chatbotx.io/business/utils"
 import type { ChannelType } from "@chatbotx.io/database/partials"
 import type { InboxWithIntegrations } from "@chatbotx.io/database/types"
 import { Card, CardContent } from "@chatbotx.io/ui/components/ui/card"

@@ -1,4 +1,4 @@
-import { smtpProviders } from "@chatbotx.io/integration-smtp"
+import { smtpProviders } from "@chatbotx.io/integration-smtp/schema"
 import { z } from "zod"
 
 export const createSmtpRequest = z

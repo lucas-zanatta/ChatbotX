@@ -5,8 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./integration": "./src/integration.ts",
-    "./**/*": "./src/**/*.ts"
+    "./schema": "./src/schema.ts"
   },
   "dependencies": {
     "@chatbotx.io/sdk": "workspace:*",

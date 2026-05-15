@@ -10,8 +10,10 @@ import type {
   EmailStepSchema,
   PageElementSchema,
 } from "@chatbotx.io/flow-config"
-import { smtpAuthSchema } from "@chatbotx.io/integration-smtp"
-import { integration as integrationSmtp } from "@chatbotx.io/integration-smtp/integration"
+import {
+  integration as integrationSmtp,
+  smtpAuthSchema,
+} from "@chatbotx.io/integration-smtp"
 import type {
   DynamicEmailProps,
   MailElementSchema,
@@ -98,7 +100,7 @@ export async function sendEmail({
     logger.warn(
       `handleSendEmail: smtp integration ${step.integrationSmtpId} not found`,
     )
-    return { status: "error", errorMessage: "SMTP integration not found", result: null }
+    return
   }
 
   const auth = smtpAuthSchema.parse({
@@ -107,13 +109,6 @@ export async function sendEmail({
   })
 
   const workspace = await workspaceService.findById(conversation.workspaceId)
-  if (!workspace) {
-    logger.error(
-      { workspaceId: conversation.workspaceId },
-      "handleSendEmail: workspace not found",
-    )
-    return { status: "error", errorMessage: "Workspace not found", result: null }
-  }
 
   const inbox = await inboxService.find({
     where: {
@@ -162,7 +157,7 @@ export async function sendEmail({
       subject,
       html: await renderDynamicEmailHtml(props),
     })
-  } catch (error) {
+  } catch {
     logger.error(
       {
         integrationSmtpId: smtpIntegration.id,
@@ -170,6 +165,6 @@ export async function sendEmail({
       },
       "handleSendEmail: SMTP send failed",
     )
-    return { status: "error", errorMessage: "Failed to send email", result: null }
+    return
   }
 }

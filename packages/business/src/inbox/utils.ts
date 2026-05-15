@@ -2,9 +2,8 @@ import type { ChannelType } from "@chatbotx.io/database/partials"
 import type { InboxWithIntegrations } from "@chatbotx.io/database/types"
 import { encodeRef, type RefConfig } from "../referral"
 
-type linkConfigs = {
-  format: string
-  username: string
+type LinkConfig = {
+  url: string
   refKey: string
   refValue?: string
 }
@@ -15,40 +14,34 @@ export function buildInboxLink(
   refConfig?: RefConfig,
 ): string | undefined {
   const refValue = refConfig ? encodeRef(refConfig) : undefined
-  const allLinkConfigs: Record<ChannelType, linkConfigs | undefined> = {
+  const allLinkConfigs: Record<ChannelType, LinkConfig | undefined> = {
     messenger: {
-      format: "https://m.me/{username}",
-      username: inbox.sourceId,
+      url: `https://m.me/${inbox.sourceId}`,
       refKey: "ref",
       refValue,
     },
     instagram: {
-      format: "https://ig.me/m/{username}",
-      username: inbox.integrationInstagram?.username ?? "",
+      url: `https://ig.me/m/${inbox.integrationInstagram?.username}`,
       refKey: "ref",
       refValue,
     },
     whatsapp: {
-      format: "https://wa.me/{username}",
-      username: inbox.integrationWhatsapp?.displayPhoneNumber ?? "",
+      url: `https://wa.me/${inbox.integrationWhatsapp?.displayPhoneNumber ?? ""}`,
       refKey: "text",
       refValue: refValue ? `/${refValue}` : undefined,
     },
     telegram: {
-      format: "https://t.me/{username}",
-      username: inbox.name,
+      url: `https://t.me/${inbox.name}`,
       refKey: "start",
       refValue,
     },
     zalo: {
-      format: "https://zalo.me/{username}",
-      username: inbox.sourceId,
+      url: `https://zalo.me/${inbox.sourceId}`,
       refKey: "ref",
       refValue,
     },
     webchat: {
-      format: `${appUrl}/webchat?workspaceId=${inbox.workspaceId}&webchatId=${inbox.sourceId}`,
-      username: "",
+      url: `${appUrl}/webchat?workspaceId=${inbox.workspaceId}&webchatId=${inbox.sourceId}`,
       refKey: "ref",
       refValue,
     },
@@ -61,12 +54,9 @@ export function buildInboxLink(
     return
   }
 
-  let link = config.format.replace("{username}", config.username)
+  const url = new URL(config.url)
   if (config.refValue) {
-    const separator = link.includes("?") ? "&" : "?"
-    link += `${separator}${config.refKey}=${encodeURIComponent(
-      config.refValue,
-    )}`
+    url.searchParams.set(config.refKey, config.refValue)
   }
-  return link
+  return url.toString()
 }
