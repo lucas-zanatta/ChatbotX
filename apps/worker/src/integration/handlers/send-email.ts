@@ -98,7 +98,7 @@ export async function sendEmail({
     logger.warn(
       `handleSendEmail: smtp integration ${step.integrationSmtpId} not found`,
     )
-    return
+    return { status: "error", errorMessage: "SMTP integration not found", result: null }
   }
 
   const auth = smtpAuthSchema.parse({
@@ -107,6 +107,14 @@ export async function sendEmail({
   })
 
   const workspace = await workspaceService.findById(conversation.workspaceId)
+  if (!workspace) {
+    logger.error(
+      { workspaceId: conversation.workspaceId },
+      "handleSendEmail: workspace not found",
+    )
+    return { status: "error", errorMessage: "Workspace not found", result: null }
+  }
+
   const inbox = await inboxService.find({
     where: {
       id: contactInbox.inboxId,
@@ -134,7 +142,7 @@ export async function sendEmail({
   })
 
   const props: DynamicEmailProps = {
-    brandName: workspace?.name ?? smtpIntegration.name,
+    brandName: workspace.name ?? smtpIntegration.name,
     subject,
     preheader,
     elements,
@@ -145,11 +153,23 @@ export async function sendEmail({
     integrationType: "smtp",
     integration: { ...smtpIntegration, auth },
   })
-  await integrationSmtp.runAction("sendMail", {
-    ctx: botContext,
-    from: step.from || auth.fromAddress,
-    to,
-    subject,
-    html: await renderDynamicEmailHtml(props),
-  })
+
+  try {
+    await integrationSmtp.runAction("sendMail", {
+      ctx: botContext,
+      from: step.from || auth.fromAddress,
+      to,
+      subject,
+      html: await renderDynamicEmailHtml(props),
+    })
+  } catch (error) {
+    logger.error(
+      {
+        integrationSmtpId: smtpIntegration.id,
+        workspaceId: conversation.workspaceId,
+      },
+      "handleSendEmail: SMTP send failed",
+    )
+    return { status: "error", errorMessage: "Failed to send email", result: null }
+  }
 }

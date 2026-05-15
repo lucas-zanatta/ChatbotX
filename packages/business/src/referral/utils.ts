@@ -69,11 +69,9 @@ export function decodeRef(ref: string): RefConfig | undefined {
     }
   }
   if (ref.startsWith("d:")) {
-    const [_, flowId] = ref.split(":")
-    return { type: "draft", f: decode(flowId) }
+    return { type: "draft", f: decode(ref.slice(2)) }
   }
   if (ref.startsWith("r:")) {
-    const [_, refLinkId] = ref.split(":")
-    return { type: "refLink", r: refLinkId }
+    return { type: "refLink", r: ref.slice(2) }
   }
 }

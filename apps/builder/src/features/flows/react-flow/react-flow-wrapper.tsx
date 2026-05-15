@@ -176,14 +176,15 @@ export function ReactFlowWrapper({
           return false
         }
 
-        const targetButton = step.buttons[buttonIndex]
-        targetButton.buttonType = buttonTypes.enum.startAnotherNode
-        targetButton.beforeStep = startAnotherNodeStepDefaultFn({
-          nodeId: toNodeId,
-          viewOnly: true,
-        })
-        step.buttons[buttonIndex] = targetButton
-        updateNodeData(fromNodeId, data)
+        step.buttons[buttonIndex] = {
+          ...step.buttons[buttonIndex],
+          buttonType: buttonTypes.enum.startAnotherNode,
+          beforeStep: startAnotherNodeStepDefaultFn({
+            nodeId: toNodeId,
+            viewOnly: true,
+          }),
+        }
+        updateNodeData(fromNodeId, { ...data })
         return true
       }
 
@@ -200,13 +201,14 @@ export function ReactFlowWrapper({
             element.beforeStep &&
             element.beforeStep.id === handleId
           ) {
-            element.beforeStep.stepType = buttonTypes.enum.startAnotherNode
-            element.beforeStep = startAnotherNodeStepDefaultFn({
-              nodeId: toNodeId,
-              viewOnly: true,
-            })
-            elements[elementIndex] = element
-            updateNodeData(fromNodeId, data)
+            elements[elementIndex] = {
+              ...element,
+              beforeStep: startAnotherNodeStepDefaultFn({
+                nodeId: toNodeId,
+                viewOnly: true,
+              }),
+            }
+            updateNodeData(fromNodeId, { ...data })
             return true
           }
         }
@@ -385,13 +387,13 @@ export function ReactFlowWrapper({
               (button: ButtonProps) => button.id === edge.sourceHandle,
             )
             if (buttonIndex !== -1) {
-              data.details.steps[stepIndex].buttons[buttonIndex].beforeStep =
-                null
-              data.details.steps[stepIndex].buttons[buttonIndex].buttonType =
-                null
+              data.details.steps[stepIndex].buttons[buttonIndex] = {
+                ...data.details.steps[stepIndex].buttons[buttonIndex],
+                beforeStep: null,
+                buttonType: null,
+              }
 
-              // update the node data
-              updateNodeData(foundedNode.id, data)
+              updateNodeData(foundedNode.id, { ...data })
             }
             continue
           }
@@ -409,7 +411,7 @@ export function ReactFlowWrapper({
                 element.beforeStep.id === edge.sourceHandle
               ) {
                 Object.assign(element, { buttonType: null, beforeStep: null })
-                updateNodeData(foundedNode.id, data)
+                updateNodeData(foundedNode.id, { ...data })
                 elementFound = true
                 break
               }

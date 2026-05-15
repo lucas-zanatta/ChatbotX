@@ -103,7 +103,7 @@ async function handleReflink(props: {
   refData: RefConfig
 }) {
   const { conversation, contactInbox } = props
-  const refData = props.refData as { type: "reflink"; r: string }
+  const refData = props.refData as { type: "refLink"; r: string }
 
   const reflink = await findOrFail({
     table: reflinkModel,
