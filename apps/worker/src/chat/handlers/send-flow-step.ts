@@ -2,8 +2,6 @@ import {
   botMessageFallbackReasons,
   botMessageResults,
   botMessageRouteTypes,
-  contactEventTypes,
-  contactTrackingService,
   trackingResponseTypes,
 } from "@chatbotx.io/analytics"
 import {
@@ -47,7 +45,6 @@ import type {
   ChatJobSendChatMessage,
   ChatJobSendFlowStep,
 } from "@chatbotx.io/worker-config"
-import { trackBotResponse } from "../../integration/handlers/automated-response/track-bot-response"
 import { logger } from "../../lib/logger"
 import { sendFlowStepToChannel, sendMessageToChannel } from "./send-message"
 import { processWhatsappTemplate } from "./send-whatsapp-template"
@@ -324,44 +321,46 @@ export async function sendFlowStep({
     })
 
     // Send contact tracking event
-    contactTrackingService
-      .trackEvent({
-        workspaceId: conversation.workspaceId,
-        contactId: targetContactInbox.contactId,
-        eventType: contactEventTypes.enum.contact_message_out, // "contact_message_out",
-        senderType: "bot",
-        occurredAt: new Date(),
-        source: targetContactInbox.source,
-        sourceId: targetContactInbox.sourceId,
-        channel: targetContactInbox.channel,
-        metadata: {
-          triggerContext: {
-            triggerSource: "worker",
-            triggerHandler: "sendFlowStep",
-            triggerType: "bot_message_out_flow",
-          },
-        },
-      })
-      .catch((error) => {
-        logger.error(
-          error,
-          "[sendFlowStep] Failed to track contact_message_out",
-        )
-      })
-
-    if (trackingContext) {
-      await trackBotResponse({
-        ...trackingContext,
-        hasResponse: true,
-        routeType: "flow",
-        result: "success",
-        metadata: {
-          flowId,
-        },
+    emit("analytics:dashboard", {
+      eventType: "message:bot_sent",
+      workspaceId: conversation.workspaceId,
+      contactId: targetContactInbox.contactId,
+      senderType: "bot",
+      occurredAt: new Date(),
+      source: targetContactInbox.source,
+      sourceId: targetContactInbox.sourceId,
+      channel: targetContactInbox.channel,
+      metadata: {
         triggerContext: {
           triggerSource: "worker",
           triggerHandler: "sendFlowStep",
-          triggerType: trackingContext.triggerType,
+          triggerType: "message_bot_sent_flow",
+        },
+      },
+    }).catch((error) => {
+      logger.error(error, "[sendFlowStep] Failed to track message:bot_sent")
+    })
+
+    if (trackingContext) {
+      await emit("analytics:dashboard", {
+        eventType: "message:bot_received",
+        workspaceId: trackingContext.workspaceId,
+        conversationId: trackingContext.conversationId,
+        messageId: trackingContext.messageId,
+        occurredAt: new Date(),
+        hasResponse: true,
+        responseType: trackingContext.responseType,
+        routeType: "flow",
+        result: "success",
+        aiProvider: trackingContext.aiProvider,
+        metadata: {
+          latency: Date.now() - trackingContext.startTime,
+          flowId,
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "sendFlowStep",
+            triggerType: trackingContext.triggerType,
+          },
         },
       })
     }
@@ -382,20 +381,27 @@ export async function sendFlowStep({
     })
 
     if (trackingContext) {
-      await trackBotResponse({
-        ...trackingContext,
+      await emit("analytics:dashboard", {
+        eventType: "message:bot_received",
+        workspaceId: trackingContext.workspaceId,
+        conversationId: trackingContext.conversationId,
+        messageId: trackingContext.messageId,
+        occurredAt: new Date(),
         hasResponse: false,
+        responseType: trackingContext.responseType,
         routeType: botMessageRouteTypes.enum.flow,
         result: botMessageResults.enum.fallback,
+        aiProvider: trackingContext.aiProvider,
         metadata: {
+          latency: Date.now() - trackingContext.startTime,
           flowId,
           fallbackReason:
             botMessageFallbackReasons.enum.handler_error_to_fallback,
-        },
-        triggerContext: {
-          triggerSource: "worker",
-          triggerHandler: "sendFlowStep",
-          triggerType: `${trackingContext.triggerType}_failed`,
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "sendFlowStep",
+            triggerType: `${trackingContext.triggerType}_failed`,
+          },
         },
       })
     }
@@ -495,45 +501,49 @@ export const sendChatMessage = async (
 
     await Promise.all(promises)
 
-    contactTrackingService
-      .trackEvent({
-        workspaceId: conversation.workspaceId,
-        contactId: contactInbox.contactId,
-        eventType: "contact_message_out",
-        senderType: "bot",
-        occurredAt: new Date(),
-        source: contactInbox.source,
-        sourceId: contactInbox.sourceId,
-        channel: contactInbox.channel,
-        metadata: {
-          triggerContext: {
-            triggerSource: "worker",
-            triggerHandler: "sendChatMessage",
-            triggerType: "bot_message_out_chat",
-          },
+    emit("analytics:dashboard", {
+      eventType: "message:bot_sent",
+      workspaceId: conversation.workspaceId,
+      contactId: contactInbox.contactId,
+      senderType: "bot",
+      occurredAt: new Date(),
+      source: contactInbox.source,
+      sourceId: contactInbox.sourceId,
+      channel: contactInbox.channel,
+      metadata: {
+        triggerContext: {
+          triggerSource: "worker",
+          triggerHandler: "sendChatMessage",
+          triggerType: "message_bot_sent_chat",
         },
-      })
-      .catch((error) => {
-        logger.error(
-          error,
-          "[sendChatMessage] Failed to track contact_message_out",
-        )
-      })
+      },
+    }).catch((error) => {
+      logger.error(error, "[sendChatMessage] Failed to track message:bot_sent")
+    })
 
     if (trackingContext) {
-      await trackBotResponse({
-        ...trackingContext,
+      await emit("analytics:dashboard", {
+        eventType: "message:bot_received",
+        workspaceId: trackingContext.workspaceId,
+        conversationId: trackingContext.conversationId,
+        messageId: trackingContext.messageId,
+        occurredAt: new Date(),
         hasResponse: true,
+        responseType: trackingContext.responseType,
         routeType:
           trackingContext.responseType ===
           trackingResponseTypes.enum.automated_response
             ? botMessageRouteTypes.enum.flow
             : botMessageRouteTypes.enum.agent,
         result: botMessageResults.enum.success,
-        triggerContext: {
-          triggerSource: "worker",
-          triggerHandler: "sendChatMessage",
-          triggerType: trackingContext.triggerType,
+        aiProvider: trackingContext.aiProvider,
+        metadata: {
+          latency: Date.now() - trackingContext.startTime,
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "sendChatMessage",
+            triggerType: trackingContext.triggerType,
+          },
         },
       })
     }
@@ -544,23 +554,30 @@ export const sendChatMessage = async (
     )
 
     if (trackingContext) {
-      await trackBotResponse({
-        ...trackingContext,
+      await emit("analytics:dashboard", {
+        eventType: "message:bot_received",
+        workspaceId: trackingContext.workspaceId,
+        conversationId: trackingContext.conversationId,
+        messageId: trackingContext.messageId,
+        occurredAt: new Date(),
         hasResponse: false,
+        responseType: trackingContext.responseType,
         routeType:
           trackingContext.responseType ===
           trackingResponseTypes.enum.automated_response
             ? botMessageRouteTypes.enum.flow
             : botMessageRouteTypes.enum.agent,
         result: botMessageResults.enum.fallback,
+        aiProvider: trackingContext.aiProvider,
         metadata: {
+          latency: Date.now() - trackingContext.startTime,
           fallbackReason:
             botMessageFallbackReasons.enum.handler_error_to_fallback,
-        },
-        triggerContext: {
-          triggerSource: "worker",
-          triggerHandler: "sendChatMessage",
-          triggerType: `${trackingContext.triggerType}_failed`,
+          triggerContext: {
+            triggerSource: "worker",
+            triggerHandler: "sendChatMessage",
+            triggerType: `${trackingContext.triggerType}_failed`,
+          },
         },
       })
     }
