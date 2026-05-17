@@ -1,12 +1,10 @@
-import { and, db, desc, eq, inArray, sql } from "@chatbotx.io/database/client"
+import { db, desc, eq, sql } from "@chatbotx.io/database/client"
 import {
   aiConversationSourceStatuses,
   aiConversationSourceTypes,
   aiEmbeddingStatuses,
 } from "@chatbotx.io/database/partials"
-import { aiConversationSourceModel, attachmentModel } from "@chatbotx.io/database/schema"
-import type { AttachmentModel } from "@chatbotx.io/database/types"
-import { DOCX_MIME_TYPES, PDF_MIME_TYPES } from "@chatbotx.io/sdk"
+import { aiConversationSourceModel } from "@chatbotx.io/database/schema"
 import { createId } from "@chatbotx.io/utils"
 import {
   AIJobAction,
@@ -28,22 +26,20 @@ import type {
   RetrieveRelevantChunksInput,
 } from "./types"
 
-const DOCUMENT_SOURCE_TYPE = aiConversationSourceTypes.enum.document
-const SUPPORTED_DOCUMENT_MIME_TYPES_LIST = [...PDF_MIME_TYPES, ...DOCX_MIME_TYPES] as string[]
+const URL_SOURCE_TYPE = aiConversationSourceTypes.enum.url
 const DEFAULT_TOP_K = 5
 const STALE_PROCESSING_THRESHOLD_MS = 5 * 60 * 1000
 const PROCESS_SOURCE_JOB_ID_PREFIX = AIJobAction.processConversationSource
+const MAX_SOURCE_KEY_LENGTH = 500
 
 const nullableFiniteNumberFromDbSchema = z.preprocess((value) => {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null
   }
-
   if (typeof value === "string") {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
   }
-
   return null
 }, z.number().finite().nullable())
 
@@ -51,12 +47,10 @@ const nullableChunkIndexFromDbSchema = z.preprocess((value) => {
   if (typeof value === "number") {
     return Number.isInteger(value) ? value : null
   }
-
   if (typeof value === "string") {
     const parsed = Number(value)
     return Number.isInteger(parsed) ? parsed : null
   }
-
   return null
 }, z.number().int().nullable())
 
@@ -66,26 +60,10 @@ const embeddingSearchRowSchema = z.object({
   similarity: nullableFiniteNumberFromDbSchema,
 })
 
-function normalizeHint(value?: string): null | string {
-  const normalized = value?.trim().toLowerCase()
-  if (!normalized) {
-    return null
-  }
-  return normalized
-}
+const urlMetadataSchema = z.object({ url: z.string() }).passthrough()
 
-function matchesHint(
-  source: AttachmentModel,
-  hint: string,
-) {
-  const haystack = [
-    source.name ?? "",
-    source.originPath ?? "",
-    source.sourceId ?? "",
-  ]
-    .join(" ")
-    .toLowerCase()
-  return haystack.includes(hint)
+function buildUrlSourceKey(url: string): string {
+  return `url:${url}`.slice(0, MAX_SOURCE_KEY_LENGTH)
 }
 
 function getProcessSourceJobId(source: ResolvedConversationSource["source"]) {
@@ -107,23 +85,24 @@ async function enqueueConversationSource(
   })
 }
 
-function findDocumentConversationSource(input: {
+function findUrlConversationSource(input: {
   sourceKey: string
   workspaceId: string
 }) {
   return db.query.aiConversationSourceModel.findFirst({
     where: {
       workspaceId: input.workspaceId,
-      sourceType: DOCUMENT_SOURCE_TYPE,
+      sourceType: URL_SOURCE_TYPE,
       sourceKey: input.sourceKey,
     },
   })
 }
 
-async function createDocumentConversationSource(input: {
-  attachment: AttachmentModel
+async function createUrlConversationSource(input: {
   conversationId: string
+  messageId: string
   sourceKey: string
+  url: string
   workspaceId: string
 }) {
   const source = await db
@@ -132,13 +111,14 @@ async function createDocumentConversationSource(input: {
       id: createId(),
       workspaceId: input.workspaceId,
       conversationId: input.conversationId,
-      messageId: input.attachment.messageId,
-      attachmentId: input.attachment.id,
-      sourceType: DOCUMENT_SOURCE_TYPE,
+      messageId: input.messageId,
+      attachmentId: null,
+      sourceType: URL_SOURCE_TYPE,
       status: aiConversationSourceStatuses.enum.pending,
       sourceKey: input.sourceKey,
-      mimeType: input.attachment.mimeType,
-      title: input.attachment.name,
+      mimeType: "text/html",
+      title: input.url,
+      metadata: { url: input.url },
     })
     .onConflictDoNothing({
       target: [
@@ -152,63 +132,65 @@ async function createDocumentConversationSource(input: {
 
   return (
     source ??
-    findDocumentConversationSource({
+    findUrlConversationSource({
       workspaceId: input.workspaceId,
       sourceKey: input.sourceKey,
     })
   )
 }
 
-async function resolveDocumentSource(
+async function resolveUrlSource(
   input: ResolveConversationSourceInput,
 ): Promise<null | ResolvedConversationSource> {
-  const attachments = await db
-    .select()
-    .from(attachmentModel)
-    .where(
-      and(
-        eq(attachmentModel.workspaceId, input.workspaceId),
-        eq(attachmentModel.conversationId, input.conversationId),
-        inArray(attachmentModel.mimeType, SUPPORTED_DOCUMENT_MIME_TYPES_LIST),
-      ),
+  if (!input.messageId) {
+    logger.warn(
+      {
+        workspaceId: input.workspaceId,
+        conversationId: input.conversationId,
+      },
+      "[url-source] messageId is required to create url source",
     )
-    .orderBy(desc(attachmentModel.createdAt))
-
-  if (attachments.length === 0) {
     return null
   }
 
-  const hint = normalizeHint(input.sourceHint)
-  const triggerMessageAttachment = input.messageId
-    ? attachments.find((attachment) => attachment.messageId === input.messageId)
-    : null
-  const selectedAttachment =
-    (hint
-      ? attachments.find((attachment) => matchesHint(attachment, hint))
-      : null) ??
-    triggerMessageAttachment ??
-    attachments[0]
+  let source: Awaited<ReturnType<typeof findUrlConversationSource>>
 
-  if (!selectedAttachment) {
-    return null
-  }
+  if (input.sourceHint?.trim()) {
+    const url = input.sourceHint.trim()
+    const sourceKey = buildUrlSourceKey(url)
 
-  const sourceKey = `attachment:${selectedAttachment.id}`
-  let source = await findDocumentConversationSource({
-    workspaceId: input.workspaceId,
-    sourceKey,
-  })
-
-  if (!source) {
-    source = await createDocumentConversationSource({
-      attachment: selectedAttachment,
-      conversationId: input.conversationId,
+    source = await findUrlConversationSource({
       workspaceId: input.workspaceId,
       sourceKey,
     })
-  } else if (
+
+    if (!source) {
+      source = await createUrlConversationSource({
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        sourceKey,
+        url,
+        workspaceId: input.workspaceId,
+      })
+    }
+  } else {
+    source = await db.query.aiConversationSourceModel.findFirst({
+      where: {
+        workspaceId: input.workspaceId,
+        conversationId: input.conversationId,
+        sourceType: URL_SOURCE_TYPE,
+      },
+      orderBy: (table) => [desc(table.createdAt)],
+    })
+  }
+
+  if (!source) {
+    return null
+  }
+
+  if (
     source.status === aiConversationSourceStatuses.enum.error &&
-    source.attachmentId
+    source.id
   ) {
     source = await db
       .update(aiConversationSourceModel)
@@ -240,18 +222,18 @@ async function resolveDocumentSource(
       logger.error(
         {
           error: normalizedError,
-          sourceId: source.id,
+          sourceId: source?.id,
           workspaceId: input.workspaceId,
           conversationId: input.conversationId,
         },
-        "[document-source] failed to enqueue source processing",
+        "[url-source] failed to enqueue source processing",
       )
     })
   }
 
   return {
     source,
-    attachment: selectedAttachment,
+    attachment: undefined,
   }
 }
 
@@ -276,7 +258,7 @@ function mapEmbeddingSearchRowToSnippet(
   }
 }
 
-async function retrieveDocumentChunks(
+async function retrieveUrlChunks(
   input: RetrieveRelevantChunksInput,
 ): Promise<ConversationContextSnippet[]> {
   const { resolvedSource } = input
@@ -344,15 +326,15 @@ async function retrieveDocumentChunks(
   return snippets
 }
 
-async function prepareDocumentContext(
+async function prepareUrlContext(
   input: PrepareConversationContextInput,
 ): Promise<null | PreparedConversationContext> {
-  const resolvedSource = await resolveDocumentSource(input)
+  const resolvedSource = await resolveUrlSource(input)
   if (!resolvedSource) {
     return null
   }
 
-  const snippets = await retrieveDocumentChunks({
+  const snippets = await retrieveUrlChunks({
     resolvedSource,
     query: input.query,
     topK: input.topK,
@@ -365,9 +347,11 @@ async function prepareDocumentContext(
   }
 }
 
-export const documentContextSourceAdapter: ConversationContextSourceAdapter = {
-  sourceType: DOCUMENT_SOURCE_TYPE,
-  resolveSource: resolveDocumentSource,
-  retrieveRelevantChunks: retrieveDocumentChunks,
-  prepareContext: prepareDocumentContext,
+export { urlMetadataSchema }
+
+export const urlContextSourceAdapter: ConversationContextSourceAdapter = {
+  sourceType: URL_SOURCE_TYPE,
+  resolveSource: resolveUrlSource,
+  retrieveRelevantChunks: retrieveUrlChunks,
+  prepareContext: prepareUrlContext,
 }

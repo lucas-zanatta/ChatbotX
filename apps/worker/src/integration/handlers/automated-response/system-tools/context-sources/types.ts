@@ -17,7 +17,7 @@ export type ConversationContextSnippet = {
 }
 
 export type ResolvedConversationSource = {
-  attachment: AttachmentModel
+  attachment?: AttachmentModel
   source: AIConversationSourceModel
 }
 
