@@ -1,3 +1,4 @@
+import { systemFunctionNames } from "@chatbotx.io/ai"
 import { automatedResponseService } from "@chatbotx.io/automated-response"
 import { db } from "@chatbotx.io/database/client"
 import { aiMessageRoles } from "@chatbotx.io/database/partials"
@@ -8,6 +9,7 @@ import {
 } from "@chatbotx.io/sdk"
 import type { IntegrationJobProcessAutomatedResponse } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
+import { normalizeError } from "universal-error-normalizer"
 import { detectConversationAndContactInbox } from "../../../lib/db"
 import { logger } from "../../../lib/logger"
 import { replyByAI } from "./replies"
@@ -156,6 +158,12 @@ export async function processAutomatedResponse(
       aiAgent,
       triggerMessageId: messageId,
       fileOnlyTrigger: isFileOnlyTrigger,
+      allowedSystemFunctionIds: isFileOnlyTrigger
+        ? getFileOnlySystemFunctionIds({
+            hasDocument: hasTriggerDocument,
+            hasImage: hasTriggerImage,
+          })
+        : undefined,
     })
 
     if (aiResult) {
@@ -197,15 +205,33 @@ export async function processAutomatedResponse(
       },
     })
   } catch (error) {
+    const normalizedError = normalizeError(error)
     logger.error(
       {
-        error,
+        error: normalizedError,
         conversationId: conversation.id,
         workspaceId: conversation.workspaceId,
       },
       "[automated-response] triggerAutomatedResponse failed",
     )
   }
+}
+
+function getFileOnlySystemFunctionIds(input: {
+  hasDocument: boolean
+  hasImage: boolean
+}): string[] {
+  const systemFunctionIds: string[] = []
+
+  if (input.hasImage) {
+    systemFunctionIds.push(systemFunctionNames.imageReader)
+  }
+
+  if (input.hasDocument) {
+    systemFunctionIds.push(systemFunctionNames.documentReader)
+  }
+
+  return systemFunctionIds
 }
 
 function getFileOnlyPrompt(input: {

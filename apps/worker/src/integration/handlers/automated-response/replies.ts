@@ -36,6 +36,7 @@ import { handoffExecutorService } from "../../../trigger/services/handoff-execut
 import { sendMessageWithRender } from "../../utils/message"
 import { createDocumentReaderExecutor } from "./system-tools/document-reader"
 import { createImageReaderExecutor } from "./system-tools/image-reader"
+import { createUrlReaderExecutor } from "./system-tools/url-reader"
 
 type ReplyByAIProps = {
   conversation: ConversationModel
@@ -43,6 +44,7 @@ type ReplyByAIProps = {
   aiAgent: AIAgentModel
   triggerMessageId?: string
   fileOnlyTrigger: boolean
+  allowedSystemFunctionIds?: string[]
 }
 
 export type ReplyByAIExecutionResult = {
@@ -95,10 +97,14 @@ function createReplyToolset(options: {
   provider: string
 }) {
   const { conversation, aiAgent } = options.props
+  const tools = filterToolsByAllowedSystemFunctions(
+    aiAgent.tools,
+    options.props.allowedSystemFunctionIds,
+  )
 
   return getAIToolset({
     workspaceId: aiAgent.workspaceId,
-    tools: aiAgent.tools,
+    tools,
     toolPrefixes: {
       file: toolPrefixes.enum.file,
       fn: toolPrefixes.enum.fn,
@@ -143,6 +149,10 @@ function createReplyToolset(options: {
         provider: options.provider,
         triggerMessageId: options.props.triggerMessageId,
       }),
+      [systemFunctionNames.urlContext]: createUrlReaderExecutor({
+        fileOnlyTrigger: options.props.fileOnlyTrigger,
+        triggerMessageId: options.props.triggerMessageId,
+      }),
     },
     fileSearch: {
       fileSearchDescription: helpTexts.fileSearchDescription,
@@ -154,6 +164,27 @@ function createReplyToolset(options: {
       McpClient,
       normalizeMcpContent,
     },
+  })
+}
+
+function filterToolsByAllowedSystemFunctions(
+  tools: string[],
+  allowedSystemFunctionIds?: string[],
+): string[] {
+  if (!allowedSystemFunctionIds) {
+    return tools
+  }
+
+  const allowedSystemFunctionIdSet = new Set(allowedSystemFunctionIds)
+  const systemToolPrefix = `${toolPrefixes.enum.sys}:`
+
+  return tools.filter((tool) => {
+    if (!tool.startsWith(systemToolPrefix)) {
+      return true
+    }
+
+    const systemFunctionId = tool.slice(systemToolPrefix.length)
+    return allowedSystemFunctionIdSet.has(systemFunctionId)
   })
 }
 

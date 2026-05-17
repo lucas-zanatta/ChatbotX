@@ -168,7 +168,7 @@ export function createDocumentReaderExecutor(options: {
       }
 
       let snippets = preparedContext.snippets
-      if (snippets.length === 0) {
+      if (snippets.length === 0 && preparedContext.resolvedSource.attachment) {
         snippets = await parseFallbackSnippets(
           preparedContext.resolvedSource.attachment.originPath,
           preparedContext.resolvedSource.attachment.mimeType,
@@ -180,7 +180,8 @@ export function createDocumentReaderExecutor(options: {
       return formatToolOutput({
         title:
           preparedContext.resolvedSource.source.title ??
-          preparedContext.resolvedSource.attachment.name,
+          preparedContext.resolvedSource.attachment?.name ??
+          null,
         snippets,
         summary,
         fileOnlyTrigger: options.fileOnlyTrigger,

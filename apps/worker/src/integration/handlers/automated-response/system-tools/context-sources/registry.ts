@@ -3,11 +3,13 @@ import type {
   ConversationContextSourceAdapter,
   ConversationContextSourceType,
 } from "./types"
+import { urlContextSourceAdapter } from "./url-source"
 
 const contextSourceRegistry: Partial<
   Record<ConversationContextSourceType, ConversationContextSourceAdapter>
 > = {
   document: documentContextSourceAdapter,
+  url: urlContextSourceAdapter,
 }
 
 export function getContextSourceAdapter(
