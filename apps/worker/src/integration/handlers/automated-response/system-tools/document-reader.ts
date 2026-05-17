@@ -4,6 +4,7 @@ import type {
   SystemToolExecutors,
 } from "@chatbotx.io/ai/server"
 import { normalizeError } from "universal-error-normalizer"
+import { withTimeout } from "../../../../ai-agent/lib/async-utils"
 import { extractTextFromFile } from "../../../../ai-agent/lib/text-extractor"
 import { logger } from "../../../../lib/logger"
 import { getContextSourceAdapter } from "./context-sources/registry"
@@ -15,22 +16,6 @@ const FALLBACK_SNIPPET_LIMIT = 3
 const PARAGRAPH_SEPARATOR_REGEX = /\n{2,}/g
 const QUERY_TERM_SEPARATOR_REGEX = /\s+/
 const WHITESPACE_REGEX = /\s+/g
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(
-      () => reject(new Error("Document parsing timed out")),
-      timeoutMs,
-    )
-  })
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-  })
-}
 
 function splitPlainTextToSnippets(text: string): string[] {
   return text

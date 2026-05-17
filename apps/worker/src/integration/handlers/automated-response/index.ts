@@ -1,12 +1,35 @@
 import { automatedResponseService } from "@chatbotx.io/automated-response"
 import { db } from "@chatbotx.io/database/client"
 import { aiMessageRoles } from "@chatbotx.io/database/partials"
+import {
+  DOCX_MIME_TYPES,
+  IMAGE_MIME_TYPES,
+  PDF_MIME_TYPES,
+} from "@chatbotx.io/sdk"
 import type { IntegrationJobProcessAutomatedResponse } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
 import { detectConversationAndContactInbox } from "../../../lib/db"
 import { logger } from "../../../lib/logger"
 import { replyByAI } from "./replies"
 import { trackBotResponse } from "./track-bot-response"
+
+const SUPPORTED_DOCUMENT_MIME_TYPES = new Set<string>([
+  ...PDF_MIME_TYPES,
+  ...DOCX_MIME_TYPES,
+])
+const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(IMAGE_MIME_TYPES)
+
+function normalizeMimeType(value: string): string {
+  return value.toLowerCase().split(";")[0]?.trim() ?? ""
+}
+
+function isSupportedDocumentMimeType(mimeType: string): boolean {
+  return SUPPORTED_DOCUMENT_MIME_TYPES.has(normalizeMimeType(mimeType))
+}
+
+function isSupportedImageMimeType(mimeType: string): boolean {
+  return SUPPORTED_IMAGE_MIME_TYPES.has(normalizeMimeType(mimeType))
+}
 
 export async function processAutomatedResponse(
   props: IntegrationJobProcessAutomatedResponse["data"],
@@ -32,14 +55,26 @@ export async function processAutomatedResponse(
       attachments: {
         columns: {
           id: true,
+          fileType: true,
+          mimeType: true,
         },
       },
     },
   })
+  const triggerAttachments = triggerMessage?.attachments ?? []
   const isFileOnlyTrigger =
     triggerMessage?.senderType === "contact" &&
     !triggerMessage.text &&
-    (triggerMessage.attachments?.length ?? 0) > 0
+    triggerAttachments.length > 0
+  const hasTriggerImage = triggerAttachments.some(
+    (attachment) =>
+      isSupportedImageMimeType(attachment.mimeType) ||
+      attachment.fileType === "image" ||
+      attachment.fileType === "gif",
+  )
+  const hasTriggerDocument = triggerAttachments.some((attachment) =>
+    isSupportedDocumentMimeType(attachment.mimeType),
+  )
 
   const repliedByAutomatedResponse = await automatedResponseService.process({
     conversation,
@@ -107,8 +142,10 @@ export async function processAutomatedResponse(
     if (isFileOnlyTrigger) {
       messages.push({
         role: aiMessageRoles.enum.user,
-        content:
-          "I uploaded a document. Please read it, provide a short summary, then ask what specific part I want to know more about.",
+        content: getFileOnlyPrompt({
+          hasDocument: hasTriggerDocument,
+          hasImage: hasTriggerImage,
+        }),
       })
     }
 
@@ -169,4 +206,19 @@ export async function processAutomatedResponse(
       "[automated-response] triggerAutomatedResponse failed",
     )
   }
+}
+
+function getFileOnlyPrompt(input: {
+  hasDocument: boolean
+  hasImage: boolean
+}): string {
+  if (input.hasImage && !input.hasDocument) {
+    return "I uploaded an image. Please analyze it, provide a short summary, then ask what specific detail I want to know more about."
+  }
+
+  if (input.hasDocument && !input.hasImage) {
+    return "I uploaded a document. Please read it, provide a short summary, then ask what specific part I want to know more about."
+  }
+
+  return "I uploaded one or more files. Please inspect the supported attachment, provide a short summary, then ask what specific detail I want to know more about."
 }

@@ -8,7 +8,6 @@ import {
   aiConversationEmbeddingModel,
   aiConversationSourceModel,
 } from "@chatbotx.io/database/schema"
-import { DOCX_MIME_TYPES, PDF_MIME_TYPES } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import {
   AI_FILES_DEFAULT_CHUNK_SIZE,
@@ -19,6 +18,8 @@ import {
 } from "@chatbotx.io/worker-config"
 import { normalizeError } from "universal-error-normalizer"
 import { logger } from "../../lib/logger"
+import { withTimeout } from "../lib/async-utils"
+import { isSupportedDocumentMimeType } from "../lib/mime-utils"
 import { extractTextFromFile } from "../lib/text-extractor"
 
 const MAX_DOCUMENT_TEXT_CHARS = 200_000
@@ -28,18 +29,6 @@ const PARSE_TIMEOUT_MS = 30_000
 type TextChunk = {
   content: string
   chunkIndex: number
-}
-
-function normalizeMimeType(value: string): string {
-  return value.toLowerCase().split(";")[0]?.trim() ?? ""
-}
-
-function isSupportedDocumentMimeType(mimeType: string): boolean {
-  const normalizedMimeType = normalizeMimeType(mimeType)
-  return (
-    PDF_MIME_TYPES.includes(normalizedMimeType as (typeof PDF_MIME_TYPES)[0]) ||
-    DOCX_MIME_TYPES.includes(normalizedMimeType as (typeof DOCX_MIME_TYPES)[0])
-  )
 }
 
 function splitTextIntoChunks(
@@ -79,13 +68,6 @@ function summarizeText(text: string): string {
   return text.slice(0, 500).trim()
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error("Document parsing timed out")), timeoutMs)
-  })
-  return Promise.race([promise, timeoutPromise])
-}
-
 export async function processConversationSource(
   data: AIJobProcessConversationSource["data"],
 ) {
@@ -103,6 +85,10 @@ export async function processConversationSource(
   }
 
   if (source.sourceType !== "document") {
+    return
+  }
+
+  if (source.status === aiConversationSourceStatuses.enum.success) {
     return
   }
 

@@ -23,12 +23,19 @@ import type {
   ConversationModel,
 } from "@chatbotx.io/database/types"
 import { contactVariableService } from "@chatbotx.io/variables"
-import { type ModelMessage, stepCountIs, streamText, type ToolSet } from "ai"
+import {
+  type LanguageModel,
+  type ModelMessage,
+  stepCountIs,
+  streamText,
+  type ToolSet,
+} from "ai"
 import { normalizeError } from "universal-error-normalizer"
 import { logger } from "../../../lib/logger"
 import { handoffExecutorService } from "../../../trigger/services/handoff-executor.service"
 import { sendMessageWithRender } from "../../utils/message"
 import { createDocumentReaderExecutor } from "./system-tools/document-reader"
+import { createImageReaderExecutor } from "./system-tools/image-reader"
 
 type ReplyByAIProps = {
   conversation: ConversationModel
@@ -60,10 +67,36 @@ export type ReplyByAIExecutionResult = {
 export async function replyByAI(
   props: ReplyByAIProps,
 ): Promise<null | ReplyByAIExecutionResult> {
-  const { aiAgent, conversation } = props
+  const { aiAgent } = props
   const providers = aiAgent.models as AIAgentProviderModels
 
-  const { tools, cleanup } = await getAIToolset({
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), aiTimeouts.aiTotal)
+
+  try {
+    for (const providerInfo of providers) {
+      const result = await runAIReply(props, providerInfo, controller.signal)
+      if (result?.responded) {
+        return result
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+
+  return null
+}
+
+function createReplyToolset(options: {
+  abortSignal: AbortSignal
+  model: LanguageModel
+  modelId: string
+  props: ReplyByAIProps
+  provider: string
+}) {
+  const { conversation, aiAgent } = options.props
+
+  return getAIToolset({
     workspaceId: aiAgent.workspaceId,
     tools: aiAgent.tools,
     toolPrefixes: {
@@ -99,8 +132,16 @@ export async function replyByAI(
         return "I'm connecting you to a human agent who can better assist you. Please stay on the line."
       },
       [systemFunctionNames.documentReader]: createDocumentReaderExecutor({
-        fileOnlyTrigger: props.fileOnlyTrigger,
-        triggerMessageId: props.triggerMessageId,
+        fileOnlyTrigger: options.props.fileOnlyTrigger,
+        triggerMessageId: options.props.triggerMessageId,
+      }),
+      [systemFunctionNames.imageReader]: createImageReaderExecutor({
+        abortSignal: options.abortSignal,
+        fileOnlyTrigger: options.props.fileOnlyTrigger,
+        model: options.model,
+        modelId: options.modelId,
+        provider: options.provider,
+        triggerMessageId: options.props.triggerMessageId,
       }),
     },
     fileSearch: {
@@ -114,38 +155,17 @@ export async function replyByAI(
       normalizeMcpContent,
     },
   })
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), aiTimeouts.aiTotal)
-
-  try {
-    for (const providerInfo of providers) {
-      const result = await runAIReply(
-        props,
-        providerInfo,
-        tools,
-        controller.signal,
-      )
-      if (result?.responded) {
-        return result
-      }
-    }
-  } finally {
-    clearTimeout(timeoutId)
-    await cleanup()
-  }
-
-  return null
 }
 
 async function runAIReply(
   props: ReplyByAIProps,
   providerInfo: AIAgentProviderModel,
-  tools: ToolSet,
   abortSignal: AbortSignal,
 ): Promise<null | ReplyByAIExecutionResult> {
   const { conversation, messages, aiAgent } = props
   const provider = providerInfo.provider
+  let cleanup: (() => Promise<void>) | undefined
+
   try {
     const selectedModelId = providerInfo.model
 
@@ -166,6 +186,16 @@ async function runAIReply(
       abortSignal,
       traceId: conversation.id,
     })
+
+    const toolset = await createReplyToolset({
+      abortSignal,
+      model,
+      modelId: selectedModelId,
+      props,
+      provider,
+    })
+    const tools = toolset.tools
+    cleanup = toolset.cleanup
 
     const variables = await contactVariableService.getAll(
       conversation.contactId,
@@ -338,7 +368,20 @@ async function runAIReply(
     )
     return null
   } finally {
-    // Parent replyByAI handles global timeout and signal cleanup
+    try {
+      await cleanup?.()
+    } catch (cleanupError) {
+      const normalizedError = normalizeError(cleanupError)
+      logger.error(
+        {
+          error: normalizedError,
+          provider,
+          conversationId: conversation.id,
+          workspaceId: conversation.workspaceId,
+        },
+        "[automated-response] tool cleanup failed",
+      )
+    }
   }
 }
 
