@@ -75,7 +75,9 @@ class OrganizationCredentialService extends BaseService {
     const schema = organizationCredentialSchemas[
       props.type
     ] as unknown as z.ZodType<OrganizationCredentialByType[T]>
-    const config = encryptUtils.decryptObject(blob, schema)
+    const aad = `${props.organizationId}:${props.type}`
+    const config = await encryptUtils.decryptObject(blob, schema, aad)
+
     return {
       id: row.id,
       organizationId: row.organizationId,
@@ -98,7 +100,8 @@ class OrganizationCredentialService extends BaseService {
       type
     ] as unknown as z.ZodType<OrganizationCredentialPublicByType[T]>
     const publicConfig = publicSchema.parse(config)
-    const value = encryptUtils.encryptObject(config)
+    const aad = `${organizationId}:${type}`
+    const value = await encryptUtils.encryptObject(config, aad)
 
     await tx
       .insert(organizationCredentialModel)

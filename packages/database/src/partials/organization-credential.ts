@@ -246,6 +246,7 @@ export type StripeCredentialUpdate = z.infer<
 
 export const organizationCredentialEncryptedSchema = z.object({
   v: z.literal(1),
+  kid: z.string().optional(),
   iv: z.string(),
   text: z.string(),
   tag: z.string(),
