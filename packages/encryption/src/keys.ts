@@ -27,6 +27,7 @@ export const keys = () =>
       ENCRYPTION_KEY_PREV: hexKeySchema.optional(),
     },
     runtimeEnv: process.env,
+    skipValidation: process.env.SKIP_ENV_CHECK === "true",
   })
 
 export const env = keys()
