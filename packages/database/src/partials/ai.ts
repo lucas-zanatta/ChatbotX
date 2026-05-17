@@ -25,9 +25,7 @@ export const aiConversationSourceTypes = z.enum([
   "url",
   "web_search",
 ])
-export type AIConversationSourceType = z.infer<
-  typeof aiConversationSourceTypes
->
+export type AIConversationSourceType = z.infer<typeof aiConversationSourceTypes>
 
 export const aiConversationSourceStatuses = z.enum([
   "pending",

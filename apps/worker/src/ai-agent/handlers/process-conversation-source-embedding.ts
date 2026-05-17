@@ -35,7 +35,9 @@ export async function processConversationSourceEmbedding(
     .where(eq(aiConversationEmbeddingModel.id, embeddingItem.id))
 
   try {
-    const embeddingModel = await resolveEmbeddingModel(embeddingItem.workspaceId)
+    const embeddingModel = await resolveEmbeddingModel(
+      embeddingItem.workspaceId,
+    )
 
     const { embedding } = await embed({
       model: embeddingModel,

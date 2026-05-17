@@ -85,9 +85,7 @@ const urlContextSchema = z.object({
 })
 
 const webSearchSchema = z.object({
-  query: z
-    .string()
-    .describe("The user query to search on the public web"),
+  query: z.string().describe("The user query to search on the public web"),
 })
 
 export type ConnectUserToHumanInput = z.infer<typeof connectUserToHumanSchema>
@@ -155,8 +153,8 @@ const buildConnectUserToHumanTool = (options: GetAISystemToolsOptions) =>
 
 const buildDocumentReaderTool = (options: GetAISystemToolsOptions) =>
   tool({
-    description: systemFunctionCatalog[systemFunctionNames.documentReader]
-      .description,
+    description:
+      systemFunctionCatalog[systemFunctionNames.documentReader].description,
     inputSchema: documentReaderSchema,
     execute: async (args) => {
       const context = await options.systemFunctionContextGetter?.()
@@ -173,8 +171,8 @@ const buildDocumentReaderTool = (options: GetAISystemToolsOptions) =>
 
 const buildImageReaderTool = (options: GetAISystemToolsOptions) =>
   tool({
-    description: systemFunctionCatalog[systemFunctionNames.imageReader]
-      .description,
+    description:
+      systemFunctionCatalog[systemFunctionNames.imageReader].description,
     inputSchema: imageReaderSchema,
     execute: async (args) => {
       const context = await options.systemFunctionContextGetter?.()
@@ -191,8 +189,8 @@ const buildImageReaderTool = (options: GetAISystemToolsOptions) =>
 
 const buildUrlContextTool = (options: GetAISystemToolsOptions) =>
   tool({
-    description: systemFunctionCatalog[systemFunctionNames.urlContext]
-      .description,
+    description:
+      systemFunctionCatalog[systemFunctionNames.urlContext].description,
     inputSchema: urlContextSchema,
     execute: async (args) => {
       const context = await options.systemFunctionContextGetter?.()
@@ -209,8 +207,8 @@ const buildUrlContextTool = (options: GetAISystemToolsOptions) =>
 
 const buildWebSearchTool = (options: GetAISystemToolsOptions) =>
   tool({
-    description: systemFunctionCatalog[systemFunctionNames.webSearch]
-      .description,
+    description:
+      systemFunctionCatalog[systemFunctionNames.webSearch].description,
     inputSchema: webSearchSchema,
     execute: async (args) => {
       const context = await options.systemFunctionContextGetter?.()

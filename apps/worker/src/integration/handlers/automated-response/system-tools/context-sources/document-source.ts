@@ -1,10 +1,10 @@
-import { db, eq, sql } from "@chatbotx.io/database/client"
+import { and, db, desc, eq, inArray, sql } from "@chatbotx.io/database/client"
 import {
   aiConversationSourceStatuses,
   aiConversationSourceTypes,
   aiEmbeddingStatuses,
 } from "@chatbotx.io/database/partials"
-import { aiConversationSourceModel } from "@chatbotx.io/database/schema"
+import { aiConversationSourceModel, attachmentModel } from "@chatbotx.io/database/schema"
 import { DOCX_MIME_TYPES, PDF_MIME_TYPES } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import {
@@ -28,11 +28,9 @@ import type {
 } from "./types"
 
 const DOCUMENT_SOURCE_TYPE = aiConversationSourceTypes.enum.document
-const SUPPORTED_DOCUMENT_MIME_TYPES = new Set<string>([
-  ...PDF_MIME_TYPES,
-  ...DOCX_MIME_TYPES,
-])
+const SUPPORTED_DOCUMENT_MIME_TYPES_LIST = [...PDF_MIME_TYPES, ...DOCX_MIME_TYPES] as string[]
 const DEFAULT_TOP_K = 5
+const STALE_PROCESSING_THRESHOLD_MS = 5 * 60 * 1000
 const PROCESS_SOURCE_JOB_ID_PREFIX = AIJobAction.processConversationSource
 
 const nullableFiniteNumberFromDbSchema = z.preprocess((value) => {
@@ -66,15 +64,6 @@ const embeddingSearchRowSchema = z.object({
   content: z.string(),
   similarity: nullableFiniteNumberFromDbSchema,
 })
-
-function normalizeMimeType(value: string): string {
-  return value.toLowerCase().split(";")[0]?.trim() ?? ""
-}
-
-function isSupportedDocumentMimeType(mimeType: string): boolean {
-  const normalizedMimeType = normalizeMimeType(mimeType)
-  return SUPPORTED_DOCUMENT_MIME_TYPES.has(normalizedMimeType)
-}
 
 function normalizeHint(value?: string): null | string {
   const normalized = value?.trim().toLowerCase()
@@ -172,18 +161,17 @@ async function createDocumentConversationSource(input: {
 async function resolveDocumentSource(
   input: ResolveConversationSourceInput,
 ): Promise<null | ResolvedConversationSource> {
-  const allAttachments = await db.query.attachmentModel.findMany({
-    where: {
-      workspaceId: input.workspaceId,
-      conversationId: input.conversationId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  })
-  const attachments = allAttachments.filter((attachment) =>
-    isSupportedDocumentMimeType(attachment.mimeType),
-  )
+  const attachments = await db
+    .select()
+    .from(attachmentModel)
+    .where(
+      and(
+        eq(attachmentModel.workspaceId, input.workspaceId),
+        eq(attachmentModel.conversationId, input.conversationId),
+        inArray(attachmentModel.mimeType, SUPPORTED_DOCUMENT_MIME_TYPES_LIST),
+      ),
+    )
+    .orderBy(desc(attachmentModel.createdAt))
 
   if (attachments.length === 0) {
     return null
@@ -237,9 +225,14 @@ async function resolveDocumentSource(
     return null
   }
 
+  const isStaleProcessing =
+    source.status === aiConversationSourceStatuses.enum.processing &&
+    Date.now() - source.updatedAt.getTime() > STALE_PROCESSING_THRESHOLD_MS
+
   if (
     source.status === aiConversationSourceStatuses.enum.pending ||
-    source.status === aiConversationSourceStatuses.enum.error
+    source.status === aiConversationSourceStatuses.enum.error ||
+    isStaleProcessing
   ) {
     enqueueConversationSource(source).catch((error: unknown) => {
       const normalizedError = normalizeError(error)
