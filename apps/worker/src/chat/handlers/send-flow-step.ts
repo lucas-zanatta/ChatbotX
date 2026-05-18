@@ -19,12 +19,9 @@ import {
 } from "@chatbotx.io/database/partials"
 import { attachmentModel, messageModel } from "@chatbotx.io/database/schema"
 import type { AttachmentModel } from "@chatbotx.io/database/types"
-import { getPublicUrl, isInternalUrl } from "@chatbotx.io/database/utils"
+import { getPublicUrl } from "@chatbotx.io/database/utils"
 import { emit } from "@chatbotx.io/event-bus"
-import {
-  getUploadedFileFromUrl,
-  uploadFileFromUrl,
-} from "@chatbotx.io/filesystem/node-upload"
+import { uploadFileFromUrl } from "@chatbotx.io/filesystem/node-upload"
 import type { MetadataPayload } from "@chatbotx.io/flow-config"
 import {
   appendCodeToMagicLink,
@@ -65,12 +62,10 @@ const insertAttachmentForMessage = async (
     url: string
   },
 ): Promise<AttachmentModel & { url: string }> => {
-  const uploadedFile = isInternalUrl(props.url)
-    ? await getUploadedFileFromUrl(props.url)
-    : await uploadFileFromUrl(
-        props.url,
-        `public/space/${props.workspaceId}/conversations/${props.conversationId}/${createId()}`,
-      )
+  const uploadedFile = await uploadFileFromUrl(
+    props.url,
+    `public/space/${props.workspaceId}/conversations/${props.conversationId}/${createId()}`,
+  )
   const row = await tx
     .insert(attachmentModel)
     .values({

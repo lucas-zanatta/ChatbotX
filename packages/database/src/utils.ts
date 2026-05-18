@@ -113,16 +113,6 @@ export const getPublicUrl = (path: string) => {
   }
 }
 
-export const isInternalUrl = (url: string) => {
-  try {
-    const u = new URL(url)
-    const assetUrl = new URL(env.NEXT_PUBLIC_ASSET_URL)
-    return u.host === assetUrl.host
-  } catch {
-    return false
-  }
-}
-
 type ChunkByIdOptions<T> = {
   chunkSize?: number
   callback: (records: T[]) => Promise<boolean | undefined>
