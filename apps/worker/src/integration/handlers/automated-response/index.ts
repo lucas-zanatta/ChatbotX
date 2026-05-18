@@ -202,6 +202,7 @@ export async function processAutomatedResponse(
         metadata: {
           latency: Date.now() - startTime,
           fallbackReason: "no_intent_match",
+          toolStats: aiResult.toolStats,
           triggerContext: {
             triggerSource: "worker",
             triggerHandler: "triggerAutomatedResponse",

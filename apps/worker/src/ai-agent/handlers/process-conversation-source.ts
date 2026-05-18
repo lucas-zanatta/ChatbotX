@@ -1,13 +1,10 @@
 import { createHash } from "node:crypto"
-import { db, eq } from "@chatbotx.io/database/client"
+import { aiConversationSourceStatuses } from "@chatbotx.io/database/partials"
 import {
-  aiConversationSourceStatuses,
-  aiEmbeddingStatuses,
-} from "@chatbotx.io/database/partials"
-import {
-  aiConversationEmbeddingModel,
-  aiConversationSourceModel,
-} from "@chatbotx.io/database/schema"
+  type AiConversationSourceWithAttachment,
+  createConversationEmbeddingRepository,
+  createConversationSourceRepository,
+} from "@chatbotx.io/database/repositories"
 import { createId } from "@chatbotx.io/utils"
 import {
   AI_FILES_DEFAULT_CHUNK_SIZE,
@@ -20,9 +17,13 @@ import { htmlToText } from "html-to-text"
 import { normalizeError } from "universal-error-normalizer"
 import { z } from "zod"
 import { logger } from "../../lib/logger"
+import { assertPublicUrl } from "../../lib/ssrf-guard"
 import { withTimeout } from "../lib/async-utils"
 import { isSupportedDocumentMimeType } from "../lib/mime-utils"
 import { extractTextFromFile } from "../lib/text-extractor"
+
+const sourceRepo = createConversationSourceRepository()
+const embeddingRepo = createConversationEmbeddingRepository()
 
 const MAX_DOCUMENT_TEXT_CHARS = 200_000
 const MAX_DOCUMENT_CHUNKS = 120
@@ -74,35 +75,22 @@ function summarizeText(text: string): string {
   return text.slice(0, 500).trim()
 }
 
-async function saveEmbeddingChunks(
+function saveEmbeddingChunks(
   sourceId: string,
   workspaceId: string,
   conversationId: string,
   chunks: TextChunk[],
 ): Promise<Array<{ id: string }>> {
-  return await db.transaction(async (tx) => {
-    await tx
-      .delete(aiConversationEmbeddingModel)
-      .where(eq(aiConversationEmbeddingModel.sourceId, sourceId))
-
-    if (chunks.length === 0) {
-      return []
-    }
-
-    return tx
-      .insert(aiConversationEmbeddingModel)
-      .values(
-        chunks.map((chunk) => ({
-          id: createId(),
-          sourceId,
-          workspaceId,
-          conversationId,
-          chunkIndex: chunk.chunkIndex,
-          content: chunk.content,
-          status: aiEmbeddingStatuses.enum.pending,
-        })),
-      )
-      .returning({ id: aiConversationEmbeddingModel.id })
+  return embeddingRepo.replaceForSource({
+    sourceId,
+    chunks: chunks.map((chunk) => ({
+      id: createId(),
+      sourceId,
+      workspaceId,
+      conversationId,
+      chunkIndex: chunk.chunkIndex,
+      content: chunk.content,
+    })),
   })
 }
 
@@ -124,15 +112,7 @@ async function enqueueEmbeddingJobs(
   )
 }
 
-type SourceRecord = NonNullable<
-  Awaited<
-    ReturnType<
-      typeof db.query.aiConversationSourceModel.findFirst<{
-        with: { attachment: true }
-      }>
-    >
-  >
->
+type SourceRecord = AiConversationSourceWithAttachment
 
 async function processDocumentSource(source: SourceRecord): Promise<void> {
   if (source.status === aiConversationSourceStatuses.enum.success) {
@@ -140,39 +120,27 @@ async function processDocumentSource(source: SourceRecord): Promise<void> {
   }
 
   if (!(source.attachment && source.attachmentId)) {
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.error,
-        errorMessage: "Attachment not found for document source",
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.error,
+      errorMessage: "Attachment not found for document source",
+    })
     return
   }
 
   const attachment = source.attachment
 
   if (!isSupportedDocumentMimeType(attachment.mimeType)) {
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.error,
-        errorMessage: "Unsupported document mime type",
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.error,
+      errorMessage: "Unsupported document mime type",
+    })
     return
   }
 
-  await db
-    .update(aiConversationSourceModel)
-    .set({
-      status: aiConversationSourceStatuses.enum.processing,
-      errorMessage: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(aiConversationSourceModel.id, source.id))
+  await sourceRepo.update(source.id, {
+    status: aiConversationSourceStatuses.enum.processing,
+    errorMessage: null,
+  })
 
   try {
     const extractedText = await withTimeout(
@@ -182,14 +150,10 @@ async function processDocumentSource(source: SourceRecord): Promise<void> {
     const trimmedText = extractedText.slice(0, MAX_DOCUMENT_TEXT_CHARS).trim()
 
     if (!trimmedText) {
-      await db
-        .update(aiConversationSourceModel)
-        .set({
-          status: aiConversationSourceStatuses.enum.error,
-          errorMessage: "Unable to extract readable text from document",
-          updatedAt: new Date(),
-        })
-        .where(eq(aiConversationSourceModel.id, source.id))
+      await sourceRepo.update(source.id, {
+        status: aiConversationSourceStatuses.enum.error,
+        errorMessage: "Unable to extract readable text from document",
+      })
       return
     }
 
@@ -202,21 +166,17 @@ async function processDocumentSource(source: SourceRecord): Promise<void> {
       chunks,
     )
 
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.success,
-        contentHash,
-        summary: summarizeText(trimmedText),
-        metadata: {
-          chunkCount: embeddingRows.length,
-          maxChunks: MAX_DOCUMENT_CHUNKS,
-          maxTextChars: MAX_DOCUMENT_TEXT_CHARS,
-        },
-        errorMessage: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.success,
+      contentHash,
+      summary: summarizeText(trimmedText),
+      metadata: {
+        chunkCount: embeddingRows.length,
+        maxChunks: MAX_DOCUMENT_CHUNKS,
+        maxTextChars: MAX_DOCUMENT_TEXT_CHARS,
+      },
+      errorMessage: null,
+    })
 
     await enqueueEmbeddingJobs(embeddingRows)
   } catch (error) {
@@ -231,19 +191,17 @@ async function processDocumentSource(source: SourceRecord): Promise<void> {
       "[ai-agent] processDocumentSource failed",
     )
 
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.error,
-        errorMessage:
-          normalizedError.message || "Failed to process conversation source",
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.error,
+      errorMessage:
+        normalizedError.message || "Failed to process conversation source",
+    })
   }
 }
 
 async function fetchHtmlText(url: string): Promise<string> {
+  assertPublicUrl(url, "URL source")
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS)
 
@@ -310,41 +268,29 @@ async function processUrlSource(source: SourceRecord): Promise<void> {
 
   const parsedMeta = urlSourceMetadataSchema.safeParse(source.metadata)
   if (!parsedMeta.success) {
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.error,
-        errorMessage: "URL missing in source metadata",
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.error,
+      errorMessage: "URL missing in source metadata",
+    })
     return
   }
 
   const { url } = parsedMeta.data
 
-  await db
-    .update(aiConversationSourceModel)
-    .set({
-      status: aiConversationSourceStatuses.enum.processing,
-      errorMessage: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(aiConversationSourceModel.id, source.id))
+  await sourceRepo.update(source.id, {
+    status: aiConversationSourceStatuses.enum.processing,
+    errorMessage: null,
+  })
 
   try {
     const rawText = await withTimeout(fetchHtmlText(url), URL_FETCH_TIMEOUT_MS)
     const trimmedText = rawText.slice(0, MAX_DOCUMENT_TEXT_CHARS).trim()
 
     if (!trimmedText) {
-      await db
-        .update(aiConversationSourceModel)
-        .set({
-          status: aiConversationSourceStatuses.enum.error,
-          errorMessage: "Unable to extract readable text from URL",
-          updatedAt: new Date(),
-        })
-        .where(eq(aiConversationSourceModel.id, source.id))
+      await sourceRepo.update(source.id, {
+        status: aiConversationSourceStatuses.enum.error,
+        errorMessage: "Unable to extract readable text from URL",
+      })
       return
     }
 
@@ -357,22 +303,18 @@ async function processUrlSource(source: SourceRecord): Promise<void> {
       chunks,
     )
 
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.success,
-        contentHash,
-        summary: summarizeText(trimmedText),
-        metadata: {
-          url,
-          chunkCount: embeddingRows.length,
-          maxChunks: MAX_DOCUMENT_CHUNKS,
-          maxTextChars: MAX_DOCUMENT_TEXT_CHARS,
-        },
-        errorMessage: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.success,
+      contentHash,
+      summary: summarizeText(trimmedText),
+      metadata: {
+        url,
+        chunkCount: embeddingRows.length,
+        maxChunks: MAX_DOCUMENT_CHUNKS,
+        maxTextChars: MAX_DOCUMENT_TEXT_CHARS,
+      },
+      errorMessage: null,
+    })
 
     await enqueueEmbeddingJobs(embeddingRows)
   } catch (error) {
@@ -388,28 +330,17 @@ async function processUrlSource(source: SourceRecord): Promise<void> {
       "[ai-agent] processUrlSource failed",
     )
 
-    await db
-      .update(aiConversationSourceModel)
-      .set({
-        status: aiConversationSourceStatuses.enum.error,
-        errorMessage: normalizedError.message || "Failed to process URL source",
-        updatedAt: new Date(),
-      })
-      .where(eq(aiConversationSourceModel.id, source.id))
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.error,
+      errorMessage: normalizedError.message || "Failed to process URL source",
+    })
   }
 }
 
 export async function processConversationSource(
   data: AIJobProcessConversationSource["data"],
 ) {
-  const source = await db.query.aiConversationSourceModel.findFirst({
-    where: {
-      id: data.sourceId,
-    },
-    with: {
-      attachment: true,
-    },
-  })
+  const source = await sourceRepo.findByIdWithAttachment(data.sourceId)
 
   if (!source) {
     throw new Error("AI conversation source not found")
