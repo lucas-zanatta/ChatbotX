@@ -177,7 +177,9 @@ export async function processAutomatedResponse(
         routeType: "agent",
         result: "success",
         aiProvider: aiResult.provider,
-        metadata: {},
+        metadata: {
+          toolStats: aiResult.toolStats,
+        },
         startTime,
       })
       return

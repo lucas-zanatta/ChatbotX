@@ -3,6 +3,10 @@
 import { db, eq } from "@chatbotx.io/database/client"
 import { aiAgentModel } from "@chatbotx.io/database/schema"
 import { createId } from "@chatbotx.io/utils"
+import {
+  isWebSearchSelected,
+  normalizeWebSearchDomains,
+} from "@/features/ai-agents/lib/web-search-tool"
 import { createAIAgentRequest } from "@/features/ai-agents/schemas/action"
 import { workspaceIdrequestParams } from "@/features/common/schemas"
 import { revalidateCacheTags } from "@/lib/cache-helper"
@@ -17,9 +21,11 @@ export const createAIAgentAction = workspaceActionClient
       bindArgsParsedInputs: [workspaceId],
     } = props
 
+    const { webSearchAuthorizedDomains, ...agentInput } = parsedInput
+
     await db.transaction(async (tx) => {
       // Reset isDefault to false for all other agents
-      if (parsedInput.isDefault) {
+      if (agentInput.isDefault) {
         await tx
           .update(aiAgentModel)
           .set({
@@ -29,7 +35,10 @@ export const createAIAgentAction = workspaceActionClient
       }
 
       await tx.insert(aiAgentModel).values({
-        ...parsedInput,
+        ...agentInput,
+        webSearchAuthorizedDomains: isWebSearchSelected(agentInput.tools)
+          ? normalizeWebSearchDomains(webSearchAuthorizedDomains)
+          : [],
         workspaceId,
         id: createId(),
       })

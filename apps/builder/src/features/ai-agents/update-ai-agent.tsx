@@ -41,6 +41,7 @@ import {
 } from "@/features/ai-agents/schemas/action"
 import { AIToolMultiSelect } from "@/features/ai-tools/components/ai-tool-multi-select"
 import { geminiModelOptions } from "../integration-gemini/schemas/models"
+import { WebSearchAuthorizedDomainsField } from "./components/web-search-authorized-domains-field"
 
 export function UpdateAIAgentDialog({
   workspaceId,
@@ -123,6 +124,10 @@ export function UpdateAIAgentDialog({
       setValue("maxOutputTokens", agent.maxOutputTokens)
       setValue("messages", agent.messages as UpdateAIAgentRequest["messages"])
       setValue("tools", agent.tools)
+      setValue(
+        "webSearchAuthorizedDomains",
+        agent.webSearchAuthorizedDomains.map((domain) => ({ value: domain })),
+      )
     }
   }, [agent, setValue])
 
@@ -242,6 +247,7 @@ export function UpdateAIAgentDialog({
             </div>
 
             <AIToolMultiSelect name="tools" />
+            <WebSearchAuthorizedDomainsField />
 
             <DialogFooter className="justify-end gap-2 sm:gap-2">
               <Button

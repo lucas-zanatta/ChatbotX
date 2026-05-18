@@ -10,6 +10,12 @@ import type {
 import { secretTextAuthSchema } from "@chatbotx.io/sdk"
 import { aiProviders } from "../schemas"
 
+export type AIProviderInstance =
+  | ReturnType<typeof createAnthropic>
+  | ReturnType<typeof createDeepSeek>
+  | ReturnType<typeof createGoogleGenerativeAI>
+  | ReturnType<typeof createOpenAI>
+
 export async function getAIIntegrationInDB(props: {
   workspaceId: string
   provider: string
@@ -41,6 +47,15 @@ export function getAIModel(
   provider: string,
   _options?: { abortSignal?: AbortSignal },
 ) {
+  return createAIProviderInstance({ model, provider })
+}
+
+export function createAIProviderInstance(props: {
+  model: IntegrationOpenAIModel | IntegrationGeminiModel
+  provider: string
+  abortSignal?: AbortSignal
+}): AIProviderInstance {
+  const { model, provider } = props
   const authParsed = secretTextAuthSchema.safeParse(model.auth)
   if (!authParsed.success) {
     throw new Error("Invalid AI integration auth configuration")
@@ -77,7 +92,11 @@ export function createAIModelInstance(props: {
   traceId?: string
 }) {
   const { model, provider, modelId, abortSignal } = props
-  const providerInstance = getAIModel(model, provider, { abortSignal })
+  const providerInstance = createAIProviderInstance({
+    model,
+    provider,
+    abortSignal,
+  })
 
   return providerInstance(modelId)
 }

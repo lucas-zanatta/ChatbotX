@@ -4,6 +4,10 @@ import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { aiAgentModel } from "@chatbotx.io/database/schema"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import {
+  isWebSearchSelected,
+  normalizeWebSearchDomains,
+} from "@/features/ai-agents/lib/web-search-tool"
+import {
   type UpdateAIAgentRequest,
   updateAIAgentRequest,
 } from "@/features/ai-agents/schemas/action"
@@ -34,9 +38,27 @@ export const updateAIAgent = async (
     },
     message: "AI agent not found",
   })
+
+  const { webSearchAuthorizedDomains, ...restInput } = parsedInput
+  const updateInput: typeof restInput & {
+    webSearchAuthorizedDomains?: string[]
+  } = { ...restInput }
+
+  if (parsedInput.tools) {
+    updateInput.webSearchAuthorizedDomains = isWebSearchSelected(
+      parsedInput.tools,
+    )
+      ? normalizeWebSearchDomains(webSearchAuthorizedDomains)
+      : []
+  } else if (webSearchAuthorizedDomains) {
+    updateInput.webSearchAuthorizedDomains = normalizeWebSearchDomains(
+      webSearchAuthorizedDomains,
+    )
+  }
+
   await db.transaction(async (tx) => {
     // make all other agents not default
-    if (parsedInput.isDefault) {
+    if (updateInput.isDefault) {
       await tx
         .update(aiAgentModel)
         .set({ isDefault: false })
@@ -45,7 +67,7 @@ export const updateAIAgent = async (
 
     await tx
       .update(aiAgentModel)
-      .set(parsedInput)
+      .set(updateInput)
       .where(eq(aiAgentModel.id, aiAgent.id))
   })
 
