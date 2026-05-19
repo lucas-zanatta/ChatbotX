@@ -2,6 +2,7 @@ import {
   buildContext,
   buildUnsubscribeUrl,
   contactService,
+  emailTopicService,
   inboxService,
   integrationSmtpService,
   resolvePlatformSettings,
@@ -34,6 +35,8 @@ async function resolveElements({
   inbox,
   flowId,
   unsubscribeUrl,
+  topicId,
+  workspaceId,
 }: {
   appUrl: string
   rawElements: PageElementSchema[]
@@ -41,6 +44,8 @@ async function resolveElements({
   inbox: InboxWithIntegrations | undefined
   flowId: string | undefined
   unsubscribeUrl: string
+  topicId?: string
+  workspaceId: string
 }): Promise<MailElementSchema[]> {
   const resolved: MailElementSchema[] = []
 
@@ -73,7 +78,7 @@ async function resolveElements({
         resolved.push({ type: el.type })
         break
       case "button": {
-        const url = el.buttonType
+        let url = el.buttonType
           ? resolveButtonUrl({
               appUrl,
               button: el,
@@ -82,12 +87,23 @@ async function resolveElements({
             })
           : undefined
 
+        if (url && topicId) {
+          url = `${appUrl}/email-topic/click?t=${topicId}&w=${workspaceId}&url=${encodeURIComponent(url)}`
+        }
+
         resolved.push({ type: "button", url, label: el.label })
         break
       }
       default:
         break
     }
+  }
+
+  if (topicId) {
+    resolved.push({
+      type: "image",
+      url: `${appUrl}/email-topic/open?t=${topicId}&w=${workspaceId}`,
+    })
   }
 
   return resolved
@@ -164,6 +180,8 @@ export async function sendEmail({
     inbox,
     flowId: flowVersion.flowId,
     unsubscribeUrl,
+    topicId: step.topicId,
+    workspaceId: conversation.workspaceId,
   })
 
   const props: DynamicEmailProps = {
@@ -179,6 +197,14 @@ export async function sendEmail({
     integration: { ...smtpIntegration, auth },
   })
 
+  if (step.topicId) {
+    await emailTopicService.incrementCounters({
+      id: step.topicId,
+      workspaceId: conversation.workspaceId,
+      sends: 1,
+    })
+  }
+
   try {
     await integrationSmtp.runAction("sendMail", {
       ctx: botContext,
@@ -187,6 +213,14 @@ export async function sendEmail({
       subject,
       html: await renderDynamicEmailHtml(props),
     })
+
+    if (step.topicId) {
+      await emailTopicService.incrementCounters({
+        id: step.topicId,
+        workspaceId: conversation.workspaceId,
+        delivereds: 1,
+      })
+    }
   } catch {
     logger.error(
       {

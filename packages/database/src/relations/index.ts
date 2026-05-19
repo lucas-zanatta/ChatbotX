@@ -33,6 +33,7 @@ import { conversationRelations } from "./conversation"
 import { conversationParticipantRelations } from "./conversation-participant"
 import { platformCredentialRelations } from "./credential"
 import { customFieldRelations } from "./custom-field"
+import { emailTopicRelations } from "./email-topic"
 import { auditLogRelations } from "./enterprise/audit-log"
 import { customDomainRelations } from "./enterprise/custom-domain"
 import { platformSettingRelations } from "./enterprise/platform-setting"
@@ -123,6 +124,7 @@ export const relations = {
   ...integrationWebchatRelations,
   ...integrationZaloRelations,
   ...invitationRelations,
+  ...emailTopicRelations,
   ...errorLogRelations,
   ...auditLogRelations,
   ...sessionRelations,
