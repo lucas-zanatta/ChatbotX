@@ -18,7 +18,7 @@ import type {
   DynamicEmailProps,
   MailElementSchema,
 } from "@chatbotx.io/mail/dynamic"
-import { renderDynamicEmailHtml } from "@chatbotx.io/mail/dynamic"
+import { buildEmailHtml } from "@chatbotx.io/mail/dynamic"
 import { contactVariableService } from "@chatbotx.io/variables"
 import { resolveButtonUrl } from "../../lib/convert-button"
 import { logger } from "../../lib/logger"
@@ -157,7 +157,7 @@ export async function sendEmail({
       from: step.from || auth.fromAddress,
       to,
       subject,
-      html: await renderDynamicEmailHtml(props),
+      html: buildEmailHtml(props),
     })
   } catch {
     logger.error(

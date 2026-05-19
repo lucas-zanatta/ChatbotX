@@ -53,103 +53,119 @@ export type DynamicEmailProps = {
   elements: MailElementSchema[]
 }
 
-export function elementToMjml(element: MailElementSchema): string {
+export function elementToHtmlRow(element: MailElementSchema): string {
   switch (element.type) {
     case "heading":
       return `
-        <mj-section>
-          <mj-column>
-            <mj-raw>
-              <div style="font-size:20px;font-weight:700;color:#1d1c1d;line-height:28px;padding:0;">
-                ${escapeHtml(element.text)}
-              </div>
-            </mj-raw>
-          </mj-column>
-        </mj-section>`
+        <tr>
+          <td style="padding:16px 24px 0;">
+            <div style="font-size:20px;font-weight:700;color:#1d1c1d;line-height:28px;">
+              ${escapeHtml(element.text)}
+            </div>
+          </td>
+        </tr>`
 
     case "text":
       return `
-        <mj-section>
-          <mj-column>
-            <mj-raw>
-              <div style="font-size:16px;color:#3c3f44;line-height:24px;padding:0;">
-                ${escapeHtml(element.text)}
-              </div>
-            </mj-raw>
-          </mj-column>
-        </mj-section>`
+        <tr>
+          <td style="padding:8px 24px;">
+            <div style="font-size:16px;color:#3c3f44;line-height:24px;">
+              ${escapeHtml(element.text)}
+            </div>
+          </td>
+        </tr>`
 
     case "code":
       return `
-        <mj-section>
-          <mj-column>
-            <mj-raw>
-              <div style="font-family:monospace,'Courier New';font-size:14px;color:#3c3f44;line-height:22px;background-color:#f4f4f5;padding:12px;">
-                ${escapeHtml(element.text).replace(/\n/g, "<br />")}
-              </div>
-            </mj-raw>
-          </mj-column>
-        </mj-section>`
+        <tr>
+          <td style="padding:8px 24px;">
+            <div style="font-family:monospace,'Courier New';font-size:14px;color:#3c3f44;line-height:22px;background-color:#f4f4f5;padding:12px;border-radius:4px;">
+              ${escapeHtml(element.text).replace(/\n/g, "<br />")}
+            </div>
+          </td>
+        </tr>`
 
     case "image":
       return element.url
         ? `
-        <mj-section>
-          <mj-column>
-            <mj-image src="${escapeHtml(element.url)}" alt="" />
-          </mj-column>
-        </mj-section>`
+        <tr>
+          <td style="padding:8px 24px;text-align:center;">
+            <img src="${escapeHtml(element.url)}" alt="" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
+          </td>
+        </tr>`
         : ""
 
     case "button":
       return element.url
         ? `
-        <mj-section>
-          <mj-column>
-            <mj-button background-color="#111111" color="#ffffff" font-size="14px"
-              font-weight="700" border-radius="4px" href="${escapeHtml(element.url)}">
+        <tr>
+          <td style="padding:8px 24px;">
+            <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeHtml(element.url)}" style="height:40px;v-text-anchor:middle;width:200px;" arcsize="10%" stroke="f" fillcolor="#111111"><w:anchorlock/><center style="color:#ffffff;font-family:sans-serif;font-size:14px;font-weight:700;"><!
+            [endif]-->
+            <a href="${escapeHtml(element.url)}" style="background-color:#111111;border-radius:4px;color:#ffffff;display:inline-block;font-size:14px;font-weight:700;line-height:40px;text-align:center;text-decoration:none;padding:0 24px;-webkit-text-size-adjust:none;mso-hide:all;">
               ${escapeHtml(element.label ?? "Click here")}
-            </mj-button>
-          </mj-column>
-        </mj-section>`
+            </a>
+            <!--[if mso]></center></v:roundrect><![endif]-->
+          </td>
+        </tr>`
         : ""
 
     case "line":
       return `
-        <mj-section>
-          <mj-column>
-            <mj-divider border-color="#e8e8e8" border-width="1px" />
-          </mj-column>
-        </mj-section>`
+        <tr>
+          <td style="padding:8px 24px;">
+            <hr style="border:none;border-top:1px solid #e8e8e8;margin:0;" />
+          </td>
+        </tr>`
 
     case "spacing":
-      return `<mj-section padding="12px 0" />`
+      return `
+        <tr>
+          <td style="height:24px;line-height:24px;font-size:24px;">&nbsp;</td>
+        </tr>`
 
     default:
       return ""
   }
 }
 
-export function buildMjmlTemplate(props: DynamicEmailProps): string {
-  const { elements: els } = props
-  const bodyElements = els.map(elementToMjml).join("\n")
+export function buildEmailHtml(props: DynamicEmailProps): string {
+  const rows = props.elements.map(elementToHtmlRow).join("\n")
 
-  return `
-    <mjml>
-      <mj-head>
-        <mj-preview>
-          ${escapeHtml(props.preheader)}
-        </mj-preview>
-      </mj-head>
-      <mj-body background-color="#ffffff">
-        ${bodyElements}
-
-        <mj-section>
-          <mj-column>
-            <mj-text font-size="12px" color="#888" padding="16px 0 0 0">⚡ Built with chatbotx.io</mj-text>
-          </mj-column>
-        </mj-section>
-      </mj-body>
-    </mjml>
-  `
+  return `<!DOCTYPE html>
+<html lang="und" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>${escapeHtml(props.subject)}</title>
+  <!--[if !mso]><!-->
+  <style type="text/css">
+    @media only screen and (max-width:600px) {
+      .container { width:100% !important; }
+      .content-cell { padding-left:16px !important; padding-right:16px !important; }
+    }
+  </style>
+  <!--<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(props.preheader)}</div>
+  <!--[if mso]>
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="width:600px;"><tr><td>
+  <![endif]-->
+  <div class="container" style="max-width:600px;margin:0 auto;padding:20px 0;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tbody>
+        ${rows}
+        <tr>
+          <td style="padding:16px 24px 24px;font-size:12px;color:#888888;">
+            &#9889; Built with chatbotx.io
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <!--[if mso]></td></tr></table><![endif]-->
+</body>
+</html>`
 }
