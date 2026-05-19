@@ -182,8 +182,8 @@ describe("executeMultipleSteps — explicit status routing", () => {
 
     const { flowStepHandlers } = await import("./step")
     vi.spyOn(
-      flowStepHandlers,
-      "autoAssignConversation" as never,
+      flowStepHandlers as any,
+      "autoAssignConversation",
     ).mockResolvedValue({
       status: "success",
       result: null,
@@ -229,8 +229,8 @@ describe("executeMultipleSteps — explicit status routing", () => {
 
     const { flowStepHandlers } = await import("./step")
     vi.spyOn(
-      flowStepHandlers,
-      "autoAssignConversation" as never,
+      flowStepHandlers as any,
+      "autoAssignConversation",
     ).mockResolvedValue({
       status: "error",
       result: null,
@@ -257,13 +257,13 @@ describe("executeMultipleSteps — loop control statuses", () => {
 
     const { flowStepHandlers } = await import("./step")
     const waitSpy = vi
-      .spyOn(flowStepHandlers, "wait" as never)
+      .spyOn(flowStepHandlers as any, "wait")
       .mockResolvedValue({
         status: "wait",
         result: null,
       } as never)
     const sendSpy = vi
-      .spyOn(flowStepHandlers, "sendText" as never)
+      .spyOn(flowStepHandlers as any, "sendText")
       .mockResolvedValue(undefined as never)
 
     const props = { ...makeBaseProps(), steps: [step1, step2] }
@@ -280,12 +280,12 @@ describe("executeMultipleSteps — loop control statuses", () => {
     const step2 = makeStep("sendText", [])
 
     const { flowStepHandlers } = await import("./step")
-    vi.spyOn(flowStepHandlers, "getUserData" as never).mockResolvedValue({
+    vi.spyOn(flowStepHandlers as any, "getUserData").mockResolvedValue({
       status: "retry",
       result: null,
     } as never)
     const sendSpy = vi
-      .spyOn(flowStepHandlers, "sendText" as never)
+      .spyOn(flowStepHandlers as any, "sendText")
       .mockResolvedValue(undefined as never)
 
     const props = { ...makeBaseProps(), steps: [step1, step2] }
@@ -366,7 +366,7 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
   test("runs beforeStep on initial entry (startFromStepId undefined)", async () => {
     const { flowStepHandlers } = await import("./step")
     const assignSpy = vi
-      .spyOn(flowStepHandlers, "autoAssignConversation" as never)
+      .spyOn(flowStepHandlers as any, "autoAssignConversation")
       .mockResolvedValue({ status: "success", result: null } as never)
     const step1 = { ...makeStep("sendText"), id: "step-1" }
     const props = {
@@ -390,7 +390,7 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
   test("skips beforeStep and resumes at the step whose id matches startFromStepId", async () => {
     const { flowStepHandlers } = await import("./step")
     const assignSpy = vi
-      .spyOn(flowStepHandlers, "autoAssignConversation" as never)
+      .spyOn(flowStepHandlers as any, "autoAssignConversation")
       .mockResolvedValue({ status: "success", result: null } as never)
     const step1 = { ...makeStep("sendText"), id: "step-1" }
     const step2 = { ...makeStep("sendText"), id: "step-2" }
@@ -423,7 +423,7 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
 
   test("does not enqueue a next-step job when the current step returns wait", async () => {
     const { flowStepHandlers } = await import("./step")
-    vi.spyOn(flowStepHandlers, "wait" as never).mockResolvedValue({
+    vi.spyOn(flowStepHandlers as any, "wait").mockResolvedValue({
       status: "wait",
       result: null,
     } as never)
@@ -442,7 +442,7 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
 
   test("does not enqueue a next-step job when the current step returns retry", async () => {
     const { flowStepHandlers } = await import("./step")
-    vi.spyOn(flowStepHandlers, "getUserData" as never).mockResolvedValue({
+    vi.spyOn(flowStepHandlers as any, "getUserData").mockResolvedValue({
       status: "retry",
       result: null,
     } as never)
@@ -517,8 +517,8 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
 
     const { flowStepHandlers } = await import("./step")
     vi.spyOn(
-      flowStepHandlers,
-      "autoAssignConversation" as never,
+      flowStepHandlers as any,
+      "autoAssignConversation",
     ).mockResolvedValue({ status: "success", result: null } as never)
 
     const props = {
@@ -608,7 +608,7 @@ describe("runStepsAndQuickReplies — per-step re-dispatch", () => {
   test("node with beforeStep only (no steps) still runs beforeStep and dispatches next node", async () => {
     const { flowStepHandlers } = await import("./step")
     const assignSpy = vi
-      .spyOn(flowStepHandlers, "autoAssignConversation" as never)
+      .spyOn(flowStepHandlers as any, "autoAssignConversation")
       .mockResolvedValue({ status: "success", result: null } as never)
     const nextNode: FlowNode = {
       id: "node-2",

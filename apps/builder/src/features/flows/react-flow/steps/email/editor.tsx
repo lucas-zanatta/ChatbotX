@@ -21,6 +21,7 @@ import { useTranslations } from "next-intl"
 import { useCallback, useEffect, useRef } from "react"
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form"
 import { TiptapEditorField } from "@/components/tiptap/tiptap-editor-field"
+import { useEmailTopicSelectOptions } from "@/features/email-topics/provider/email-topic-hook"
 import {
   useSmtpInboxFromAddressMap,
   useSmtpInboxOptions,
@@ -40,6 +41,7 @@ export default function EmailStepEditor(props: EmailStepEditorProps) {
   const smtpFromAddressMapRef = useRef(smtpFromAddressMap)
   smtpFromAddressMapRef.current = smtpFromAddressMap
   const { control, setValue } = useFormContext()
+  const emailTopicOptions = useEmailTopicSelectOptions()
 
   const integrationSmtpId = useWatch({
     name: `${parentName}.integrationSmtpId`,
@@ -71,6 +73,12 @@ export default function EmailStepEditor(props: EmailStepEditorProps) {
         label={t("fields.smtpChannel.label")}
         name={`${parentName}.integrationSmtpId`}
         options={smtpInboxOptions}
+      />
+
+      <SelectField
+        label={t("fields.topicId.label")}
+        name={`${parentName}.topicId`}
+        options={emailTopicOptions}
       />
 
       <TiptapEditorField
