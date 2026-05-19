@@ -1,4 +1,5 @@
 export * from "./bot-field"
+export * from "./email-topic"
 export * from "./folder"
 export * from "./inbox"
 export * from "./integration-context"
