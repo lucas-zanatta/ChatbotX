@@ -1,12 +1,12 @@
 "use server"
 
-import { organizationCredentialService } from "@chatbotx.io/business"
+import { credentialService } from "@chatbotx.io/business"
 import {
   type GiphyCredential,
   type GiphyCredentialUpdate,
   giphyCredentialUpdateSchema,
 } from "@chatbotx.io/database/partials"
-import type { OrganizationModel } from "@chatbotx.io/database/types"
+import type { UserModel } from "@chatbotx.io/database/types"
 import ky from "ky"
 import { returnValidationErrors } from "next-safe-action"
 
@@ -34,11 +34,11 @@ export const updateGiphySettingsAction = organizationActionClient
       ctx,
       parsedInput,
     }: {
-      ctx: { organization: OrganizationModel }
+      ctx: { user: UserModel }
       parsedInput: GiphyCredentialUpdate
     }) => {
-      const existing = await organizationCredentialService.findDecrypted({
-        organizationId: ctx.organization.id,
+      const existing = await credentialService.findDecryptedForUser({
+        userId: ctx.user.id,
         type: "giphy",
       })
 
@@ -60,8 +60,8 @@ export const updateGiphySettingsAction = organizationActionClient
 
       const config: GiphyCredential = { apiKey }
 
-      await organizationCredentialService.upsert({
-        organizationId: ctx.organization.id,
+      await credentialService.upsertForUser({
+        userId: ctx.user.id,
         type: "giphy",
         config,
       })

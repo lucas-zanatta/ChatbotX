@@ -1890,12 +1890,6 @@
   "users": {
     "title": "Users"
   },
-  "plans": {
-    "title": "Billing Plans"
-  },
-  "subscriptions": {
-    "title": "Subscriptions"
-  },
   "sequences": {
     "title": "Sequences",
     "subscribers": "Subscibers",
