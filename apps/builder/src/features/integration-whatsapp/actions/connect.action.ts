@@ -31,6 +31,7 @@ import {
   listPhoneNumbers as whatsappListPhoneNumbers,
 } from "@chatbotx.io/integration-whatsapp/api/phone-number"
 import { subscribeWebhook } from "@chatbotx.io/integration-whatsapp/api/webhook"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { AuthType } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import { updateWorkspaceLogo } from "@/features/workspaces/actions/upload-logo"
@@ -318,13 +319,20 @@ async function subscribeManualWebhook(
 
 function buildResult(params: {
   isManual: boolean
+  isCoexist: boolean
   workspaceId: string
   integrationId: string
   webhookUrl: string
   verifyToken: string
 }): ConnectWhatsappResult {
-  const { isManual, workspaceId, integrationId, webhookUrl, verifyToken } =
-    params
+  const {
+    isManual,
+    isCoexist,
+    workspaceId,
+    integrationId,
+    webhookUrl,
+    verifyToken,
+  } = params
 
   if (isManual) {
     return {
@@ -336,6 +344,9 @@ function buildResult(params: {
   return {
     type: "redirect",
     redirectUrl: `/space/${workspaceId}/dashboard`,
+    integrationId,
+    workspaceId,
+    isCoexist,
   }
 }
 
@@ -447,8 +458,13 @@ export const connectWhatsappAction = authActionClient
           await subscribeManualWebhook(auth, integrationId)
         }
 
+        await invalidateCacheByTags([`users:${ctx.user.id}:workspace-members`])
+
+        const isCoexist = parsedInput.transferPhoneNumber === true
+
         return buildResult({
           isManual,
+          isCoexist,
           workspaceId,
           integrationId,
           webhookUrl,

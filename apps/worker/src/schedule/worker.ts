@@ -18,6 +18,7 @@ import { maintainMacPartitions } from "./handlers/maintain-mac-partitions"
 import { prepareBroadcast } from "./handlers/prepare-broadcast"
 import { processBroadcastContacts } from "./handlers/process-broadcast-contacts"
 import { registerSchedules } from "./handlers/register-schedules"
+import { scanCoexistRuns } from "./handlers/scan-coexist-runs"
 import { scanSmartDelay } from "./handlers/scan-smart-delay"
 import { syncUserQuota } from "./handlers/sync-user-quota"
 
@@ -78,6 +79,10 @@ async function startScheduleWorker() {
 
         case ScheduleJobData.maintainMacPartitions:
           await maintainMacPartitions()
+          return
+
+        case ScheduleJobData.scanCoexistRuns:
+          await scanCoexistRuns()
           return
 
         default:

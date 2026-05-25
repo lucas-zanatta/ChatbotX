@@ -101,11 +101,15 @@ export const receiveMessage = async (
     ref,
   } = parsedMessage
 
-  const { contactInbox, conversation } = await detectContactAndConversation({
+  const detected = await detectContactAndConversation({
     incomingContact,
     inbox,
     integrationRow,
   })
+  if (!detected) {
+    throw new SdkException("Unable to resolve contact and conversation")
+  }
+  const { contactInbox, conversation } = detected
 
   let createdMessage: MessageModel | null = null
   if (incomingMessage) {

@@ -15,7 +15,13 @@ import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
 import { processAutomatedResponse } from "./handlers/automated-response"
 import { runChallenge } from "./handlers/challenge"
-import { agentMarkAsRead, contactMarkAsRead } from "./handlers/conversation"
+import { coexistMessengerSync } from "./handlers/coexist-messenger-sync"
+import { coexistWhatsappBuffer } from "./handlers/coexist-whatsapp-buffer"
+import { coexistWhatsappFlush } from "./handlers/coexist-whatsapp-flush"
+import {
+  agentMarkAsRead,
+  contactMarkAsRead,
+} from "./handlers/conversation"
 import {
   runFlowNode,
   runFlowPostback,
@@ -141,8 +147,29 @@ async function startIntegrationWorker() {
           await handleMessageStatus(job.data.data)
           return
         }
-        default:
+        case IntegrationJobAction.coexistWhatsappBuffer: {
+          await coexistWhatsappBuffer(job.data.data)
           return
+        }
+        case IntegrationJobAction.coexistWhatsappFlush: {
+          await coexistWhatsappFlush(job.data.data)
+          return
+        }
+        case IntegrationJobAction.coexistMessengerSync: {
+          await coexistMessengerSync(job.data.data)
+          return
+        }
+        case IntegrationJobAction.createMessage: {
+          // No-op — action type exists in the union but has no enqueuer yet.
+          return
+        }
+        default: {
+          // Exhaustiveness guard — adding a new IntegrationJobData variant
+          // without handling it here becomes a compile error.
+          const _exhaustive: never = job.data
+          logger.warn({ data: _exhaustive }, "Unhandled integration job type")
+          return
+        }
       }
     },
     {
