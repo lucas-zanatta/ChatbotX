@@ -3,8 +3,10 @@
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
+  coexistSyncRunModel,
   inboxModel,
   integrationWhatsappModel,
+  whatsappCoexistStagingModel,
 } from "@chatbotx.io/database/schema"
 import type { WhatsappAuthValue } from "@chatbotx.io/integration-whatsapp"
 import { isRevokedTokenError } from "@chatbotx.io/integration-whatsapp"
@@ -43,6 +45,21 @@ export const disconnectWhatsappAction = authActionClient
       }
 
       await db.transaction(async (tx) => {
+        // Purge sync history for this integration so the scheduler stops
+        // picking orphaned runs after disconnect.
+        await tx
+          .delete(coexistSyncRunModel)
+          .where(eq(coexistSyncRunModel.integrationId, integrationWhatsapp.id))
+
+        await tx
+          .delete(whatsappCoexistStagingModel)
+          .where(
+            eq(
+              whatsappCoexistStagingModel.phoneNumberId,
+              integrationWhatsapp.phoneNumberId,
+            ),
+          )
+
         await tx
           .delete(integrationWhatsappModel)
           .where(eq(integrationWhatsappModel.id, integrationWhatsapp.id))

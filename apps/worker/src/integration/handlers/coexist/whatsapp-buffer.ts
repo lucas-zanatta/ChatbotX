@@ -10,7 +10,7 @@ import {
   type IntegrationJobCoexistWhatsappBuffer,
   integrationQueue,
 } from "@chatbotx.io/worker-config"
-import { logger } from "../../lib/logger"
+import { logger } from "../../../lib/logger"
 
 const hashPayload = (payload: unknown): string =>
   createHash("sha256").update(JSON.stringify(payload)).digest("hex")

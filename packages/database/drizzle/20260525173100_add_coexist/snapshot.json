@@ -1,8 +1,8 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9cb9e53d-5b0f-4aea-9977-c20895e49e7a",
-  "prevIds": ["c9874dde-f0d9-448d-8acb-d1704781bc89"],
+  "id": "822fece9-3332-4f61-8ab5-7aee1ace886d",
+  "prevIds": ["591f65bb-3688-4d0a-8146-d0bcb53f868c"],
   "ddl": [
     {
       "values": ["pending", "success", "error", "processing"],
@@ -105,7 +105,7 @@
       "schema": "public"
     },
     {
-      "values": ["pending", "running", "succeeded", "failed", "partial"],
+      "values": ["init", "running", "succeeded", "failed", "partial"],
       "name": "coexistRunStatus",
       "entityType": "enums",
       "schema": "public"
@@ -3932,7 +3932,7 @@
       "typeSchema": "public",
       "notNull": true,
       "dimensions": 0,
-      "default": "'pending'",
+      "default": "'init'",
       "generated": null,
       "identity": null,
       "name": "status",
@@ -4032,6 +4032,19 @@
       "table": "CoexistSyncRun"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lastCursor",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -4039,7 +4052,33 @@
       "default": "0",
       "generated": null,
       "identity": null,
-      "name": "importedCount",
+      "name": "currentPageNumber",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "importedContactCount",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "importedMessageCount",
       "entityType": "columns",
       "schema": "public",
       "table": "CoexistSyncRun"
@@ -4233,7 +4272,7 @@
       "dimensions": 0,
       "default": null,
       "generated": {
-        "as": "\"firstName\" || ' ' || \"lastName\"",
+        "as": "CASE\n      WHEN \"firstName\" IS NULL AND \"lastName\" IS NULL THEN NULL\n      WHEN \"firstName\" IS NULL THEN \"lastName\"\n      WHEN \"lastName\" IS NULL THEN \"firstName\"\n      ELSE \"firstName\" || ' ' || \"lastName\"\n    END",
         "type": "stored"
       },
       "identity": null,
@@ -12633,14 +12672,21 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        },
+        {
+          "value": "lastHeartbeatAt",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         }
       ],
       "isUnique": false,
-      "where": null,
+      "where": "status IN ('init', 'running')",
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "CoexistSyncRun_status_idx",
+      "name": "CoexistSyncRun_active_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "CoexistSyncRun"

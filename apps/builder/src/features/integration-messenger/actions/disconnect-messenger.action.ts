@@ -3,6 +3,7 @@
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
+  coexistSyncRunModel,
   inboxModel,
   integrationMessengerModel,
 } from "@chatbotx.io/database/schema"
@@ -48,6 +49,12 @@ const disconnectMessenger = async (ctx: {
   }
 
   await db.transaction(async (tx) => {
+    // Purge sync history for this integration so the scheduler stops picking
+    // orphaned runs after disconnect.
+    await tx
+      .delete(coexistSyncRunModel)
+      .where(eq(coexistSyncRunModel.integrationId, integrationMessenger.id))
+
     await tx
       .delete(integrationMessengerModel)
       .where(eq(integrationMessengerModel.id, integrationMessenger.id))

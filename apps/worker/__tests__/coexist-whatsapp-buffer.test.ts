@@ -59,7 +59,7 @@ vi.mock("@chatbotx.io/utils", () => ({
 // Import handler after mocks are registered
 // ---------------------------------------------------------------------------
 
-import { coexistWhatsappBuffer } from "../src/integration/handlers/coexist-whatsapp-buffer"
+import { coexistWhatsappBuffer } from "../src/integration/handlers/coexist/whatsapp-buffer"
 
 // ---------------------------------------------------------------------------
 // Test helpers

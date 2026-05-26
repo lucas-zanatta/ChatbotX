@@ -22,7 +22,7 @@ import {
  * Handlers must:
  * 1. INSERT on start → capture runId
  * 2. UPDATE currentScan/currentStep/lastHeartbeatAt periodically (every ~50 items or step change)
- * 3. UPDATE importedCount/skippedCount/failedCount in batches
+ * 3. UPDATE importedContactCount/importedMessageCount/skippedCount/failedCount in batches
  * 4. UPDATE status/finishedAt/currentError on finish
  */
 export const coexistChannel = pgEnum("coexistChannel", [
@@ -61,10 +61,21 @@ export const coexistSyncRunModel = pgTable(
     currentScan: integer().notNull().default(0),
     // human-readable: "listing conversations" | "page 3/12" | "flushing batch 5"
     currentStep: text(),
-    lastCursor: text(),
+    // Messenger sync uses this as the timestamp watermark of the OLDEST
+    // message.created_time processed so far. Drives within-run chunk resume
+    // (next chunk skips conversations newer than this) AND cross-run resume
+    // (next run derives its ceiling from the prior run's lastSyncedAt when
+    // status === 'partial', or from startedAt when status === 'succeeded').
+    // Survives Page access-token rotation — unlike the prior Graph `after`
+    // cursor it replaced. Null on a fresh run that hasn't processed anything.
+    lastSyncedAt: timestamp(timestampConfig),
+    // WhatsApp coexist flush handler uses this as a batch counter for
+    // continuation jobId uniqueness and human-readable progress.
+    currentPageNumber: integer().notNull().default(0),
 
     // outcome counters
-    importedCount: integer().notNull().default(0),
+    importedContactCount: integer().notNull().default(0),
+    importedMessageCount: integer().notNull().default(0),
     skippedCount: integer().notNull().default(0),
     failedCount: integer().notNull().default(0),
     attempts: integer().notNull().default(0),
@@ -78,5 +89,12 @@ export const coexistSyncRunModel = pgTable(
     index("CoexistSyncRun_active_idx")
       .on(t.status, t.lastHeartbeatAt)
       .where(sql`status IN ('init', 'running')`),
+    // Composite partial index that powers fetchPriorRunCeiling in coexist
+    // messenger-sync. The query filters by (integrationId, channel) restricted
+    // to status IN ('succeeded','partial') and asks for the most recent
+    // startedAt. Without this index every chunk pays a per-integration sort.
+    index("CoexistSyncRun_integration_resume_idx")
+      .on(t.integrationId, t.channel, sql`${t.startedAt} DESC`)
+      .where(sql`status IN ('succeeded', 'partial')`),
   ],
 )

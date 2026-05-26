@@ -15,9 +15,9 @@ import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
 import { processAutomatedResponse } from "./handlers/automated-response"
 import { runChallenge } from "./handlers/challenge"
-import { coexistMessengerSync } from "./handlers/coexist-messenger-sync"
-import { coexistWhatsappBuffer } from "./handlers/coexist-whatsapp-buffer"
-import { coexistWhatsappFlush } from "./handlers/coexist-whatsapp-flush"
+import { coexistMessengerSync } from "./handlers/coexist/messenger-sync"
+import { coexistWhatsappBuffer } from "./handlers/coexist/whatsapp-buffer"
+import { coexistWhatsappFlush } from "./handlers/coexist/whatsapp-flush"
 import {
   agentMarkAsRead,
   contactMarkAsRead,
@@ -175,6 +175,12 @@ async function startIntegrationWorker() {
     {
       connection: getRedisConnection(),
       ...defaultWorkerOptions,
+      // Coexist historical sync chunks are bounded to ~4 min via self-continuation
+      // (see coexist-messenger-sync / coexist-whatsapp-flush). Lock sized as:
+      // 4 min active + 4 min Graph 5xx retry tail + 2 min bulk INSERT tail.
+      lockDuration: 10 * 60 * 1000,
+      stalledInterval: 10 * 60 * 1000,
+      maxStalledCount: 1,
     },
   )
 

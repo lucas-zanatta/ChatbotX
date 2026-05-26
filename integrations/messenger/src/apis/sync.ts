@@ -1,6 +1,7 @@
 import { DEFAULT_API_VERSION } from "../constants"
 import { rescue } from "../exception"
-import { facebookGraphClient } from "../lib/http-client"
+import { facebookCoexistGraphClient } from "../lib/http-client"
+import { type BucUsage, parseBucHeader } from "./usage"
 
 /** A Messenger participant as returned by the Graph conversations edge. */
 export type MessengerParticipant = {
@@ -13,6 +14,10 @@ export type MessengerParticipant = {
 export type MessengerConversation = {
   id: string
   participants?: { data?: MessengerParticipant[] }
+  /** ISO timestamp of the latest activity in the thread. Used by coexist sync
+   *  resume to filter conversations against the within-run frontier and the
+   *  cross-run ceiling. */
+  updated_time?: string
 }
 
 /** A single message inside a conversation thread. */
@@ -31,6 +36,7 @@ type GraphPage<T> = {
 type PaginatedResult<T> = {
   data: T[]
   after?: string
+  bucUsage?: BucUsage | null
 }
 
 const PAGE_LIMIT = 100
@@ -53,19 +59,24 @@ export const listConversations = (props: {
   const endpoint = `${version}/${pageId}/conversations`
 
   return rescue(endpoint, async () => {
-    const response = await facebookGraphClient.get<
-      GraphPage<MessengerConversation>
-    >(endpoint, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      searchParams: {
-        fields: "id,participants",
-        platform: "MESSENGER",
-        limit: String(PAGE_LIMIT),
-        ...(after ? { after } : {}),
-      },
-    })
+    const { data: response, headers } =
+      await facebookCoexistGraphClient.getWithHeaders<
+        GraphPage<MessengerConversation>
+      >(endpoint, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        searchParams: {
+          fields: "id,participants,updated_time",
+          platform: "MESSENGER",
+          limit: String(PAGE_LIMIT),
+          ...(after ? { after } : {}),
+        },
+      })
 
-    return { data: response.data ?? [], after: nextCursor(response.paging) }
+    return {
+      data: response.data ?? [],
+      after: nextCursor(response.paging),
+      bucUsage: parseBucHeader(headers.get("x-business-use-case-usage")),
+    }
   })
 }
 
@@ -87,17 +98,22 @@ export const listMessages = (props: {
   const endpoint = `${version}/${conversationId}/messages`
 
   return rescue(endpoint, async () => {
-    const response = await facebookGraphClient.get<
-      GraphPage<MessengerHistoryMessage>
-    >(endpoint, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      searchParams: {
-        fields: "id,message,from,created_time",
-        limit: String(PAGE_LIMIT),
-        ...(after ? { after } : {}),
-      },
-    })
+    const { data: response, headers } =
+      await facebookCoexistGraphClient.getWithHeaders<
+        GraphPage<MessengerHistoryMessage>
+      >(endpoint, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        searchParams: {
+          fields: "id,message,from,created_time",
+          limit: String(PAGE_LIMIT),
+          ...(after ? { after } : {}),
+        },
+      })
 
-    return { data: response.data ?? [], after: nextCursor(response.paging) }
+    return {
+      data: response.data ?? [],
+      after: nextCursor(response.paging),
+      bucUsage: parseBucHeader(headers.get("x-business-use-case-usage")),
+    }
   })
 }
