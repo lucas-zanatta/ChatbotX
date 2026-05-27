@@ -219,6 +219,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [],
     })
 
@@ -258,6 +259,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [{ contact: contact("src-1"), messages: [msg("m-src-1")] }],
     })
 
@@ -286,6 +288,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [
         {
           contact: contact("src-1"),
@@ -316,6 +319,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [
         { contact: contact("src-1"), messages: [msg("m-acc-1")] },
         {
@@ -339,6 +343,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [
         { contact: contact("src-1"), messages: [msg("m-1")] },
         { contact: contact("src-2"), messages: [msg("m-2"), msg("m-3")] },
@@ -368,6 +373,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [
         { contact: contact("src-1"), messages: [msg("m-1"), msg("m-2")] },
       ],
@@ -401,6 +407,7 @@ describe("bulkImportHistorical", () => {
     const result = await bulkImportHistorical({
       inbox,
       workspaceId,
+      runId: "12345",
       batch: [
         { contact: contact("src-shared"), messages: [msg("m-a")] },
         { contact: contact("src-shared"), messages: [msg("m-b")] },

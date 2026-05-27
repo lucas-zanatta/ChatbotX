@@ -394,6 +394,7 @@ export const coexistWhatsappFlush = async (
         batchResult = await bulkImportHistorical({
           inbox,
           workspaceId: integration.workspaceId,
+          runId,
           batch: flat,
         })
       } catch (error) {

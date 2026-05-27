@@ -1,6 +1,6 @@
 "use server"
 
-import { db, eq, findOrFail } from "@chatbotx.io/database/client"
+import { and, db, eq, findOrFail, inArray } from "@chatbotx.io/database/client"
 import { inboxStatuses } from "@chatbotx.io/database/partials"
 import {
   coexistSyncRunModel,
@@ -49,11 +49,23 @@ const disconnectMessenger = async (ctx: {
   }
 
   await db.transaction(async (tx) => {
-    // Purge sync history for this integration so the scheduler stops picking
-    // orphaned runs after disconnect.
+    // Preserve sync history (importedCount / lastSyncedAt / etc.) for audit
+    // and so reconnect can resume from prior watermark. Only abandon ACTIVE
+    // runs so the scheduler stops trying to drive them forward against a
+    // now-missing integration.
     await tx
-      .delete(coexistSyncRunModel)
-      .where(eq(coexistSyncRunModel.integrationId, integrationMessenger.id))
+      .update(coexistSyncRunModel)
+      .set({
+        status: "failed",
+        finishedAt: new Date(),
+        currentError: "Integration disconnected",
+      })
+      .where(
+        and(
+          eq(coexistSyncRunModel.integrationId, integrationMessenger.id),
+          inArray(coexistSyncRunModel.status, ["init", "running"]),
+        ),
+      )
 
     await tx
       .delete(integrationMessengerModel)

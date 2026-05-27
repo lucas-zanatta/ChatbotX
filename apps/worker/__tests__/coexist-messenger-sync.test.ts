@@ -322,6 +322,7 @@ describe("coexistMessengerSync", () => {
       {
         inbox: typeof fakeInbox
         workspaceId: string
+        runId: string
         batch: Array<{
           contact: { sourceId: string }
           messages: Array<{ sourceId: string }>
@@ -330,6 +331,7 @@ describe("coexistMessengerSync", () => {
     ]
     expect(bulkArgs.inbox).toBe(fakeInbox)
     expect(bulkArgs.workspaceId).toBe(workspaceId)
+    expect(bulkArgs.runId).toBe(runId)
     expect(bulkArgs.batch).toHaveLength(1)
     expect(bulkArgs.batch[0]?.contact.sourceId).toBe("user-999")
     expect(bulkArgs.batch[0]?.messages[0]?.sourceId).toBe("msg-xyz")

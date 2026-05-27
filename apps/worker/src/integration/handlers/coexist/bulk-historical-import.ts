@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noBitwiseOperators: bit-packing 63-bit snowflake IDs
 import { db, inArray, sql } from "@chatbotx.io/database/client"
 import {
   contactInboxModel,
@@ -12,6 +13,97 @@ import { emitContactCreated } from "@chatbotx.io/events"
 import type { IncomingContact, IncomingMessage } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import { logger } from "../../../lib/logger"
+
+// ---------- Coexist time-derived Message IDs ----------
+// Layout mirrors `@chatbotx.io/utils` `createId()` shift so coexist IDs share
+// the same numeric magnitude/length as live snowflakes:
+//   high → low: [ 53 bits ms since epoch ][ 10 bits run partition ][ 4 bits seq ]
+//   ts_shift = 14   (identical to uuniq layout)
+// Epoch `2026-03-31` matches `createId()`. The high 53 bits being a pure
+// function of `createdAt` guarantees `ORDER BY id` ≡ `ORDER BY createdAt` for
+// historically-imported rows.
+// Partition space = 1024 slots → >100 concurrent workers without collision.
+// Seq space = 16 same-ms slots per run → Graph second-precision (1000 ms per
+// sec) means 16,000 msgs/sec headroom; overflow scans forward by 1 ms.
+
+const COEXIST_EPOCH_MS = new Date("2026-03-31").getTime()
+const COEXIST_TS_BITS = 53n
+const COEXIST_PARTITION_BITS = 10n
+const COEXIST_SEQ_BITS = 4n
+const COEXIST_PARTITION_SHIFT = COEXIST_SEQ_BITS
+const COEXIST_TS_SHIFT = COEXIST_PARTITION_BITS + COEXIST_SEQ_BITS
+const COEXIST_PARTITION_MASK = (1n << COEXIST_PARTITION_BITS) - 1n
+const COEXIST_SEQ_MASK = (1n << COEXIST_SEQ_BITS) - 1n
+const COEXIST_MAX_TS = 1n << COEXIST_TS_BITS
+
+export type HistoricalIdFactory = (date: Date) => string
+
+const COEXIST_SEQ_SPACE = 1n << COEXIST_SEQ_BITS
+
+/**
+ * Build a per-run factory that mints time-derived IDs for historical Message
+ * inserts. The high 41 bits are always derived from `date.getTime()` so that
+ * `ORDER BY id` matches `ORDER BY createdAt` regardless of the order in which
+ * messages are fed to the factory (Graph APIs typically stream newest-first).
+ *
+ * For same-ms collisions within one run, a per-ts sequence counter increments
+ * monotonically. When the 16-slot sequence space at a given ms is exhausted,
+ * we scan forward to the next available ms — this drifts overflowed IDs by a
+ * few ms but preserves both monotonicity and the time-order invariant.
+ *
+ * Cross-run uniqueness comes from the 10-bit partition derived from `runId`
+ * (1024 slots > 100 concurrent workers).
+ */
+export const createHistoricalIdFactory = (
+  runId: string,
+): HistoricalIdFactory => {
+  const partition = BigInt(runId) & COEXIST_PARTITION_MASK
+  const seqByTs = new Map<bigint, bigint>()
+
+  return (date: Date): string => {
+    const baseTs = BigInt(date.getTime() - COEXIST_EPOCH_MS)
+    if (baseTs < 0n || baseTs >= COEXIST_MAX_TS) {
+      throw new Error(
+        `createHistoricalIdFactory: ${date.toISOString()} out of range`,
+      )
+    }
+    let ts = baseTs
+    while (ts < COEXIST_MAX_TS) {
+      const next = seqByTs.get(ts) ?? 0n
+      if (next < COEXIST_SEQ_SPACE) {
+        seqByTs.set(ts, next + 1n)
+        return (
+          (ts << COEXIST_TS_SHIFT) |
+          (partition << COEXIST_PARTITION_SHIFT) |
+          next
+        ).toString()
+      }
+      ts += 1n
+    }
+    throw new Error(
+      `createHistoricalIdFactory: exhausted sequence space at ${date.toISOString()}`,
+    )
+  }
+}
+
+export const decodeHistoricalId = (
+  id: string,
+): { timestampMs: number; partition: number; seq: number } => {
+  const v = BigInt(id)
+  return {
+    timestampMs: Number(v >> COEXIST_TS_SHIFT) + COEXIST_EPOCH_MS,
+    partition: Number((v >> COEXIST_PARTITION_SHIFT) & COEXIST_PARTITION_MASK),
+    seq: Number(v & COEXIST_SEQ_MASK),
+  }
+}
+
+const isUniqueMessagePkViolation = (err: unknown): boolean => {
+  if (typeof err !== "object" || err === null) {
+    return false
+  }
+  const e = err as { code?: string; constraint_name?: string }
+  return e.code === "23505" && e.constraint_name === "Message_pkey"
+}
 
 export type HistoricalMessage = IncomingMessage & { createdAt?: Date }
 
@@ -66,9 +158,11 @@ type ResolvedEntry = {
 export const bulkImportHistorical = async (props: {
   inbox: InboxModel
   workspaceId: string
+  runId: string
   batch: HistoricalContactMessages[]
 }): Promise<BulkImportResult> => {
-  const { inbox, workspaceId, batch } = props
+  const { inbox, workspaceId, runId, batch } = props
+  const makeMessageId = createHistoricalIdFactory(runId)
 
   const empty: BulkImportResult = {
     importedContacts: 0,
@@ -216,7 +310,7 @@ export const bulkImportHistorical = async (props: {
         const values = sql.join(
           enrichmentRows.map(
             (r) =>
-              sql`(${r.contactId}::text, ${r.phoneNumber}::text, ${r.email}::text)`,
+              sql`(${r.contactId}::bigint, ${r.phoneNumber}::text, ${r.email}::text)`,
           ),
           sql`, `,
         )
@@ -455,7 +549,7 @@ export const bulkImportHistorical = async (props: {
         const isOutgoing = msg.messageType === "outgoing"
         const createdAt = msg.createdAt ?? new Date()
         messageRows.push({
-          id: createId(),
+          id: makeMessageId(createdAt),
           conversationId: link.conversationId,
           contactInboxId: link.contactInboxId,
           senderType: isOutgoing ? "user" : "contact",
@@ -480,13 +574,37 @@ export const bulkImportHistorical = async (props: {
       let insertedTotal = 0
       for (let i = 0; i < messageRows.length; i += CHUNK_SIZE) {
         const chunk = messageRows.slice(i, i + CHUNK_SIZE)
-        const inserted = await tx
-          .insert(messageModel)
-          .values(chunk)
-          .onConflictDoNothing({
-            target: [messageModel.contactInboxId, messageModel.sourceId],
-          })
-          .returning({ id: messageModel.id })
+        let inserted: { id: string }[]
+        try {
+          inserted = await tx
+            .insert(messageModel)
+            .values(chunk)
+            .onConflictDoNothing({
+              target: [messageModel.contactInboxId, messageModel.sourceId],
+            })
+            .returning({ id: messageModel.id })
+        } catch (err) {
+          if (!isUniqueMessagePkViolation(err)) {
+            throw err
+          }
+          // Cross-run PK collision (partition+ms+seq clash). Regenerate IDs
+          // from the factory — sequence advances naturally — and retry once.
+          logger.warn(
+            { runId, chunkStart: i, chunkSize: chunk.length },
+            "[coexist] Message PK collision — regenerating IDs and retrying",
+          )
+          const retried = chunk.map((row) => ({
+            ...row,
+            id: makeMessageId(new Date(row.createdAt as Date)),
+          }))
+          inserted = await tx
+            .insert(messageModel)
+            .values(retried)
+            .onConflictDoNothing({
+              target: [messageModel.contactInboxId, messageModel.sourceId],
+            })
+            .returning({ id: messageModel.id })
+        }
         insertedTotal += inserted.length
       }
       importedMessages = insertedTotal

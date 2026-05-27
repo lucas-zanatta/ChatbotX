@@ -309,6 +309,7 @@ describe("coexistWhatsappFlush", () => {
       {
         inbox: typeof fakeInbox
         workspaceId: string
+        runId: string
         batch: Array<{
           contact: { sourceId: string }
           messages: Array<{ sourceId: string }>
@@ -317,6 +318,7 @@ describe("coexistWhatsappFlush", () => {
     ]
     expect(bulkArgs.inbox).toBe(fakeInbox)
     expect(bulkArgs.workspaceId).toBe("ws-1")
+    expect(bulkArgs.runId).toBe(runId)
     expect(bulkArgs.batch[0]?.contact.sourceId).toBe("601234567890")
     expect(bulkArgs.batch[0]?.messages[0]?.sourceId).toBe("msg-row-1")
   })

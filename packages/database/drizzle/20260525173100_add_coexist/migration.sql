@@ -15,7 +15,7 @@ CREATE TABLE "CoexistSyncRun" (
 	"totalScan" integer DEFAULT 0 NOT NULL,
 	"currentScan" integer DEFAULT 0 NOT NULL,
 	"currentStep" text,
-	"lastCursor" text,
+	"lastSyncedAt" timestamp(6) with time zone,
 	"currentPageNumber" integer DEFAULT 0 NOT NULL,
 	"importedContactCount" integer DEFAULT 0 NOT NULL,
 	"importedMessageCount" integer DEFAULT 0 NOT NULL,
@@ -40,5 +40,6 @@ ALTER TABLE "IntegrationWhatsapp" ADD COLUMN "coexistEnabled" boolean DEFAULT fa
 CREATE INDEX "CoexistSyncRun_workspace_idx" ON "CoexistSyncRun" ("workspaceId");--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_integration_idx" ON "CoexistSyncRun" ("integrationId");--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_active_idx" ON "CoexistSyncRun" ("status","lastHeartbeatAt") WHERE status IN ('init', 'running');--> statement-breakpoint
+CREATE INDEX "CoexistSyncRun_integration_resume_idx" ON "CoexistSyncRun" ("integrationId","channel","startedAt" DESC) WHERE status IN ('succeeded', 'partial');--> statement-breakpoint
 CREATE INDEX "WhatsappCoexistStaging_phoneNumberId_idx" ON "WhatsappCoexistStaging" ("phoneNumberId");--> statement-breakpoint
 CREATE UNIQUE INDEX "WhatsappCoexistStaging_phone_hash_uq" ON "WhatsappCoexistStaging" ("phoneNumberId","payloadHash");

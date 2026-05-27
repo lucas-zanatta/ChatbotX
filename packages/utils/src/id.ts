@@ -12,6 +12,8 @@ export const SymbolicSnowflakeIDs = new Snowflake({
 
 export const createId = (): string => NumericSnowflakeIDs.generate()
 
+export const resolveId = (id: string) => NumericSnowflakeIDs.resolve(id)
+
 export const parseBigIntId = (
   id: string | undefined | null,
 ): string | undefined => {

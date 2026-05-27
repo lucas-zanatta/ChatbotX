@@ -626,6 +626,7 @@ export const coexistMessengerSync = async (
         pageResult = await bulkImportHistorical({
           inbox,
           workspaceId: integration.workspaceId,
+          runId,
           batch: realBatch,
         })
       } catch (error) {
