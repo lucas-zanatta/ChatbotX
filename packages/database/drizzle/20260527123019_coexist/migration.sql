@@ -22,7 +22,10 @@ CREATE TABLE "CoexistSyncRun" (
 	"skippedCount" integer DEFAULT 0 NOT NULL,
 	"failedCount" integer DEFAULT 0 NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"currentError" text
+	"currentError" text,
+	"lastPhase" integer,
+	"lastChunkOrder" integer,
+	"syncProgress" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "WhatsappCoexistStaging" (
@@ -37,6 +40,9 @@ CREATE TABLE "WhatsappCoexistStaging" (
 --> statement-breakpoint
 ALTER TABLE "IntegrationMessenger" ADD COLUMN "coexistEnabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "IntegrationWhatsapp" ADD COLUMN "coexistEnabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "IntegrationWhatsapp" ADD COLUMN "isCoexist" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "IntegrationWhatsapp" ADD COLUMN "platformType" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "IntegrationWhatsapp" ADD COLUMN "historyDeclined" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_workspace_idx" ON "CoexistSyncRun" ("workspaceId");--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_integration_idx" ON "CoexistSyncRun" ("integrationId");--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_active_idx" ON "CoexistSyncRun" ("status","lastHeartbeatAt") WHERE status IN ('init', 'running');--> statement-breakpoint

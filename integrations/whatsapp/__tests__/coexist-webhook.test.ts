@@ -6,10 +6,10 @@ import { extractCoexistPayloads } from "../src/handlers/webhook"
 // ---------------------------------------------------------------------------
 
 /** Wraps a single change value in the full webhook body envelope. */
-const makeBody = (value: unknown) => ({
+const makeBody = (value: unknown, field?: string) => ({
   entry: [
     {
-      changes: [{ value }],
+      changes: [field ? { field, value } : { value }],
     },
   ],
 })
@@ -50,6 +50,65 @@ describe("extractCoexistPayloads", () => {
       const body = makeBody(value)
       const result = extractCoexistPayloads(body)
 
+      expect(result[0]?.value).toBe(value)
+    })
+
+    it("returns entry for field='smb_app_state_sync' with value.state_sync[] (current Meta shape)", () => {
+      const body = makeBody(
+        {
+          metadata: { phone_number_id: "phone-789" },
+          state_sync: [{ contact: "x" }],
+        },
+        "smb_app_state_sync",
+      )
+      const result = extractCoexistPayloads(body)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({ phoneNumberId: "phone-789" })
+    })
+
+    it("returns entry for field='smb_message_echoes' with value.message_echoes[]", () => {
+      const body = makeBody(
+        {
+          metadata: { phone_number_id: "phone-echo" },
+          message_echoes: [{ id: "wamid.echo" }],
+        },
+        "smb_message_echoes",
+      )
+      const result = extractCoexistPayloads(body)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({ phoneNumberId: "phone-echo" })
+    })
+
+    it("preserves history[].metadata (phase/chunk_order/progress) on the buffered value", () => {
+      const value = {
+        metadata: { phone_number_id: "phone-meta" },
+        history: [
+          {
+            metadata: { phase: 2, chunk_order: 5, progress: 100 },
+            threads: [],
+          },
+        ],
+      }
+      const body = makeBody(value, "history")
+      const result = extractCoexistPayloads(body)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.value).toBe(value)
+    })
+
+    it("preserves history[].errors[code=2593109] (history-declined) on the buffered value", () => {
+      const value = {
+        metadata: { phone_number_id: "phone-declined" },
+        history: [
+          { errors: [{ code: 2_593_109, title: "History sharing declined" }] },
+        ],
+      }
+      const body = makeBody(value, "history")
+      const result = extractCoexistPayloads(body)
+
+      expect(result).toHaveLength(1)
       expect(result[0]?.value).toBe(value)
     })
 

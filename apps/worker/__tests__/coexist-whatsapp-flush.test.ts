@@ -75,7 +75,7 @@ vi.mock("@chatbotx.io/database/schema", () => ({
     phoneNumberId: "phoneNumberId",
     processedAt: "processedAt",
   },
-  integrationWhatsappModel: {},
+  integrationWhatsappModel: { id: "id" },
   inboxModel: {},
   coexistSyncRunModel: {
     id: "id",
@@ -86,6 +86,16 @@ vi.mock("@chatbotx.io/database/schema", () => ({
     skippedCount: "skippedCount",
     failedCount: "failedCount",
     currentScan: "currentScan",
+  },
+  contactInboxModel: {
+    id: "id",
+    inboxId: "inboxId",
+    sourceId: "sourceId",
+  },
+  messageModel: {
+    contactInboxId: "contactInboxId",
+    sourceId: "sourceId",
+    contentAttributes: "contentAttributes",
   },
 }))
 
@@ -394,6 +404,133 @@ describe("coexistWhatsappFlush", () => {
     await coexistWhatsappFlush({ runId, phoneNumberId })
 
     expect(mockIsNullFn).toHaveBeenCalled()
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // New payload shapes (May 21 2026 Meta docs)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const makeEchoRow = (id: string, waId = "601234567890") => ({
+    id,
+    phoneNumberId,
+    processedAt: null,
+    payload: {
+      metadata: { phone_number_id: phoneNumberId },
+      smb_message_echoes: [
+        {
+          id: `echo-${id}`,
+          from: "business-self",
+          to: waId,
+          timestamp: "1700000123",
+          type: "text",
+          text: { body: "Hi from business" },
+        },
+      ],
+    },
+  })
+
+  const makeDeclinedRow = (id: string) => ({
+    id,
+    phoneNumberId,
+    processedAt: null,
+    payload: {
+      metadata: { phone_number_id: phoneNumberId },
+      history: [
+        {
+          errors: [{ code: 2_593_109, title: "History sharing declined" }],
+        },
+      ],
+    },
+  })
+
+  const makeMetadataRow = (id: string, waId = "601234567890") => ({
+    id,
+    phoneNumberId,
+    processedAt: null,
+    payload: {
+      contacts: [{ wa_id: waId, profile: { name: "Alice" } }],
+      history: [
+        {
+          metadata: { phase: 2, chunk_order: 5, progress: 100 },
+          threads: [
+            {
+              id: waId,
+              messages: [
+                {
+                  id: `msg-${id}`,
+                  from: waId,
+                  timestamp: "1700000000",
+                  type: "text",
+                  text: { body: "Hello" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  })
+
+  it("smb_message_echoes produces an outgoing message keyed on echo.to", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [makeEchoRow("row-echo")])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+      {
+        batch: Array<{
+          contact: { sourceId: string }
+          messages: Array<{ sourceId: string; messageType: string }>
+        }>
+      },
+    ]
+    expect(bulkArgs.batch[0]?.contact.sourceId).toBe("601234567890")
+    expect(bulkArgs.batch[0]?.messages[0]?.sourceId).toBe("echo-row-echo")
+    expect(bulkArgs.batch[0]?.messages[0]?.messageType).toBe("outgoing")
+  })
+
+  it("history-decline (error 2593109) closes run as succeeded with sentinel error and flips historyDeclined", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [makeDeclinedRow("row-declined")])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    const setPayloads = mockUpdate.mock.results
+      .flatMap((r) => {
+        const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
+        return value?.set?.mock.calls ?? []
+      })
+      .map((args) => args[0] as Record<string, unknown>)
+
+    expect(setPayloads.some((p) => p.historyDeclined === true)).toBe(true)
+    const closePayload = setPayloads.find((p) => p && p.currentStep === "done")
+    expect(closePayload?.status).toBe("succeeded")
+    expect(closePayload?.currentError).toBe("history_declined")
+  })
+
+  it("history metadata persists phase/chunkOrder/syncProgress on the run row", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [makeMetadataRow("row-meta")])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    const setPayloads = mockUpdate.mock.results
+      .flatMap((r) => {
+        const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
+        return value?.set?.mock.calls ?? []
+      })
+      .map((args) => args[0] as Record<string, unknown>)
+
+    expect(
+      setPayloads.some(
+        (p) =>
+          p.lastPhase === 2 && p.lastChunkOrder === 5 && p.syncProgress === 100,
+      ),
+    ).toBe(true)
   })
 
   it("counter inflation regression: failed contact's N messages do NOT inflate failedCount", async () => {

@@ -18,6 +18,7 @@ import { runChallenge } from "./handlers/challenge"
 import { coexistMessengerSync } from "./handlers/coexist/messenger-sync"
 import { coexistWhatsappBuffer } from "./handlers/coexist/whatsapp-buffer"
 import { coexistWhatsappFlush } from "./handlers/coexist/whatsapp-flush"
+import { updateContactAvatar } from "./handlers/contact/update-avatar"
 import {
   agentMarkAsRead,
   contactMarkAsRead,
@@ -157,6 +158,10 @@ async function startIntegrationWorker() {
         }
         case IntegrationJobAction.coexistMessengerSync: {
           await coexistMessengerSync(job.data.data)
+          return
+        }
+        case IntegrationJobAction.updateContactAvatar: {
+          await updateContactAvatar(job.data.data)
           return
         }
         case IntegrationJobAction.createMessage: {

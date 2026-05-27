@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "822fece9-3332-4f61-8ab5-7aee1ace886d",
+  "id": "64e43799-78bd-4546-bbc0-2f5ae6426308",
   "prevIds": ["591f65bb-3688-4d0a-8146-d0bcb53f868c"],
   "ddl": [
     {
@@ -4131,6 +4131,45 @@
       "generated": null,
       "identity": null,
       "name": "currentError",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lastPhase",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lastChunkOrder",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "syncProgress",
       "entityType": "columns",
       "schema": "public",
       "table": "CoexistSyncRun"
@@ -8666,6 +8705,45 @@
       "table": "IntegrationWhatsapp"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "isCoexist",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "IntegrationWhatsapp"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "name": "platformType",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "IntegrationWhatsapp"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "historyDeclined",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "IntegrationWhatsapp"
+    },
+    {
       "type": "bigint",
       "typeSchema": null,
       "notNull": true,
@@ -12709,9 +12787,9 @@
           "opclass": null
         },
         {
-          "value": "startedAt",
-          "isExpression": false,
-          "asc": false,
+          "value": "\"startedAt\" DESC",
+          "isExpression": true,
+          "asc": true,
           "nullsFirst": false,
           "opclass": null
         }

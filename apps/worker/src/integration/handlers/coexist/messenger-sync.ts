@@ -81,6 +81,14 @@ const STORE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
 const MAX_INLINE_RETRIES = 4
 
 /**
+ * Maximum number of message pages to scan beyond the 3-month storage window
+ * purely for phone/email discovery. Prevents unbounded Graph API calls when
+ * a conversation never contains extractable contact info (~1000 messages at
+ * 100/page).
+ */
+const MAX_DISCOVERY_PAGES = 10
+
+/**
  * Active wall-time budget per chunk. When exceeded, the job persists state and
  * either hot-chains a continuation enqueue or yields to the scheduler.
  *
@@ -176,6 +184,10 @@ async function fetchPriorRunCeiling(
   return priorRun.lastSyncedAt ?? priorRun.startedAt ?? null
 }
 
+function log(data: unknown, msg = "") {
+  logger.debug({ data }, msg)
+}
+
 /**
  * Page-per-job historical Messenger sync. Each invocation walks the Graph
  * `/me/conversations` list newest-first and uses timestamp watermarks to
@@ -264,9 +276,7 @@ export const coexistMessengerSync = async (
   })
   const defaultCountry = workspace?.targetCountry ?? null
 
-  // Cutoff for message storage. Computed once per job invocation — a long
-  // multi-chunk sync naturally slides the cutoff forward across resumes.
-  const cutoff = new Date(Date.now() - STORE_WINDOW_MS)
+  const fallbackCutoff = new Date(Date.now() - STORE_WINDOW_MS)
 
   // ── Read resume state ─────────────────────────────────────────────────────
   const [runRow] = await db
@@ -415,6 +425,7 @@ export const coexistMessengerSync = async (
           after: pageCursor,
         }),
       )
+      // log(conversations, "conversations")
       applyBucThrottle(conversations.bucUsage)
 
       await db
@@ -436,10 +447,10 @@ export const coexistMessengerSync = async (
         // "must process" (the alternative — silent skip — has caused data
         // loss in the past) and log so we can detect API drift over time.
         if (!convTime) {
-          logger.warn(
-            { convId: conv.id, integrationId },
-            "[coexist] Messenger conversation missing updated_time — processing without watermark filter",
-          )
+          // log(
+          //   { convId: conv.id, integrationId },
+          //   "[coexist] Messenger conversation missing updated_time — processing without watermark filter",
+          // )
           convsToProcess.push(conv)
           continue
         }
@@ -448,6 +459,7 @@ export const coexistMessengerSync = async (
         // we cross the ceiling there is nothing newer below.
         if (ceiling && convTime <= ceiling) {
           stopAll = true
+          //log({ convId: conv.id, convTime, ceiling }, "stopAll")
           break
         }
 
@@ -457,6 +469,7 @@ export const coexistMessengerSync = async (
         // boundary conv (== frontier, Graph timestamps are second-precision
         // and can collide) re-enters — idempotency dedups any double-process.
         if (frontier && convTime > frontier) {
+          //log({ convId: conv.id, convTime, frontier }, "skip")
           continue
         }
 
@@ -478,11 +491,15 @@ export const coexistMessengerSync = async (
             const convTime = conv.updated_time
               ? new Date(conv.updated_time)
               : null
+            const messageCutoff = convTime
+              ? new Date(convTime.getTime() - STORE_WINDOW_MS)
+              : fallbackCutoff
             try {
               const participant = conv.participants?.data?.find(
                 (entry) => entry.id !== pageId,
               )
               if (!participant) {
+                //log({ conv }, "skip - no participant")
                 return { result: "SKIPPED", convTime: null }
               }
               const { firstName, lastName } = splitName(participant.name)
@@ -498,6 +515,8 @@ export const coexistMessengerSync = async (
               const recentMessages: HistoricalContactMessages["messages"] = []
               let messageCursor: string | undefined
               let hitOlderBoundary = false
+              let discoveryPages = 0
+              let totalMsg = 0
 
               while (true) {
                 await respectPause()
@@ -509,11 +528,14 @@ export const coexistMessengerSync = async (
                     after: messageCursor,
                   }),
                 )
+                //log({ conv: conv.id, page }, "list messages page")
                 applyBucThrottle(page.bucUsage)
                 for (const m of page.data) {
+                  //log({ message: m }, "message")
                   if (!m.message) {
                     continue
                   }
+                  totalMsg++
                   const createdAt = m.created_time
                     ? new Date(m.created_time)
                     : new Date()
@@ -522,6 +544,7 @@ export const coexistMessengerSync = async (
                   // imported. Stops storage AND extraction.
                   if (ceiling && createdAt <= ceiling) {
                     hitOlderBoundary = true
+                    //log({ m, createdAt, ceiling }, "skip - older than ceiling")
                     continue
                   }
 
@@ -543,7 +566,7 @@ export const coexistMessengerSync = async (
                     }
                   }
 
-                  if (createdAt >= cutoff) {
+                  if (createdAt >= messageCutoff || totalMsg <= 100) {
                     recentMessages.push({
                       sourceId: m.id,
                       messageType:
@@ -559,20 +582,26 @@ export const coexistMessengerSync = async (
 
                 messageCursor = page.after
                 if (!messageCursor) {
+                  //log({ conv: conv.id }, "no more messages")
                   break
                 }
 
                 // After consuming a page, decide whether to continue paginating.
-                // Once we cross >3mo territory, stop only when BOTH fields are
-                // discovered — otherwise keep scanning older purely to satisfy
-                // the missing field's discovery. (`&&`, not `||`: a single
-                // discovered field is insufficient.)
-                if (
-                  hitOlderBoundary &&
-                  discovered.phoneNumber &&
-                  discovered.email
-                ) {
-                  break
+                // Once we cross >3mo territory, keep scanning for phone/email
+                // discovery up to MAX_DISCOVERY_PAGES extra pages. Stop early
+                // when both fields are found.
+                if (hitOlderBoundary) {
+                  discoveryPages += 1
+                  if (
+                    (discovered.phoneNumber && discovered.email) ||
+                    discoveryPages >= MAX_DISCOVERY_PAGES
+                  ) {
+                    log(
+                      { discovered, discoveryPages },
+                      "stop discovery pagination",
+                    )
+                    break
+                  }
                 }
               }
 
@@ -606,6 +635,7 @@ export const coexistMessengerSync = async (
       // settles — single-writer, no race.
       const realBatch: HistoricalContactMessages[] = []
       let fetchFailed = 0
+      //log({ outcomes }, "outcomes")
       for (const o of outcomes) {
         if (o.result === "FAILED") {
           fetchFailed += 1
@@ -622,6 +652,7 @@ export const coexistMessengerSync = async (
 
       // Bulk-import one page transactionally.
       let pageResult: Awaited<ReturnType<typeof bulkImportHistorical>>
+      //log({ realBatch }, "realBatch")
       try {
         pageResult = await bulkImportHistorical({
           inbox,
@@ -657,6 +688,25 @@ export const coexistMessengerSync = async (
       skipped += pageResult.skippedMessages + pageResult.skippedContacts
       failed += pageResult.failedMessages + fetchFailed
       conversationCount += convsToProcess.length
+
+      // Dispatch one avatar-mirror job per contact upserted this page. Per-job
+      // dedupe key prevents duplicate Graph fetches on retried syncs.
+      for (const [sourceId, contactInboxId] of pageResult.contactInboxIds) {
+        //log({ sourceId, contactInboxId }, "dispatch update contact avatar")
+        await integrationQueue.add(
+          IntegrationJobAction.updateContactAvatar,
+          {
+            type: IntegrationJobAction.updateContactAvatar,
+            data: { workspaceId, contactInboxId, sourceId },
+          },
+          {
+            jobId: `update-avatar-${contactInboxId}`,
+            attempts: 2,
+            removeOnComplete: true,
+            removeOnFail: { count: 100 },
+          },
+        )
+      }
 
       // Surface non-throw failure (e.g. workspace cap hit) so currentError is
       // populated even when bulkImportHistorical returns failedMessages > 0
@@ -703,6 +753,7 @@ export const coexistMessengerSync = async (
     // Accept null/undefined cursor as "resume from beginning of remaining pages"
     // (first-invocation timeout case) — without this guard the run gets stuck in
     // status='running' for an hour until heartbeat timeout.
+    //log({ continueLater }, "continueLater")
     if (continueLater) {
       try {
         await integrationQueue.add(

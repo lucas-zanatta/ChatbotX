@@ -39,7 +39,7 @@ type PaginatedResult<T> = {
   bucUsage?: BucUsage | null
 }
 
-const PAGE_LIMIT = 100
+const PAGE_LIMIT = 499
 
 const nextCursor = (
   paging: GraphPage<unknown>["paging"],

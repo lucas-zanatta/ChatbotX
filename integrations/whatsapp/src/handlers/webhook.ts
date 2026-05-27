@@ -13,13 +13,23 @@ import type { WhatsappConfig } from "../schema"
 type CoexistPayload = { phoneNumberId: string; value: unknown }
 
 /**
- * Scans a raw WhatsApp webhook body for Coexistence history payloads —
- * `value.history` (chat history backfill) or `value.smb_app_state_sync`
- * (contact backfill). These arrive over the ~6h window after onboarding and
- * are buffered to a staging table so no contact is billed before the user
- * confirms the post-connect popup. Parsing is defensive: the body shape is
- * loosely documented, so anything unexpected is silently ignored.
+ * Per Meta docs, coexist payloads arrive under three distinct `field` values
+ * — not nested inside `messages`. Each field carries a differently-named
+ * array on `value`:
+ *
+ *   field: "history"            → value.history[]            (legacy chat history)
+ *   field: "smb_app_state_sync" → value.state_sync[]         (contact backfill)
+ *   field: "smb_message_echoes" → value.message_echoes[]     (live SMB messages)
+ *
+ * Legacy `value.smb_app_state_sync` and `value.history` forms (older Meta
+ * shapes) are kept as fallbacks so old samples still parse.
  */
+const COEXIST_FIELD_KEY: Record<string, string> = {
+  history: "history",
+  smb_app_state_sync: "state_sync",
+  smb_message_echoes: "message_echoes",
+}
+
 export const extractCoexistPayloads = (rawBody: unknown): CoexistPayload[] => {
   if (typeof rawBody !== "object" || rawBody === null) {
     return []
@@ -42,11 +52,21 @@ export const extractCoexistPayloads = (rawBody: unknown): CoexistPayload[] => {
       }
       const typed = value as {
         history?: unknown
+        state_sync?: unknown
+        message_echoes?: unknown
         smb_app_state_sync?: unknown
         metadata?: { phone_number_id?: unknown }
       }
+      const field = (change as { field?: unknown }).field
+      const fieldKey =
+        typeof field === "string" ? COEXIST_FIELD_KEY[field] : undefined
+
       const isCoexist =
-        Array.isArray(typed.history) || Array.isArray(typed.smb_app_state_sync)
+        (fieldKey !== undefined &&
+          Array.isArray((typed as Record<string, unknown>)[fieldKey])) ||
+        Array.isArray(typed.history) ||
+        Array.isArray(typed.smb_app_state_sync)
+
       const phoneNumberId = typed.metadata?.phone_number_id
       if (isCoexist && typeof phoneNumberId === "string") {
         payloads.push({ phoneNumberId, value })

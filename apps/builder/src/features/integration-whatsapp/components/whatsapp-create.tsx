@@ -392,9 +392,9 @@ function SdkConnectSection({
             onSuccess={async (res: any) => {
               if (res.code) {
                 setValue(FORM_FIELDS.CODE, res.code)
-                await trigger()
+                const valid = await trigger()
 
-                if (formState.isValid) {
+                if (valid) {
                   finalSubmitRef.current?.click()
                 }
               }

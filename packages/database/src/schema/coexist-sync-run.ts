@@ -82,6 +82,14 @@ export const coexistSyncRunModel = pgTable(
 
     // last error message (text only, no stack)
     currentError: text(),
+
+    // Meta history sync metadata (per docs: value.history[].metadata).
+    // phase: 0 = day 0–1, 1 = day 1–90, 2 = day 90–180 (terminal).
+    // chunkOrder/syncProgress drive UI completion signal — syncProgress=100
+    // means Meta finished pushing history for this run.
+    lastPhase: integer(),
+    lastChunkOrder: integer(),
+    syncProgress: integer().notNull().default(0),
   },
   (t) => [
     index("CoexistSyncRun_workspace_idx").on(t.workspaceId),

@@ -1,11 +1,11 @@
 import { Snowflake } from "uuniq"
 
 const NumericSnowflakeIDs = new Snowflake({
-  epoch: new Date("2026-03-31").toISOString(),
+  epoch: new Date("2004-02-01").toISOString(),
 })
 
 export const SymbolicSnowflakeIDs = new Snowflake({
-  epoch: new Date("2026-03-31").toISOString(),
+  epoch: new Date("2004-02-01").toISOString(),
   format: "symbolic",
   place_id: 1,
 })

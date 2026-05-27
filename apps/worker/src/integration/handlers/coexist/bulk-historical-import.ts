@@ -26,7 +26,7 @@ import { logger } from "../../../lib/logger"
 // Seq space = 16 same-ms slots per run → Graph second-precision (1000 ms per
 // sec) means 16,000 msgs/sec headroom; overflow scans forward by 1 ms.
 
-const COEXIST_EPOCH_MS = new Date("2026-03-31").getTime()
+const COEXIST_EPOCH_MS = new Date("2004-02-01").getTime()
 const COEXIST_TS_BITS = 53n
 const COEXIST_PARTITION_BITS = 10n
 const COEXIST_SEQ_BITS = 4n

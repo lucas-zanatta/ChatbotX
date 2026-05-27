@@ -12,7 +12,10 @@ import {
 } from "@chatbotx.io/database/client"
 import {
   coexistSyncRunModel,
+  contactInboxModel,
   inboxModel,
+  integrationWhatsappModel,
+  messageModel,
   whatsappCoexistStagingModel,
 } from "@chatbotx.io/database/schema"
 import type { IncomingContact, IncomingMessage } from "@chatbotx.io/sdk"
@@ -39,13 +42,48 @@ const waContactSchema = z
   .object({ wa_id: z.string(), profile: waProfileSchema.optional() })
   .passthrough()
 
+const waMediaSchema = z
+  .object({
+    caption: z.string().optional(),
+    mime_type: z.string().optional(),
+    sha256: z.string().optional(),
+    id: z.string().optional(),
+    url: z.string().optional(),
+  })
+  .passthrough()
+
+const waEditSchema = z
+  .object({
+    original_message_id: z.string(),
+    message: z
+      .object({
+        type: z.string().optional(),
+        text: z.object({ body: z.string() }).passthrough().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough()
+
+const waRevokeSchema = z
+  .object({ original_message_id: z.string() })
+  .passthrough()
+
 const waMessageSchema = z
   .object({
     id: z.string(),
     from: z.string().optional(),
+    to: z.string().optional(),
     timestamp: z.union([z.string(), z.number()]).optional(),
     type: z.string().optional(),
     text: z.object({ body: z.string() }).passthrough().optional(),
+    image: waMediaSchema.optional(),
+    video: waMediaSchema.optional(),
+    audio: waMediaSchema.optional(),
+    document: waMediaSchema.optional(),
+    sticker: waMediaSchema.optional(),
+    edit: waEditSchema.optional(),
+    revoke: waRevokeSchema.optional(),
   })
   .passthrough()
 
@@ -56,8 +94,28 @@ const waThreadSchema = z
   })
   .passthrough()
 
+const waHistoryMetadataSchema = z
+  .object({
+    phase: z.number().optional(),
+    chunk_order: z.number().optional(),
+    progress: z.number().optional(),
+  })
+  .passthrough()
+
+const waHistoryErrorSchema = z
+  .object({
+    code: z.number(),
+    title: z.string().optional(),
+    message: z.string().optional(),
+  })
+  .passthrough()
+
 const waHistoryEntrySchema = z
-  .object({ threads: z.array(waThreadSchema).optional() })
+  .object({
+    threads: z.array(waThreadSchema).optional(),
+    metadata: waHistoryMetadataSchema.optional(),
+    errors: z.array(waHistoryErrorSchema).optional(),
+  })
   .passthrough()
 
 const smbStateSyncEntrySchema = z
@@ -75,13 +133,93 @@ const smbStateSyncEntrySchema = z
   })
   .passthrough()
 
+const waEchoSchema = z
+  .object({
+    from: z.string(),
+    to: z.string(),
+    id: z.string(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+    type: z.string().optional(),
+    text: z.object({ body: z.string() }).passthrough().optional(),
+    image: waMediaSchema.optional(),
+    video: waMediaSchema.optional(),
+    audio: waMediaSchema.optional(),
+    document: waMediaSchema.optional(),
+    sticker: waMediaSchema.optional(),
+  })
+  .passthrough()
+
 const waValueSchema = z
   .object({
     contacts: z.array(waContactSchema).optional(),
     history: z.array(waHistoryEntrySchema).optional(),
     smb_app_state_sync: z.array(smbStateSyncEntrySchema).optional(),
+    smb_message_echoes: z.array(waEchoSchema).optional(),
+    messages: z.array(waMessageSchema).optional(),
   })
   .passthrough()
+
+/** Meta media-type keys carried on a message object. */
+const MEDIA_KEYS = ["image", "video", "audio", "document", "sticker"] as const
+type MediaKey = (typeof MEDIA_KEYS)[number]
+
+const extractMedia = (
+  msg: z.infer<typeof waMessageSchema> | z.infer<typeof waEchoSchema>,
+): { fileType: MediaKey; payload: z.infer<typeof waMediaSchema> } | null => {
+  for (const key of MEDIA_KEYS) {
+    const payload = (msg as Record<string, unknown>)[key]
+    if (payload && typeof payload === "object") {
+      return {
+        fileType: key,
+        payload: payload as z.infer<typeof waMediaSchema>,
+      }
+    }
+  }
+  return null
+}
+
+/** History-decline error code per Meta docs. */
+const HISTORY_DECLINED_ERROR_CODE = 2_593_109
+
+type MediaPatch = {
+  sourceId: string
+  contactWaId: string
+  media: {
+    fileType: MediaKey
+    caption?: string
+    mimeType?: string
+    sha256?: string
+    mediaId?: string
+    url?: string
+  }
+}
+
+type EditPatch = {
+  sourceId: string
+  contactWaId: string
+  text: string | null
+  mediaPatch: MediaPatch["media"] | null
+}
+
+type RevokePatch = {
+  sourceId: string
+  contactWaId: string
+}
+
+type HistoryMetadata = {
+  phase: number
+  chunkOrder: number
+  progress: number
+}
+
+type ExtractResult = {
+  entries: ContactWithMessage[]
+  mediaPatches: MediaPatch[]
+  edits: EditPatch[]
+  revokes: RevokePatch[]
+  declined: boolean
+  metadata: HistoryMetadata | null
+}
 
 type ContactWithMessage = {
   contact: IncomingContact
@@ -96,19 +234,50 @@ const toDate = (timestamp: string | number | undefined): Date => {
   return Number.isFinite(seconds) ? new Date(seconds * 1000) : new Date()
 }
 
+const EMPTY_EXTRACT: ExtractResult = {
+  entries: [],
+  mediaPatches: [],
+  edits: [],
+  revokes: [],
+  declined: false,
+  metadata: null,
+}
+
+const mediaFromPayload = (
+  fileType: MediaKey,
+  payload: z.infer<typeof waMediaSchema>,
+): MediaPatch["media"] => ({
+  fileType,
+  caption: payload.caption,
+  mimeType: payload.mime_type,
+  sha256: payload.sha256,
+  mediaId: payload.id,
+  url: payload.url,
+})
+
 /**
- * Extracts contacts + historical messages from one buffered `changes[].value`
- * slice. Group chats are not synced by WhatsApp Coexistence, so every thread
- * here is a 1:1 conversation keyed by the customer `wa_id`.
+ * Extracts contacts + historical messages + post-batch patches from one
+ * buffered `changes[].value` slice.
+ *
+ * Group chats are not synced by WhatsApp Coexistence, so every thread here is
+ * a 1:1 conversation keyed by the customer `wa_id`.
+ *
+ * Five Meta payload shapes are recognized:
+ *   - `value.history[].threads[]`            → historical text/media messages
+ *   - `value.history[].errors[code=2593109]` → history-sharing declined
+ *   - `value.history[].metadata`             → phase/chunk_order/progress
+ *   - `value.smb_app_state_sync[]`           → contact backfill
+ *   - `value.smb_message_echoes[]`           → outgoing messages from WA Business app
+ *   - `value.messages[]`                     → media-asset follow-up / edit / revoke
  */
-const extractFromValue = (payload: unknown): ContactWithMessage[] => {
+const extractFromValue = (payload: unknown): ExtractResult => {
   const parsed = waValueSchema.safeParse(payload)
   if (!parsed.success) {
     logger.warn(
       { error: parsed.error.message },
       "[coexist] Unrecognized WhatsApp history payload — skipped",
     )
-    return []
+    return EMPTY_EXTRACT
   }
   const value = parsed.data
 
@@ -119,9 +288,30 @@ const extractFromValue = (payload: unknown): ContactWithMessage[] => {
     }
   }
 
-  const results: ContactWithMessage[] = []
+  const entries: ContactWithMessage[] = []
+  const mediaPatches: MediaPatch[] = []
+  const edits: EditPatch[] = []
+  const revokes: RevokePatch[] = []
+  let declined = false
+  let metadata: HistoryMetadata | null = null
 
   for (const entry of value.history ?? []) {
+    if (entry.errors?.some((e) => e.code === HISTORY_DECLINED_ERROR_CODE)) {
+      declined = true
+    }
+    if (entry.metadata) {
+      const phase = entry.metadata.phase ?? 0
+      const chunkOrder = entry.metadata.chunk_order ?? 0
+      const progress = entry.metadata.progress ?? 0
+      if (
+        metadata === null ||
+        progress > metadata.progress ||
+        chunkOrder > metadata.chunkOrder
+      ) {
+        metadata = { phase, chunkOrder, progress }
+      }
+    }
+
     for (const thread of entry.threads ?? []) {
       const customerWaId = thread.id
       const contact: IncomingContact = {
@@ -132,7 +322,7 @@ const extractFromValue = (payload: unknown): ContactWithMessage[] => {
 
       const messages = thread.messages ?? []
       if (messages.length === 0) {
-        results.push({ contact, message: null })
+        entries.push({ contact, message: null })
         continue
       }
 
@@ -140,7 +330,7 @@ const extractFromValue = (payload: unknown): ContactWithMessage[] => {
         const isOutgoing = message.from !== customerWaId
         const text =
           message.text?.body ?? (message.type ? `[${message.type}]` : "")
-        results.push({
+        entries.push({
           contact,
           message: {
             sourceId: message.id,
@@ -159,7 +349,7 @@ const extractFromValue = (payload: unknown): ContactWithMessage[] => {
       continue
     }
     const phone = entry.contact.phone_number
-    results.push({
+    entries.push({
       contact: {
         sourceId: phone,
         phoneNumber: phone,
@@ -169,7 +359,208 @@ const extractFromValue = (payload: unknown): ContactWithMessage[] => {
     })
   }
 
-  return results
+  for (const echo of value.smb_message_echoes ?? []) {
+    const customerWaId = echo.to
+    const contact: IncomingContact = {
+      sourceId: customerWaId,
+      phoneNumber: customerWaId,
+      firstName: nameByWaId.get(customerWaId),
+    }
+    const text = echo.text?.body ?? (echo.type ? `[${echo.type}]` : "")
+    entries.push({
+      contact,
+      message: {
+        sourceId: echo.id,
+        messageType: "outgoing",
+        contentType: "text",
+        text,
+        createdAt: toDate(echo.timestamp),
+      },
+    })
+
+    const media = extractMedia(echo)
+    if (media) {
+      mediaPatches.push({
+        sourceId: echo.id,
+        contactWaId: customerWaId,
+        media: mediaFromPayload(media.fileType, media.payload),
+      })
+    }
+  }
+
+  for (const message of value.messages ?? []) {
+    if (message.type === "revoke" || message.revoke) {
+      const original = message.revoke?.original_message_id
+      const contactWaId = message.from
+      if (original && contactWaId) {
+        revokes.push({ sourceId: original, contactWaId })
+      }
+      continue
+    }
+    if (message.type === "edit" || message.edit) {
+      const original = message.edit?.original_message_id
+      const contactWaId = message.from
+      if (!(original && contactWaId)) {
+        continue
+      }
+      const editedText = message.edit?.message?.text?.body ?? null
+      const editedMediaSource = message.edit?.message as
+        | z.infer<typeof waMessageSchema>
+        | undefined
+      const editedMedia = editedMediaSource
+        ? extractMedia(editedMediaSource)
+        : null
+      edits.push({
+        sourceId: original,
+        contactWaId,
+        text: editedText,
+        mediaPatch: editedMedia
+          ? mediaFromPayload(editedMedia.fileType, editedMedia.payload)
+          : null,
+      })
+      continue
+    }
+
+    const media = extractMedia(message)
+    if (media && message.from) {
+      mediaPatches.push({
+        sourceId: message.id,
+        contactWaId: message.from,
+        media: mediaFromPayload(media.fileType, media.payload),
+      })
+    }
+  }
+
+  return { entries, mediaPatches, edits, revokes, declined, metadata }
+}
+
+/**
+ * Resolves a set of customer wa_ids to their ContactInbox rows for this inbox.
+ * Returns a Map keyed by sourceId (= wa_id). Missing keys mean either Meta
+ * delivered a media follow-up before the history insert (next chunk picks it
+ * up) or the contact was cap-rejected by bulkImportHistorical.
+ */
+const resolveContactInboxIds = async (
+  inboxId: string,
+  contactWaIds: string[],
+): Promise<Map<string, string>> => {
+  const ids = new Map<string, string>()
+  if (contactWaIds.length === 0) {
+    return ids
+  }
+  const uniq = Array.from(new Set(contactWaIds))
+  const rows = await db
+    .select({
+      id: contactInboxModel.id,
+      sourceId: contactInboxModel.sourceId,
+    })
+    .from(contactInboxModel)
+    .where(
+      and(
+        eq(contactInboxModel.inboxId, inboxId),
+        inArray(contactInboxModel.sourceId, uniq),
+      ),
+    )
+  for (const row of rows) {
+    if (row.sourceId) {
+      ids.set(row.sourceId, row.id)
+    }
+  }
+  return ids
+}
+
+/**
+ * Applies the three post-batch patch families that bulkImportHistorical cannot
+ * express (insert-only contract):
+ *
+ *   - Media follow-ups → UPDATE messageModel.contentAttributes with the resolved
+ *     mediaId/mimeType/caption/url. Idempotent — the placeholder text row stays.
+ *   - Edits → UPDATE text and merge `edited: true` into contentAttributes.
+ *   - Revokes → merge `revoked: true` into contentAttributes (text retained).
+ *
+ * Lookups are scoped by (contactInboxId, sourceId) — Message's natural key.
+ */
+const applyPostBatchPatches = async (input: {
+  inboxId: string
+  mediaPatches: MediaPatch[]
+  edits: EditPatch[]
+  revokes: RevokePatch[]
+}): Promise<void> => {
+  const { inboxId, mediaPatches, edits, revokes } = input
+  if (mediaPatches.length === 0 && edits.length === 0 && revokes.length === 0) {
+    return
+  }
+  const allWaIds = [
+    ...mediaPatches.map((p) => p.contactWaId),
+    ...edits.map((p) => p.contactWaId),
+    ...revokes.map((p) => p.contactWaId),
+  ]
+  const contactInboxIdByWaId = await resolveContactInboxIds(inboxId, allWaIds)
+
+  const mergeJsonb = (overlay: Record<string, unknown>) =>
+    sql`COALESCE(${messageModel.contentAttributes}, '{}'::jsonb) || ${JSON.stringify(overlay)}::jsonb`
+
+  for (const patch of mediaPatches) {
+    const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
+    if (!contactInboxId) {
+      continue
+    }
+    await db
+      .update(messageModel)
+      .set({
+        contentAttributes: mergeJsonb({ media: patch.media }),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(messageModel.contactInboxId, contactInboxId),
+          eq(messageModel.sourceId, patch.sourceId),
+        ),
+      )
+  }
+
+  for (const patch of edits) {
+    const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
+    if (!contactInboxId) {
+      continue
+    }
+    const overlay: Record<string, unknown> = { edited: true }
+    if (patch.mediaPatch) {
+      overlay.media = patch.mediaPatch
+    }
+    await db
+      .update(messageModel)
+      .set({
+        ...(patch.text === null ? {} : { text: patch.text }),
+        contentAttributes: mergeJsonb(overlay),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(messageModel.contactInboxId, contactInboxId),
+          eq(messageModel.sourceId, patch.sourceId),
+        ),
+      )
+  }
+
+  for (const patch of revokes) {
+    const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
+    if (!contactInboxId) {
+      continue
+    }
+    await db
+      .update(messageModel)
+      .set({
+        contentAttributes: mergeJsonb({ revoked: true }),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(messageModel.contactInboxId, contactInboxId),
+          eq(messageModel.sourceId, patch.sourceId),
+        ),
+      )
+  }
 }
 
 /** Staging rows processed per chunk. Tuned for ~30s wall-time per chunk. */
@@ -353,17 +744,40 @@ export const coexistWhatsappFlush = async (
         break
       }
 
-      // Flatten + coalesce per sourceId across rows in this batch.
+      // Flatten + coalesce per sourceId across rows in this batch. Also
+      // accumulate post-batch patches (media follow-ups, edits, revokes),
+      // a decline flag, and the highest-progress history metadata seen.
       const rowGroups = new Map<string, { entries: ContactWithMessage[] }>()
+      const batchMediaPatches: MediaPatch[] = []
+      const batchEdits: EditPatch[] = []
+      const batchRevokes: RevokePatch[] = []
+      let batchDeclined = false
+      let batchMetadata: HistoryMetadata | null = null
       for (const row of stagedRows) {
         const extracted = extractFromValue(row.payload)
-        for (const e of extracted) {
+        for (const e of extracted.entries) {
           if (!e.contact.sourceId) {
             continue
           }
           const group = rowGroups.get(e.contact.sourceId) ?? { entries: [] }
           group.entries.push(e)
           rowGroups.set(e.contact.sourceId, group)
+        }
+        batchMediaPatches.push(...extracted.mediaPatches)
+        batchEdits.push(...extracted.edits)
+        batchRevokes.push(...extracted.revokes)
+        if (extracted.declined) {
+          batchDeclined = true
+        }
+        if (extracted.metadata) {
+          const m = extracted.metadata
+          if (
+            batchMetadata === null ||
+            m.progress > batchMetadata.progress ||
+            m.chunkOrder > batchMetadata.chunkOrder
+          ) {
+            batchMetadata = m
+          }
         }
       }
 
@@ -448,6 +862,18 @@ export const coexistWhatsappFlush = async (
         finalError = `batch ${batchNumber}: ${batchResult.failureReason}`
       }
 
+      // Apply post-batch patches (media follow-ups, edits, revokes). These
+      // target rows already inserted by bulkImportHistorical (or by an earlier
+      // batch). Patches that cannot resolve a contactInboxId are silently
+      // dropped — Meta sometimes delivers a media follow-up before the
+      // history insert, and the next chunk's UPDATE will pick it up.
+      await applyPostBatchPatches({
+        inboxId: integration.inboxId,
+        mediaPatches: batchMediaPatches,
+        edits: batchEdits,
+        revokes: batchRevokes,
+      })
+
       // Mark ALL rows in this batch processed — bulk pipeline was atomic.
       // Cap-rejected contacts also count as "processed" (deterministic skip,
       // re-processing won't recover them).
@@ -473,8 +899,30 @@ export const coexistWhatsappFlush = async (
           currentError: finalError ?? null,
           lastHeartbeatAt: new Date(),
           updatedAt: new Date(),
+          ...(batchMetadata
+            ? {
+                lastPhase: batchMetadata.phase,
+                lastChunkOrder: batchMetadata.chunkOrder,
+                syncProgress: batchMetadata.progress,
+              }
+            : {}),
         })
         .where(eq(coexistSyncRunModel.id, runId))
+
+      // History-decline short-circuit: user declined chat-history sharing in
+      // the WA Business app. Mark integration so UI hides retry CTA, then
+      // finish the run as succeeded (no data loss — there is nothing to
+      // import) with a sentinel `currentError` for the UI to read.
+      if (batchDeclined) {
+        await db
+          .update(integrationWhatsappModel)
+          .set({ historyDeclined: true, updatedAt: new Date() })
+          .where(eq(integrationWhatsappModel.id, integration.id))
+        finalStatus = "succeeded"
+        finalError = "history_declined"
+        exhausted = true
+        break
+      }
 
       if (stagedRows.length < BATCH_SIZE) {
         exhausted = true

@@ -33,6 +33,7 @@ export const IntegrationJobAction = {
   coexistWhatsappBuffer: "coexistWhatsappBuffer",
   coexistWhatsappFlush: "coexistWhatsappFlush",
   coexistMessengerSync: "coexistMessengerSync",
+  updateContactAvatar: "updateContactAvatar",
 } as const
 
 export type IntegrationJobReceiveMessage = {
@@ -206,6 +207,21 @@ export type IntegrationJobCoexistMessengerSync = {
   }
 }
 
+/**
+ * Fetches a contact's profile picture from the channel's Graph/API, mirrors
+ * the bytes to our object storage, and persists the storage path on the
+ * Contact row. Dispatched per-contact after Coexist historical sync upserts
+ * contacts (which only carry name/sourceId, not avatar).
+ */
+export type IntegrationJobUpdateContactAvatar = {
+  type: typeof IntegrationJobAction.updateContactAvatar
+  data: {
+    workspaceId: string
+    contactInboxId: string
+    sourceId: string
+  }
+}
+
 export type IntegrationJobData =
   | IntegrationJobReceiveMessage
   | IntegrationJobMessageStatus
@@ -222,6 +238,7 @@ export type IntegrationJobData =
   | IntegrationJobCoexistWhatsappBuffer
   | IntegrationJobCoexistWhatsappFlush
   | IntegrationJobCoexistMessengerSync
+  | IntegrationJobUpdateContactAvatar
 
 export const integrationQueue =
   process.env.NEXT_PHASE === "phase-production-build"
