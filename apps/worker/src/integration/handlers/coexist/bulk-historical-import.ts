@@ -1,5 +1,5 @@
 // biome-ignore-all lint/suspicious/noBitwiseOperators: bit-packing 63-bit snowflake IDs
-import { db, inArray, sql } from "@chatbotx.io/database/client"
+import { db, eq, inArray, sql } from "@chatbotx.io/database/client"
 import {
   contactInboxModel,
   contactModel,
@@ -22,9 +22,6 @@ import { logger } from "../../../lib/logger"
 // Epoch `2026-03-31` matches `createId()`. The high 53 bits being a pure
 // function of `createdAt` guarantees `ORDER BY id` ≡ `ORDER BY createdAt` for
 // historically-imported rows.
-// Partition space = 1024 slots → >100 concurrent workers without collision.
-// Seq space = 16 same-ms slots per run → Graph second-precision (1000 ms per
-// sec) means 16,000 msgs/sec headroom; overflow scans forward by 1 ms.
 
 const COEXIST_EPOCH_MS = new Date("2004-02-01").getTime()
 const COEXIST_TS_BITS = 53n
@@ -40,20 +37,6 @@ export type HistoricalIdFactory = (date: Date) => string
 
 const COEXIST_SEQ_SPACE = 1n << COEXIST_SEQ_BITS
 
-/**
- * Build a per-run factory that mints time-derived IDs for historical Message
- * inserts. The high 41 bits are always derived from `date.getTime()` so that
- * `ORDER BY id` matches `ORDER BY createdAt` regardless of the order in which
- * messages are fed to the factory (Graph APIs typically stream newest-first).
- *
- * For same-ms collisions within one run, a per-ts sequence counter increments
- * monotonically. When the 16-slot sequence space at a given ms is exhausted,
- * we scan forward to the next available ms — this drifts overflowed IDs by a
- * few ms but preserves both monotonicity and the time-order invariant.
- *
- * Cross-run uniqueness comes from the 10-bit partition derived from `runId`
- * (1024 slots > 100 concurrent workers).
- */
 export const createHistoricalIdFactory = (
   runId: string,
 ): HistoricalIdFactory => {
@@ -107,105 +90,97 @@ const isUniqueMessagePkViolation = (err: unknown): boolean => {
 
 export type HistoricalMessage = IncomingMessage & { createdAt?: Date }
 
+export type ContactImportLink = {
+  contactInboxId: string
+  contactId: string
+  conversationId: string
+}
+
+export type BulkImportContactsResult = {
+  importedContacts: number
+  skippedContacts: number
+  /** sourceId → resolved link (existing or newly inserted). */
+  contactInboxIds: Map<string, ContactImportLink>
+  /** Non-throw failure (e.g. workspace contact cap hit). */
+  failureReason?: string
+}
+
+export type BulkImportMessagesResult = {
+  importedMessages: number
+  skippedMessages: number
+}
+
+/**
+ * Legacy combined contact+messages entry used by WhatsApp coexist flush. New
+ * Messenger sync path calls `bulkImportContacts` and `bulkImportMessages`
+ * independently.
+ */
 export type HistoricalContactMessages = {
   contact: IncomingContact
   messages: HistoricalMessage[]
 }
 
-export type BulkImportResult = {
+export type BulkImportHistoricalResult = {
   importedContacts: number
   importedMessages: number
   skippedContacts: number
   skippedMessages: number
   failedMessages: number
   contactInboxIds: Map<string, string>
-  // Non-throw failure reason (e.g. workspace contact cap hit). Set when
-  // failedMessages > 0 without an exception so callers can persist it into
-  // CoexistSyncRun.currentError instead of leaving it null.
   failureReason?: string
 }
 
-type ResolvedEntry = {
-  sourceId: string
-  contactInboxId: string
-  contactId: string
-  conversationId: string
-}
-
 /**
- * Idempotent bulk import of contacts + messages for one inbox. Used by Coexist
- * historical-sync handlers (Messenger + WhatsApp). Replaces the per-record
- * `upsertContactAndMessage` loop with a transactional batch:
+ * Phase 1 of Coexist historical sync: dedup contacts by sourceId, resolve
+ * existing ContactInbox rows, lock WorkspaceUsage to enforce the per-workspace
+ * contact cap, and bulk-insert new Contact/ContactInbox/Conversation rows.
  *
- *   1. Pre-query split: known-new vs already-existing ContactInbox rows.
- *   2. Lock WorkspaceUsage FOR UPDATE; enforce contact cap atomically.
- *   3. Bulk INSERT Contact (no business-key unique index, so pre-query split
- *      is the only safe idempotency strategy here).
- *   4. Bulk INSERT ContactInbox + Conversation with `onConflictDoNothing` as
- *      a backstop for concurrent webhook races.
- *   5. Bulk INSERT Message with `onConflictDoNothing` on
- *      `(contactInboxId, sourceId)`.
- *   6. Post-commit: emit contact-created events. No realtime broadcast — bulk
- *      sync should not flood the inbox UI.
+ * Race-safe via `onConflictDoNothing` + post-insert re-select for losers, with
+ * orphan Contact cleanup. Idempotent — re-running with the same batch returns
+ * the existing links without creating duplicates.
  *
- * Counter semantics:
- *  - `skippedContacts`  — contact hit workspace cap; never created
- *  - `failedMessages`   — messages whose contact was rejected (cap or insert
- *                          conflict-without-resolution)
- *  - `skippedMessages`  — duplicates of already-imported messages
- *  - `importedMessages` — newly inserted Message rows
+ * Returns one `ContactImportLink` per dedup'd sourceId (existing + newly
+ * created). Callers use this map to dispatch downstream avatar / message
+ * fetches without an additional DB lookup.
  */
-export const bulkImportHistorical = async (props: {
+export const bulkImportContacts = async (props: {
   inbox: InboxModel
   workspaceId: string
-  runId: string
-  batch: HistoricalContactMessages[]
-}): Promise<BulkImportResult> => {
-  const { inbox, workspaceId, runId, batch } = props
-  const makeMessageId = createHistoricalIdFactory(runId)
+  contacts: IncomingContact[]
+}): Promise<BulkImportContactsResult> => {
+  const { inbox, workspaceId, contacts } = props
 
-  const empty: BulkImportResult = {
+  const empty: BulkImportContactsResult = {
     importedContacts: 0,
-    importedMessages: 0,
     skippedContacts: 0,
-    skippedMessages: 0,
-    failedMessages: 0,
     contactInboxIds: new Map(),
   }
-  if (batch.length === 0) {
+  if (contacts.length === 0) {
     return empty
   }
 
-  // Dedup by sourceId — merge messages from later entries, prefer first
-  // non-null contact field across entries.
-  const dedup = new Map<string, HistoricalContactMessages>()
-  for (const entry of batch) {
-    const key = entry.contact.sourceId
+  // Dedup by sourceId — prefer first non-null field across duplicates.
+  const dedup = new Map<string, IncomingContact>()
+  for (const entry of contacts) {
+    const key = entry.sourceId
     if (!key) {
       continue
     }
     const existing = dedup.get(key)
     if (!existing) {
-      dedup.set(key, {
-        contact: { ...entry.contact },
-        messages: [...entry.messages],
-      })
+      dedup.set(key, { ...entry })
       continue
     }
-    existing.contact = {
-      sourceId: existing.contact.sourceId,
-      phoneNumber: existing.contact.phoneNumber ?? entry.contact.phoneNumber,
-      phoneNumberId:
-        existing.contact.phoneNumberId ?? entry.contact.phoneNumberId,
-      firstName: existing.contact.firstName ?? entry.contact.firstName,
-      lastName: existing.contact.lastName ?? entry.contact.lastName,
-      email: existing.contact.email ?? entry.contact.email,
-      avatar: existing.contact.avatar ?? entry.contact.avatar,
-      gender: existing.contact.gender ?? entry.contact.gender,
-    }
-    for (const m of entry.messages) {
-      existing.messages.push(m)
-    }
+    dedup.set(key, {
+      sourceId: existing.sourceId,
+      phoneNumber: existing.phoneNumber ?? entry.phoneNumber,
+      phoneNumberId: existing.phoneNumberId ?? entry.phoneNumberId,
+      firstName: existing.firstName ?? entry.firstName,
+      lastName: existing.lastName ?? entry.lastName,
+      email: existing.email ?? entry.email,
+      avatar: existing.avatar ?? entry.avatar,
+      gender: existing.gender ?? entry.gender,
+    })
   }
 
   if (dedup.size === 0) {
@@ -228,14 +203,11 @@ export const bulkImportHistorical = async (props: {
 
   let importedContacts = 0
   let skippedContacts = 0
-  let importedMessages = 0
-  let skippedMessages = 0
-  let failedMessages = 0
   let failureReason: string | undefined
-  const contactInboxIds = new Map<string, string>()
+  const contactInboxIds = new Map<string, ContactImportLink>()
 
   await db.transaction(async (tx) => {
-    // 1. Find existing ContactInbox rows for these sourceIds.
+    // 1. Find existing ContactInbox rows.
     const existingRows = await tx
       .select({
         id: contactInboxModel.id,
@@ -247,21 +219,21 @@ export const bulkImportHistorical = async (props: {
         sql`${contactInboxModel.inboxId} = ${inbox.id} AND ${contactInboxModel.sourceId} IN ${sourceIds}`,
       )
 
-    const resolved = new Map<string, ResolvedEntry>()
+    const resolved = new Map<string, ContactImportLink>()
     const existingContactIds = new Set<string>()
 
     for (const row of existingRows) {
       existingContactIds.add(row.contactId)
-      // Conversation id filled lazily below (one query for all).
       resolved.set(row.sourceId, {
-        sourceId: row.sourceId,
         contactInboxId: row.id,
         contactId: row.contactId,
         conversationId: "",
       })
     }
 
-    // Resolve conversation ids for existing contacts in one query.
+    // Resolve conversation ids for existing contacts. Heal orphans (existing
+    // ContactInbox + Contact but missing Conversation) by inserting one now,
+    // so downstream callers never receive an empty conversationId.
     if (existingContactIds.size > 0) {
       const conversations = await tx
         .select({
@@ -273,58 +245,38 @@ export const bulkImportHistorical = async (props: {
       const convByContact = new Map(
         conversations.map((c) => [c.contactId, c.id]),
       )
-      for (const entry of resolved.values()) {
-        const cid = convByContact.get(entry.contactId)
-        if (cid) {
-          entry.conversationId = cid
-        }
-      }
-    }
 
-    // Enrich existing Contact rows: when the historical batch carries a
-    // phoneNumber or email and the DB column is currently NULL, fill it in.
-    // Single round-trip UPDATE for the whole batch; COALESCE preserves any
-    // value already populated, so concurrent webhooks never get overwritten.
-    if (resolved.size > 0) {
-      const enrichmentRows: Array<{
-        contactId: string
-        phoneNumber: string | null
-        email: string | null
-      }> = []
-      for (const [sourceId, entry] of dedup) {
-        const link = resolved.get(sourceId)
-        if (!link) {
-          continue
-        }
-        const phoneNumber = entry.contact.phoneNumber || null
-        const email = entry.contact.email || null
-        if (phoneNumber || email) {
-          enrichmentRows.push({
-            contactId: link.contactId,
-            phoneNumber,
-            email,
+      const orphanContactIds = [...existingContactIds].filter(
+        (cid) => !convByContact.has(cid),
+      )
+      if (orphanContactIds.length > 0) {
+        await tx
+          .insert(conversationModel)
+          .values(
+            orphanContactIds.map((cid) => ({
+              id: createId(),
+              workspaceId,
+              contactId: cid,
+            })),
+          )
+          .onConflictDoNothing({ target: [conversationModel.contactId] })
+        const healed = await tx
+          .select({
+            id: conversationModel.id,
+            contactId: conversationModel.contactId,
           })
+          .from(conversationModel)
+          .where(inArray(conversationModel.contactId, orphanContactIds))
+        for (const c of healed) {
+          convByContact.set(c.contactId, c.id)
         }
       }
-      if (enrichmentRows.length > 0) {
-        const values = sql.join(
-          enrichmentRows.map(
-            (r) =>
-              sql`(${r.contactId}::bigint, ${r.phoneNumber}::text, ${r.email}::text)`,
-          ),
-          sql`, `,
-        )
-        await tx.execute(sql`
-          UPDATE "Contact" AS c SET
-            "phoneNumber" = COALESCE(c."phoneNumber", v."phoneNumber"),
-            "email"       = COALESCE(c."email",       v."email")
-          FROM (VALUES ${values}) AS v("id", "phoneNumber", "email")
-          WHERE c."id" = v."id"
-            AND (
-              (v."phoneNumber" IS NOT NULL AND c."phoneNumber" IS NULL)
-              OR (v."email" IS NOT NULL AND c."email" IS NULL)
-            )
-        `)
+
+      for (const link of resolved.values()) {
+        const cid = convByContact.get(link.contactId)
+        if (cid) {
+          link.conversationId = cid
+        }
       }
     }
 
@@ -347,12 +299,8 @@ export const bulkImportHistorical = async (props: {
         acceptedNew = newEntries.slice(0, slots)
         const rejected = newEntries.slice(slots)
         skippedContacts = rejected.length
-        failedMessages = rejected.reduce(
-          (sum, [, e]) => sum + e.messages.length,
-          0,
-        )
         if (rejected.length > 0) {
-          failureReason = `workspace contact cap reached (${usage.contactsCount}/${usage.maxContacts}) — ${rejected.length} contact(s) and ${failedMessages} message(s) rejected`
+          failureReason = `workspace contact cap reached (${usage.contactsCount}/${usage.maxContacts}) — ${rejected.length} contact(s) rejected`
         }
       } else {
         logger.warn(
@@ -360,10 +308,6 @@ export const bulkImportHistorical = async (props: {
           "[coexist] WorkspaceUsage row missing — rejecting all new contacts",
         )
         skippedContacts = newEntries.length
-        failedMessages = newEntries.reduce(
-          (sum, [, e]) => sum + e.messages.length,
-          0,
-        )
         acceptedNew = []
         failureReason = `WorkspaceUsage row missing for workspace ${workspaceId} — all ${newEntries.length} new contact(s) rejected`
       }
@@ -374,20 +318,16 @@ export const bulkImportHistorical = async (props: {
       const contactRows = acceptedNew.map(([, entry]) => ({
         id: createId(),
         workspaceId,
-        firstName: entry.contact.firstName,
-        lastName: entry.contact.lastName,
-        email: entry.contact.email,
-        phoneNumber: entry.contact.phoneNumber,
-        avatar: entry.contact.avatar,
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        email: entry.email,
+        phoneNumber: entry.phoneNumber,
+        avatar: entry.avatar,
         lastActivityAt: new Date(),
       }))
 
-      const _insertedContacts = await tx
-        .insert(contactModel)
-        .values(contactRows)
-        .returning({ id: contactModel.id })
+      await tx.insert(contactModel).values(contactRows)
 
-      // contactRows[i].id === insertedContacts[i].id (deterministic)
       const contactInboxRows = acceptedNew.map(([sourceId], i) => ({
         id: createId(),
         inboxId: inbox.id,
@@ -396,6 +336,8 @@ export const bulkImportHistorical = async (props: {
         source: inbox.channel,
         sourceId,
         channel: inbox.channel,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }))
 
       const conversationRows = acceptedNew.map((_entry, i) => ({
@@ -404,7 +346,6 @@ export const bulkImportHistorical = async (props: {
         contactId: contactRows[i]?.id,
       }))
 
-      // ContactInbox: backstop ON CONFLICT for concurrent webhook race.
       const insertedInboxes = await tx
         .insert(contactInboxModel)
         .values(contactInboxRows)
@@ -419,9 +360,8 @@ export const bulkImportHistorical = async (props: {
 
       const insertedSourceIds = new Set(insertedInboxes.map((r) => r.sourceId))
 
-      // Race detection: any acceptedNew sourceId not in insertedInboxes hit a
-      // concurrent insert. Re-SELECT to pick up the winning row + clean up the
-      // pre-allocated orphan Contact that now has no ContactInbox.
+      // Race recovery — any acceptedNew sourceId not inserted lost to a
+      // concurrent insert; re-SELECT winners + delete pre-allocated orphans.
       const racedSourceIds = acceptedNew
         .map(([sourceId]) => sourceId)
         .filter((s) => !insertedSourceIds.has(s))
@@ -442,7 +382,6 @@ export const bulkImportHistorical = async (props: {
           insertedSourceIds.add(w.sourceId)
         }
 
-        // Delete orphan Contact rows pre-allocated for raced sourceIds.
         const orphanIds: string[] = []
         for (let i = 0; i < acceptedNew.length; i++) {
           const sourceId = acceptedNew[i]?.[0]
@@ -458,12 +397,9 @@ export const bulkImportHistorical = async (props: {
         }
       }
 
-      // Count true new contacts (excludes the raced sourceIds).
       const trulyNew = acceptedNew.length - racedSourceIds.length
       importedContacts = trulyNew
 
-      // Conversation: only for trulyNew. Filter rows for sourceIds that won
-      // their own insert; for raced sourceIds we'd race the conversation too.
       const conversationsToInsert = conversationRows.filter(
         (_row, i) => !racedSourceIds.includes(acceptedNew[i]?.[0]),
       )
@@ -474,7 +410,6 @@ export const bulkImportHistorical = async (props: {
           .onConflictDoNothing({ target: [conversationModel.contactId] })
       }
 
-      // 4. UPDATE WorkspaceUsage counter.
       if (trulyNew > 0) {
         await tx
           .update(workspaceUsageModel)
@@ -484,8 +419,7 @@ export const bulkImportHistorical = async (props: {
           .where(sql`${workspaceUsageModel.workspaceId} = ${workspaceId}`)
       }
 
-      // Resolve conversation ids for everything we just inserted (or raced
-      // existing). One round-trip across all acceptedNew contact ids.
+      // Resolve conversation ids for everything just inserted (or raced).
       const acceptedContactIds = insertedInboxes.map((r) => r.contactId)
       const newConversations = await tx
         .select({
@@ -504,13 +438,11 @@ export const bulkImportHistorical = async (props: {
           continue
         }
         resolved.set(inboxRow.sourceId, {
-          sourceId: inboxRow.sourceId,
           contactInboxId: inboxRow.id,
           contactId: inboxRow.contactId,
           conversationId: convId,
         })
 
-        // Defer event emission to post-commit (don't block transaction).
         const entry = dedup.get(inboxRow.sourceId)
         if (entry) {
           newContactCreatedEvents.push({
@@ -518,9 +450,9 @@ export const bulkImportHistorical = async (props: {
             contactId: inboxRow.contactId,
             contactInboxId: inboxRow.id,
             sourceId: inboxRow.sourceId,
-            firstName: entry.contact.firstName,
-            phoneNumber: entry.contact.phoneNumber,
-            email: entry.contact.email,
+            firstName: entry.firstName,
+            phoneNumber: entry.phoneNumber,
+            email: entry.email,
             channel: inbox.channel,
             source: inbox.channel,
             createdAt: new Date(),
@@ -529,90 +461,12 @@ export const bulkImportHistorical = async (props: {
       }
     }
 
-    // Build contactInboxIds output map (existing + new accepted).
-    for (const [sourceId, entry] of resolved) {
-      contactInboxIds.set(sourceId, entry.contactInboxId)
-    }
-
-    // 5. Bulk INSERT Messages.
-    const messageRows: (typeof messageModel.$inferInsert)[] = []
-    let inputMessageCount = 0
-    for (const [sourceId, entry] of dedup) {
-      const link = resolved.get(sourceId)
-      if (!link?.conversationId) {
-        // Contact rejected (cap or unresolved race) — count messages as failed.
-        // Note: cap-failed messages were already counted above.
-        continue
-      }
-      for (const msg of entry.messages) {
-        inputMessageCount += 1
-        const isOutgoing = msg.messageType === "outgoing"
-        const createdAt = msg.createdAt ?? new Date()
-        messageRows.push({
-          id: makeMessageId(createdAt),
-          conversationId: link.conversationId,
-          contactInboxId: link.contactInboxId,
-          senderType: isOutgoing ? "user" : "contact",
-          workspaceId,
-          sourceId: msg.sourceId,
-          senderId: isOutgoing ? null : link.contactId,
-          messageType: msg.messageType,
-          text: msg.text,
-          contentType: msg.contentType,
-          contentAttributes: msg.contentAttributes,
-          createdAt,
-          updatedAt: createdAt,
-        })
-      }
-    }
-
-    if (messageRows.length > 0) {
-      // Chunk inserts: Drizzle SQL builder + Postgres 65535-param limit blow
-      // up on huge .values() arrays. Message row has ~13 cols → 1000 rows ≈
-      // 13k params, safely under the cap, and keeps the SQL AST shallow.
-      const CHUNK_SIZE = 1000
-      let insertedTotal = 0
-      for (let i = 0; i < messageRows.length; i += CHUNK_SIZE) {
-        const chunk = messageRows.slice(i, i + CHUNK_SIZE)
-        let inserted: { id: string }[]
-        try {
-          inserted = await tx
-            .insert(messageModel)
-            .values(chunk)
-            .onConflictDoNothing({
-              target: [messageModel.contactInboxId, messageModel.sourceId],
-            })
-            .returning({ id: messageModel.id })
-        } catch (err) {
-          if (!isUniqueMessagePkViolation(err)) {
-            throw err
-          }
-          // Cross-run PK collision (partition+ms+seq clash). Regenerate IDs
-          // from the factory — sequence advances naturally — and retry once.
-          logger.warn(
-            { runId, chunkStart: i, chunkSize: chunk.length },
-            "[coexist] Message PK collision — regenerating IDs and retrying",
-          )
-          const retried = chunk.map((row) => ({
-            ...row,
-            id: makeMessageId(new Date(row.createdAt as Date)),
-          }))
-          inserted = await tx
-            .insert(messageModel)
-            .values(retried)
-            .onConflictDoNothing({
-              target: [messageModel.contactInboxId, messageModel.sourceId],
-            })
-            .returning({ id: messageModel.id })
-        }
-        insertedTotal += inserted.length
-      }
-      importedMessages = insertedTotal
-      skippedMessages = inputMessageCount - insertedTotal
+    for (const [sourceId, link] of resolved) {
+      contactInboxIds.set(sourceId, link)
     }
   })
 
-  // 6. Post-commit side effects — fire-and-forget; failures must not roll back.
+  // Post-commit side effects.
   for (const ev of newContactCreatedEvents) {
     emitContactCreated(
       ev.workspaceId,
@@ -635,7 +489,7 @@ export const bulkImportHistorical = async (props: {
       metadata: {
         triggerContext: {
           triggerSource: "worker",
-          triggerHandler: "bulkImportHistorical",
+          triggerHandler: "bulkImportContacts",
           triggerType: "contact_created",
         },
       },
@@ -646,11 +500,236 @@ export const bulkImportHistorical = async (props: {
 
   return {
     importedContacts,
-    importedMessages,
     skippedContacts,
+    contactInboxIds,
+    failureReason,
+  }
+}
+
+/**
+ * Phase 2 of Coexist historical sync: bulk-insert messages for one resolved
+ * Contact/ContactInbox/Conversation triple. Idempotent via the
+ * (contactInboxId, sourceId) unique constraint — retries never duplicate rows.
+ *
+ * Chunks INSERTs at 1000 rows to stay under the Postgres 65535-param limit.
+ * On a cross-run PK collision (partition+ms+seq clash), regenerates IDs from
+ * the factory and retries the chunk once.
+ *
+ * When `contactEnrichment` is provided (phone/email discovered while scanning
+ * message bodies), COALESCE-fills the parent Contact row in the same tx so
+ * downstream UI sees the enrichment atomically with the new messages.
+ */
+export const bulkImportMessages = async (props: {
+  workspaceId: string
+  runId: string
+  contactInboxId: string
+  contactId: string
+  conversationId: string
+  messages: HistoricalMessage[]
+  contactEnrichment?: { phoneNumber?: string; email?: string }
+  /**
+   * Optional shared ID factory. Phase 2 of Messenger sync creates ONE factory
+   * per run and passes it to every per-conv `bulkImportMessages` call so the
+   * seq counter is shared across convs — without this, two messages from
+   * different convs that share a `created_time` (sub-second resolution from
+   * Graph) would emit the same ID and hit the unique PK retry path.
+   */
+  idFactory?: HistoricalIdFactory
+}): Promise<BulkImportMessagesResult> => {
+  const {
+    workspaceId,
+    runId,
+    contactInboxId,
+    contactId,
+    conversationId,
+    messages,
+    contactEnrichment,
+    idFactory,
+  } = props
+
+  const empty: BulkImportMessagesResult = {
+    importedMessages: 0,
+    skippedMessages: 0,
+  }
+
+  const hasEnrichment =
+    contactEnrichment != null &&
+    Boolean(contactEnrichment.phoneNumber || contactEnrichment.email)
+
+  if (messages.length === 0 && !hasEnrichment) {
+    return empty
+  }
+
+  const makeMessageId = idFactory ?? createHistoricalIdFactory(runId)
+  let importedMessages = 0
+  let skippedMessages = 0
+
+  await db.transaction(async (tx) => {
+    if (hasEnrichment && contactEnrichment) {
+      await tx.execute(sql`
+        UPDATE "Contact" SET
+          "phoneNumber" = COALESCE("phoneNumber", ${contactEnrichment.phoneNumber ?? null}::text),
+          "email"       = COALESCE("email",       ${contactEnrichment.email ?? null}::text)
+        WHERE "id" = ${contactId}
+          AND (
+            (${contactEnrichment.phoneNumber ?? null}::text IS NOT NULL AND "phoneNumber" IS NULL)
+            OR (${contactEnrichment.email ?? null}::text IS NOT NULL AND "email" IS NULL)
+          )
+      `)
+    }
+
+    if (messages.length === 0) {
+      return
+    }
+
+    const messageRows: (typeof messageModel.$inferInsert)[] = messages.map(
+      (msg) => {
+        const isOutgoing = msg.messageType === "outgoing"
+        const createdAt = msg.createdAt ?? new Date()
+        return {
+          id: makeMessageId(createdAt),
+          conversationId,
+          contactInboxId,
+          senderType: isOutgoing ? "user" : "contact",
+          workspaceId,
+          sourceId: msg.sourceId,
+          senderId: isOutgoing ? null : contactId,
+          messageType: msg.messageType,
+          text: msg.text,
+          contentType: msg.contentType,
+          contentAttributes: msg.contentAttributes,
+          createdAt,
+          updatedAt: createdAt,
+        }
+      },
+    )
+
+    const CHUNK_SIZE = 1000
+    let insertedTotal = 0
+    for (let i = 0; i < messageRows.length; i += CHUNK_SIZE) {
+      const chunk = messageRows.slice(i, i + CHUNK_SIZE)
+      let inserted: { id: string }[]
+      try {
+        inserted = await tx
+          .insert(messageModel)
+          .values(chunk)
+          .onConflictDoNothing({
+            target: [messageModel.contactInboxId, messageModel.sourceId],
+          })
+          .returning({ id: messageModel.id })
+      } catch (err) {
+        if (!isUniqueMessagePkViolation(err)) {
+          throw err
+        }
+        logger.warn(
+          { runId, chunkStart: i, chunkSize: chunk.length },
+          "[coexist] Message PK collision — regenerating IDs and retrying",
+        )
+        const retried = chunk.map((row) => ({
+          ...row,
+          id: makeMessageId(row.createdAt as Date),
+        }))
+        inserted = await tx
+          .insert(messageModel)
+          .values(retried)
+          .onConflictDoNothing({
+            target: [messageModel.contactInboxId, messageModel.sourceId],
+          })
+          .returning({ id: messageModel.id })
+      }
+      insertedTotal += inserted.length
+    }
+    importedMessages = insertedTotal
+    skippedMessages = messages.length - insertedTotal
+  })
+
+  // Touch parent contact lastActivityAt so list ordering reflects sync. Best
+  // effort — failure here doesn't roll back the message insert.
+  if (importedMessages > 0) {
+    try {
+      await db
+        .update(contactModel)
+        .set({ lastActivityAt: new Date() })
+        .where(eq(contactModel.id, contactId))
+    } catch (error) {
+      logger.warn(
+        { error, contactId },
+        "[coexist] failed to bump lastActivityAt",
+      )
+    }
+  }
+
+  return {
+    importedMessages,
+    skippedMessages,
+  }
+}
+
+/**
+ * Backward-compat combined import for WhatsApp coexist flush. Internally
+ * delegates to `bulkImportContacts` + per-contact `bulkImportMessages`.
+ * Preserves the prior return shape (sourceId → contactInboxId map and
+ * aggregate counters).
+ */
+export const bulkImportHistorical = async (props: {
+  inbox: InboxModel
+  workspaceId: string
+  runId: string
+  batch: HistoricalContactMessages[]
+}): Promise<BulkImportHistoricalResult> => {
+  const { inbox, workspaceId, runId, batch } = props
+
+  const contactsResult = await bulkImportContacts({
+    inbox,
+    workspaceId,
+    contacts: batch.map((b) => b.contact),
+  })
+
+  const contactInboxIds = new Map<string, string>()
+  for (const [sourceId, link] of contactsResult.contactInboxIds) {
+    contactInboxIds.set(sourceId, link.contactInboxId)
+  }
+
+  let importedMessages = 0
+  let skippedMessages = 0
+  let failedMessages = 0
+
+  for (const entry of batch) {
+    if (entry.messages.length === 0) {
+      continue
+    }
+    const link = contactsResult.contactInboxIds.get(entry.contact.sourceId)
+    if (!link) {
+      skippedMessages += entry.messages.length
+      continue
+    }
+    try {
+      const res = await bulkImportMessages({
+        workspaceId,
+        runId,
+        contactInboxId: link.contactInboxId,
+        contactId: link.contactId,
+        conversationId: link.conversationId,
+        messages: entry.messages,
+      })
+      importedMessages += res.importedMessages
+      skippedMessages += res.skippedMessages
+    } catch (error) {
+      logger.error(
+        { error, runId, sourceId: entry.contact.sourceId },
+        "[coexist] bulkImportMessages threw inside bulkImportHistorical",
+      )
+      failedMessages += entry.messages.length
+    }
+  }
+
+  return {
+    importedContacts: contactsResult.importedContacts,
+    skippedContacts: contactsResult.skippedContacts,
+    importedMessages,
     skippedMessages,
     failedMessages,
     contactInboxIds,
-    failureReason,
+    failureReason: contactsResult.failureReason,
   }
 }

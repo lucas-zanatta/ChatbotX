@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 import {
   bigintAsString,
@@ -36,6 +37,15 @@ export const coexistRunStatus = pgEnum("coexistRunStatus", [
   "succeeded",
   "failed",
   "partial",
+])
+
+// Messenger 2-phase sync: phase 1 walks /conversations and upserts contacts;
+// phase 2 walks /conversations again per conv to fetch and persist messages.
+// Sequential — phase 2 starts only after phase 1 covers every conversation
+// within the run's frontier+ceiling window.
+export const coexistMessengerSyncPhase = pgEnum("coexistMessengerSyncPhase", [
+  "contacts",
+  "messages",
 ])
 
 export const coexistSyncRunModel = pgTable(
@@ -90,6 +100,14 @@ export const coexistSyncRunModel = pgTable(
     lastPhase: integer(),
     lastChunkOrder: integer(),
     syncProgress: integer().notNull().default(0),
+
+    // Messenger 2-phase sync state. Phase 1 ("contacts") walks
+    // /conversations and bulk-upserts contacts; phase 2 ("messages") re-walks
+    // /conversations to fetch + persist messages per conv. lastSyncedAt is
+    // reset to null on phase transition so phase 2 starts from newest.
+    messengerSyncPhase: coexistMessengerSyncPhase()
+      .notNull()
+      .default("contacts"),
   },
   (t) => [
     index("CoexistSyncRun_workspace_idx").on(t.workspaceId),
@@ -104,5 +122,11 @@ export const coexistSyncRunModel = pgTable(
     index("CoexistSyncRun_integration_resume_idx")
       .on(t.integrationId, t.channel, sql`${t.startedAt} DESC`)
       .where(sql`status IN ('succeeded', 'partial')`),
+    // Prevent duplicate init rows when coexist is toggled rapidly on the same
+    // (integration, channel). Scheduler INSERT race → second row would never
+    // get claimed and would clutter the table.
+    uniqueIndex("CoexistSyncRun_integration_init_uq")
+      .on(t.integrationId, t.channel)
+      .where(sql`status = 'init'`),
   ],
 )

@@ -1,5 +1,6 @@
 CREATE TYPE "coexistChannel" AS ENUM('whatsapp', 'messenger');--> statement-breakpoint
 CREATE TYPE "coexistRunStatus" AS ENUM('init', 'running', 'succeeded', 'failed', 'partial');--> statement-breakpoint
+CREATE TYPE "coexistMessengerSyncPhase" AS ENUM('contacts', 'messages');--> statement-breakpoint
 CREATE TABLE "CoexistSyncRun" (
 	"id" bigint PRIMARY KEY,
 	"createdAt" timestamp(6) with time zone DEFAULT now() NOT NULL,
@@ -25,7 +26,8 @@ CREATE TABLE "CoexistSyncRun" (
 	"currentError" text,
 	"lastPhase" integer,
 	"lastChunkOrder" integer,
-	"syncProgress" integer DEFAULT 0 NOT NULL
+	"syncProgress" integer DEFAULT 0 NOT NULL,
+	"messengerSyncPhase" "coexistMessengerSyncPhase" DEFAULT 'contacts'::"coexistMessengerSyncPhase" NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "WhatsappCoexistStaging" (
@@ -47,5 +49,6 @@ CREATE INDEX "CoexistSyncRun_workspace_idx" ON "CoexistSyncRun" ("workspaceId");
 CREATE INDEX "CoexistSyncRun_integration_idx" ON "CoexistSyncRun" ("integrationId");--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_active_idx" ON "CoexistSyncRun" ("status","lastHeartbeatAt") WHERE status IN ('init', 'running');--> statement-breakpoint
 CREATE INDEX "CoexistSyncRun_integration_resume_idx" ON "CoexistSyncRun" ("integrationId","channel","startedAt" DESC) WHERE status IN ('succeeded', 'partial');--> statement-breakpoint
+CREATE UNIQUE INDEX "CoexistSyncRun_integration_init_uq" ON "CoexistSyncRun" ("integrationId","channel") WHERE status = 'init';--> statement-breakpoint
 CREATE INDEX "WhatsappCoexistStaging_phoneNumberId_idx" ON "WhatsappCoexistStaging" ("phoneNumberId");--> statement-breakpoint
 CREATE UNIQUE INDEX "WhatsappCoexistStaging_phone_hash_uq" ON "WhatsappCoexistStaging" ("phoneNumberId","payloadHash");

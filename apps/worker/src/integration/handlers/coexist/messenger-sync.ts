@@ -1,18 +1,23 @@
-import { extractContactInfo } from "@chatbotx.io/business"
 import {
   and,
   db,
   eq,
   findOrFail,
+  inArray,
   lt,
   ne,
   or,
   sql,
 } from "@chatbotx.io/database/client"
-import { coexistSyncRunModel, inboxModel } from "@chatbotx.io/database/schema"
+import {
+  coexistSyncRunModel,
+  contactInboxModel,
+  conversationModel,
+  inboxModel,
+} from "@chatbotx.io/database/schema"
 import {
   listConversations,
-  listMessages,
+  type MessengerConversation,
 } from "@chatbotx.io/integration-messenger/apis/sync"
 import {
   type BucUsage,
@@ -28,9 +33,17 @@ import pLimit from "p-limit"
 import { z } from "zod"
 import { logger } from "../../../lib/logger"
 import {
-  bulkImportHistorical,
-  type HistoricalContactMessages,
+  bulkImportContacts,
+  bulkImportMessages,
+  type ContactImportLink,
+  createHistoricalIdFactory,
 } from "./bulk-historical-import"
+import {
+  fetchConvMessages,
+  STORE_WINDOW_MS,
+  splitName,
+  withInlineRetry,
+} from "./messenger-helpers"
 
 const messengerAuthSchema = z
   .object({
@@ -42,124 +55,18 @@ const messengerAuthSchema = z
   })
   .passthrough()
 
-const WHITESPACE_RE = /\s+/
-
-/**
- * Split a Messenger participant `name` ("Bob Customer") into firstName +
- * lastName. First whitespace token = firstName, remainder = lastName.
- * Single-token names yield `lastName: undefined`. DB `fullName` is a
- * generated column (`firstName || ' ' || lastName`) — no need to persist it.
- */
-const splitName = (
-  raw: string | undefined,
-): { firstName?: string; lastName?: string } => {
-  const trimmed = raw?.trim()
-  if (!trimmed) {
-    return {}
-  }
-  const idx = trimmed.search(WHITESPACE_RE)
-  if (idx < 0) {
-    return { firstName: trimmed }
-  }
-  return {
-    firstName: trimmed.slice(0, idx),
-    lastName: trimmed.slice(idx).trim() || undefined,
-  }
-}
-
 /** Default Graph concurrency when BUC usage signals "plenty of budget". */
 const DEFAULT_CONCURRENCY = 5
 
 /**
- * Only store messages whose `created_time` is within this window. Older
- * messages are still scanned for phone/email discovery but not persisted.
- * 90 days ≈ 3 months — matches the product spec.
- */
-const STORE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
-
-/** Maximum inline retry attempts on 429 / 5xx before propagating. */
-const MAX_INLINE_RETRIES = 4
-
-/**
- * Maximum number of message pages to scan beyond the 3-month storage window
- * purely for phone/email discovery. Prevents unbounded Graph API calls when
- * a conversation never contains extractable contact info (~1000 messages at
- * 100/page).
- */
-const MAX_DISCOVERY_PAGES = 10
-
-/**
  * Active wall-time budget per chunk. When exceeded, the job persists state and
  * either hot-chains a continuation enqueue or yields to the scheduler.
- *
- * Sized so the BullMQ lock (10 min) safely covers chunk + tail + safety.
  */
 const CHUNK_BUDGET_MS = 4 * 60 * 1000
 
-/** Returns true if the error is an HTTP status we should retry inline. */
-function isRetryable(error: unknown): boolean {
-  if (
-    error != null &&
-    typeof error === "object" &&
-    "response" in error &&
-    error.response != null &&
-    typeof error.response === "object" &&
-    "status" in error.response &&
-    typeof error.response.status === "number"
-  ) {
-    const status = error.response.status
-    return status === 429 || status >= 500
-  }
-  return false
-}
-
-/**
- * Wraps a Graph API call with inline retry on 429 / 5xx. Preserves the
- * pagination cursor across retries — unlike a BullMQ-level retry which would
- * restart the entire job from scratch.
- */
-async function withInlineRetry<T>(fn: () => Promise<T>): Promise<T> {
-  let lastError: unknown
-  for (let attempt = 0; attempt < MAX_INLINE_RETRIES; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error
-      if (!isRetryable(error)) {
-        throw error
-      }
-      const delay = Math.min(2 ** attempt * 1000, 30_000)
-      logger.warn(
-        { attempt, delay },
-        "[coexist] Messenger Graph rate-limited — retrying after delay",
-      )
-      await new Promise<void>((resolve) => setTimeout(resolve, delay))
-    }
-  }
-  throw lastError
-}
-
 /**
  * Resolves the per-integration resume ceiling from the most recent prior
- * `CoexistSyncRun` row. Excludes the current run.
- *
- * Returned ceiling is compared against *message* `created_time` in the
- * per-message loop (not conv updated_time) because the prior run wrote
- * message rows up to that boundary.
- *
- * - status === 'succeeded' → ceiling = priorRun.startedAt — prior run
- *   covered every message that existed up to its start. `startedAt` is set
- *   once per run (COALESCE) so this is the FIRST chunk's start, not a later
- *   chunk's — preserves the invariant that nothing newer than that boundary
- *   was missed.
- * - status === 'partial'   → ceiling = priorRun.lastSyncedAt ?? startedAt
- *   (resume from the boundary the prior attempt reached). lastSyncedAt is
- *   in CONV-TIME but we treat it as a safe lower bound for messages too —
- *   every message in a conv has created_time <= conv.updated_time, so
- *   skipping messages <= lastSyncedAt can only skip messages the prior run
- *   already processed.
- *
- * Returns null when this is the first run for the integration.
+ * `CoexistSyncRun` row. See bulk-historical-import for full semantics.
  */
 async function fetchPriorRunCeiling(
   integrationId: string,
@@ -184,27 +91,457 @@ async function fetchPriorRunCeiling(
   return priorRun.lastSyncedAt ?? priorRun.startedAt ?? null
 }
 
-function log(data: unknown, msg = "") {
-  logger.debug({ data }, msg)
+type ConvFilter = {
+  convsToProcess: MessengerConversation[]
+  stopAll: boolean
+  oldestConvProcessed: Date | null
 }
 
 /**
- * Page-per-job historical Messenger sync. Each invocation walks the Graph
- * `/me/conversations` list newest-first and uses timestamp watermarks to
- * resume — no Graph cursor is persisted between chunks, which makes the
- * job robust to Page access-token rotation (cursors would 400 after rotate).
+ * Apply within-run frontier + cross-run ceiling filters to one Graph
+ * conversations page. Shared by both phases since each phase walks
+ * `/conversations` DESC and tracks its own `lastSyncedAt` watermark.
+ */
+function filterConversations(
+  conversations: MessengerConversation[],
+  frontier: Date | null,
+  ceiling: Date | null,
+  currentOldest: Date | null,
+): ConvFilter {
+  let stopAll = false
+  let oldestConvProcessed = currentOldest
+  const convsToProcess: MessengerConversation[] = []
+
+  for (const conv of conversations) {
+    const convTime = conv.updated_time ? new Date(conv.updated_time) : null
+
+    // No timestamp = can't position vs frontier/ceiling and can't update
+    // watermark. Skip — Graph rarely returns this, and importing without
+    // ordering risks re-import on every run (M1).
+    if (!convTime) {
+      continue
+    }
+
+    if (ceiling && convTime <= ceiling) {
+      stopAll = true
+      break
+    }
+
+    if (frontier && convTime > frontier) {
+      continue
+    }
+
+    convsToProcess.push(conv)
+
+    if (oldestConvProcessed === null || convTime < oldestConvProcessed) {
+      oldestConvProcessed = convTime
+    }
+  }
+
+  return { convsToProcess, stopAll, oldestConvProcessed }
+}
+
+const participantSourceId = (
+  conv: MessengerConversation,
+  pageId: string,
+): { sourceId: string; name?: string } | null => {
+  const participant = conv.participants?.data?.find(
+    (entry) => entry.id !== pageId,
+  )
+  if (!participant) {
+    return null
+  }
+  return { sourceId: participant.id, name: participant.name }
+}
+
+type SyncContext = {
+  runId: string
+  integrationId: string
+  workspaceId: string
+  pageId: string
+  accessToken: string
+  version: string | undefined
+  inbox: Awaited<ReturnType<typeof findOrFail<typeof inboxModel>>>
+  defaultCountry: string | null
+  ceiling: Date | null
+  applyBucThrottle: (usage: BucUsage | null | undefined) => void
+  respectPause: () => Promise<void>
+  getLimit: () => ReturnType<typeof pLimit>
+  jobStart: number
+  /** Mutated by handlers to surface non-fatal failures into currentError. */
+  errorRef: { current: string | undefined }
+}
+
+type PhaseResult = {
+  /** True when the phase has no more pages to process. */
+  done: boolean
+  /** Last per-page oldest conv-time, persisted to lastSyncedAt. */
+  oldestConvProcessed: Date | null
+  pageNumber: number
+}
+
+type ListConversationsPage = Awaited<ReturnType<typeof listConversations>>
+
+type PageHandler = (args: {
+  conversations: ListConversationsPage
+  filtered: ConvFilter
+  pageNumber: number
+  currentOldest: Date | null
+}) => Promise<Date | null>
+
+/**
+ * Walk `/me/conversations` DESC pages until cursor exhausts, ceiling stops
+ * the walk, or the chunk budget expires. Handles inline retry, BUC throttle,
+ * heartbeat, pause, and the frontier/ceiling filter on each page. The phase's
+ * `onPage` callback runs per-page side effects (DB writes, sub-fetches) and
+ * returns the new oldest-processed watermark to persist as `lastSyncedAt`.
+ */
+async function walkConversationsPages(
+  ctx: SyncContext,
+  phaseName: "contacts" | "messages",
+  frontier: Date | null,
+  onPage: PageHandler,
+): Promise<PhaseResult> {
+  const { runId, pageId, jobStart } = ctx
+  let oldestConvProcessed: Date | null = frontier
+  let pageCursor: string | undefined
+  let pageNumber = 0
+
+  while (true) {
+    if (Date.now() - jobStart >= CHUNK_BUDGET_MS) {
+      return { done: false, oldestConvProcessed, pageNumber }
+    }
+
+    await ctx.respectPause()
+    pageNumber += 1
+
+    const conversations = await withInlineRetry(() =>
+      listConversations({
+        pageId,
+        accessToken: ctx.accessToken,
+        version: ctx.version,
+        after: pageCursor,
+      }),
+    )
+    ctx.applyBucThrottle(conversations.bucUsage)
+
+    await db
+      .update(coexistSyncRunModel)
+      .set({
+        currentStep: `phase=${phaseName} page ${pageNumber} — ${conversations.data.length} conversations`,
+        lastHeartbeatAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(coexistSyncRunModel.id, runId))
+
+    const filtered = filterConversations(
+      conversations.data,
+      frontier,
+      ctx.ceiling,
+      oldestConvProcessed,
+    )
+
+    oldestConvProcessed = await onPage({
+      conversations,
+      filtered,
+      pageNumber,
+      currentOldest: oldestConvProcessed,
+    })
+
+    pageCursor = conversations.after
+
+    if (!pageCursor || filtered.stopAll) {
+      return { done: true, oldestConvProcessed, pageNumber }
+    }
+  }
+}
+
+/**
+ * Phase 1 — walk `/me/conversations` DESC, dedup participants, bulk upsert
+ * Contacts, dispatch avatar fetch jobs. Messages are NOT fetched here.
+ */
+async function runContactsPhase(ctx: SyncContext): Promise<PhaseResult> {
+  const { runId, workspaceId, pageId, inbox } = ctx
+
+  const [runRow] = await db
+    .select({ lastSyncedAt: coexistSyncRunModel.lastSyncedAt })
+    .from(coexistSyncRunModel)
+    .where(eq(coexistSyncRunModel.id, runId))
+    .limit(1)
+
+  if (!runRow) {
+    return { done: true, oldestConvProcessed: null, pageNumber: 0 }
+  }
+
+  return walkConversationsPages(
+    ctx,
+    "contacts",
+    runRow.lastSyncedAt,
+    async ({ filtered, pageNumber }) => {
+      const contactBatch: IncomingContact[] = []
+      for (const conv of filtered.convsToProcess) {
+        const participant = participantSourceId(conv, pageId)
+        if (!participant) {
+          continue
+        }
+        const { firstName, lastName } = splitName(participant.name)
+        contactBatch.push({
+          sourceId: participant.sourceId,
+          firstName,
+          lastName,
+        })
+      }
+
+      let pageResult: Awaited<ReturnType<typeof bulkImportContacts>>
+      try {
+        pageResult = await bulkImportContacts({
+          inbox,
+          workspaceId,
+          contacts: contactBatch,
+        })
+      } catch (error) {
+        const errMsg =
+          error instanceof Error ? error.message : "Unknown bulk import error"
+        logger.error(
+          { error, runId, pageNumber },
+          "[coexist] Messenger contact bulk import threw — page lost",
+        )
+        pageResult = {
+          importedContacts: 0,
+          skippedContacts: 0,
+          contactInboxIds: new Map(),
+        }
+        ctx.errorRef.current = `phase=contacts page ${pageNumber} bulk import failed: ${errMsg}`
+      }
+
+      // Bulk-enqueue one avatar-mirror job per resolved contact.
+      if (pageResult.contactInboxIds.size > 0) {
+        const avatarJobs = Array.from(
+          pageResult.contactInboxIds,
+          ([sourceId, link]) => ({
+            name: IntegrationJobAction.updateContactAvatar,
+            data: {
+              type: IntegrationJobAction.updateContactAvatar,
+              data: {
+                workspaceId,
+                contactInboxId: link.contactInboxId,
+                sourceId,
+              },
+            },
+            opts: {
+              jobId: `update-avatar-${link.contactInboxId}`,
+              attempts: 2,
+              removeOnComplete: true,
+              removeOnFail: { count: 100 },
+            },
+          }),
+        )
+        try {
+          await integrationQueue.addBulk(avatarJobs)
+        } catch (error) {
+          logger.error(
+            { error, runId, pageNumber, jobCount: avatarJobs.length },
+            "[coexist] avatar addBulk failed — continuing run",
+          )
+        }
+      }
+
+      if (pageResult.failureReason) {
+        ctx.errorRef.current = `phase=contacts page ${pageNumber}: ${pageResult.failureReason}`
+      }
+
+      await db
+        .update(coexistSyncRunModel)
+        .set({
+          currentScan: sql`${coexistSyncRunModel.currentScan} + ${filtered.convsToProcess.length}`,
+          importedContactCount: sql`${coexistSyncRunModel.importedContactCount} + ${pageResult.importedContacts}`,
+          skippedCount: sql`${coexistSyncRunModel.skippedCount} + ${pageResult.skippedContacts}`,
+          lastSyncedAt: filtered.oldestConvProcessed,
+          currentStep: `phase=contacts page ${pageNumber} processed`,
+          currentError: ctx.errorRef.current ?? null,
+          lastHeartbeatAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(coexistSyncRunModel.id, runId))
+
+      return filtered.oldestConvProcessed
+    },
+  )
+}
+
+/**
+ * Phase 2 — re-walk `/me/conversations` DESC and, per conversation, fetch its
+ * messages via Graph, run phone/email discovery, then `bulkImportMessages`
+ * with the resolved Contact/ContactInbox/Conversation triple. Frontier resets
+ * to NULL on transition so this walk starts from newest.
+ */
+async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
+  const { runId, workspaceId, pageId, inbox } = ctx
+
+  const [runRow] = await db
+    .select({ lastSyncedAt: coexistSyncRunModel.lastSyncedAt })
+    .from(coexistSyncRunModel)
+    .where(eq(coexistSyncRunModel.id, runId))
+    .limit(1)
+
+  if (!runRow) {
+    return { done: true, oldestConvProcessed: null, pageNumber: 0 }
+  }
+
+  const fallbackCutoff = new Date(Date.now() - STORE_WINDOW_MS)
+  // ONE factory shared across all per-conv bulkImportMessages calls in this
+  // chunk — prevents same-ms IDs colliding across convs (H1).
+  const idFactory = createHistoricalIdFactory(runId)
+
+  return walkConversationsPages(
+    ctx,
+    "messages",
+    runRow.lastSyncedAt,
+    async ({ filtered, pageNumber, currentOldest }) => {
+      // Single pass: extract participant per conversation.
+      const convsByParticipant = new Map<string, MessengerConversation>()
+      for (const conv of filtered.convsToProcess) {
+        const p = participantSourceId(conv, pageId)
+        if (!p) {
+          continue
+        }
+        convsByParticipant.set(p.sourceId, conv)
+      }
+      const sourceIds = Array.from(convsByParticipant.keys())
+
+      // Single JOIN resolves ContactInbox + Conversation in one round trip.
+      const linkBySource = new Map<string, ContactImportLink>()
+      if (sourceIds.length > 0) {
+        const rows = await db
+          .select({
+            sourceId: contactInboxModel.sourceId,
+            contactInboxId: contactInboxModel.id,
+            contactId: contactInboxModel.contactId,
+            conversationId: conversationModel.id,
+          })
+          .from(contactInboxModel)
+          .leftJoin(
+            conversationModel,
+            eq(conversationModel.contactId, contactInboxModel.contactId),
+          )
+          .where(
+            and(
+              eq(contactInboxModel.inboxId, inbox.id),
+              inArray(contactInboxModel.sourceId, sourceIds),
+            ),
+          )
+        for (const r of rows) {
+          if (!r.conversationId) {
+            continue
+          }
+          linkBySource.set(r.sourceId, {
+            contactInboxId: r.contactInboxId,
+            contactId: r.contactId,
+            conversationId: r.conversationId,
+          })
+        }
+      }
+
+      let pageImported = 0
+      let pageSkipped = 0
+      let pageFailed = 0
+      let pageOldest: Date | null = currentOldest
+
+      const limit = ctx.getLimit()
+      await Promise.all(
+        Array.from(convsByParticipant, ([sourceId, conv]) =>
+          limit(async () => {
+            const link = linkBySource.get(sourceId)
+            if (!link) {
+              // Contact rejected in phase 1 — no target to write to. Skip.
+              return
+            }
+
+            const convTime = conv.updated_time
+              ? new Date(conv.updated_time)
+              : null
+            const cutoff = convTime
+              ? new Date(convTime.getTime() - STORE_WINDOW_MS)
+              : fallbackCutoff
+
+            try {
+              const { messages, discovered } = await fetchConvMessages({
+                conversationId: conv.id,
+                accessToken: ctx.accessToken,
+                version: ctx.version,
+                cutoff,
+                ceiling: ctx.ceiling,
+                pageId,
+                defaultCountry: ctx.defaultCountry,
+                applyBucThrottle: ctx.applyBucThrottle,
+                respectPause: ctx.respectPause,
+              })
+
+              const result = await bulkImportMessages({
+                workspaceId,
+                runId,
+                contactInboxId: link.contactInboxId,
+                contactId: link.contactId,
+                conversationId: link.conversationId,
+                messages,
+                contactEnrichment: discovered,
+                idFactory,
+              })
+              pageImported += result.importedMessages
+              pageSkipped += result.skippedMessages
+
+              if (convTime && (pageOldest === null || convTime < pageOldest)) {
+                pageOldest = convTime
+              }
+            } catch (error) {
+              const errMsg =
+                error instanceof Error
+                  ? error.message
+                  : "Unknown message fetch error"
+              logger.error(
+                { error, conversationId: conv.id, runId },
+                "[coexist] Messenger phase=messages conv failed",
+              )
+              ctx.errorRef.current = `conv ${conv.id} message fetch failed: ${errMsg}`
+              pageFailed += 1
+            }
+          }),
+        ),
+      )
+
+      await db
+        .update(coexistSyncRunModel)
+        .set({
+          importedMessageCount: sql`${coexistSyncRunModel.importedMessageCount} + ${pageImported}`,
+          skippedCount: sql`${coexistSyncRunModel.skippedCount} + ${pageSkipped}`,
+          failedCount: sql`${coexistSyncRunModel.failedCount} + ${pageFailed}`,
+          lastSyncedAt: pageOldest,
+          currentStep: `phase=messages page ${pageNumber} processed`,
+          currentError: ctx.errorRef.current ?? null,
+          lastHeartbeatAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(coexistSyncRunModel.id, runId))
+
+      return pageOldest
+    },
+  )
+}
+
+/**
+ * Page-per-job historical Messenger sync. Splits into two sequential phases:
  *
- * Resume model:
- *  - **frontier** = `runRow.lastSyncedAt` — oldest message.created_time this
- *    run has processed across prior chunks. Convs with `updated_time` newer
- *    than frontier were already enumerated and processed; skip them.
- *  - **ceiling**  = derived from the prior `CoexistSyncRun` row for this
- *    integration (see {@link fetchPriorRunCeiling}). Convs and messages
- *    `<=` ceiling were imported by an earlier run; skip storage AND
- *    extraction.
+ *  - **contacts** — walk `/me/conversations` DESC, dedup participants, bulk
+ *    upsert Contacts, dispatch avatar fetch jobs. No `/messages` calls.
+ *  - **messages** — re-walk `/me/conversations` DESC; per conv, fetch
+ *    `/messages`, run discovery, bulk-insert into the resolved contact.
  *
- * Idempotent via `Message_(contactInboxId, sourceId)_key` — even when the
- * watermarks are off by a hair, retries never duplicate rows.
+ * Phase boundary is persisted on `CoexistSyncRun.messengerSyncPhase`. When
+ * phase=contacts finishes, the run flips to phase=messages with
+ * `lastSyncedAt=NULL` so phase 2 walks from newest. The job hot-chains a
+ * continuation when the chunk budget exhausts.
+ *
+ * Idempotent via `Message_(contactInboxId, sourceId)_key`.
  */
 export const coexistMessengerSync = async (
   data: IntegrationJobCoexistMessengerSync["data"],
@@ -268,59 +605,31 @@ export const coexistMessengerSync = async (
     message: "Inbox not found",
   })
 
-  // Default region for phone-number extraction from message bodies. Falls back
-  // to the extractor's built-in region list when null.
   const workspace = await db.query.workspaceModel.findFirst({
     where: { id: workspaceId },
     columns: { targetCountry: true },
   })
   const defaultCountry = workspace?.targetCountry ?? null
 
-  const fallbackCutoff = new Date(Date.now() - STORE_WINDOW_MS)
-
-  // ── Read resume state ─────────────────────────────────────────────────────
-  const [runRow] = await db
+  const [initRow] = await db
     .select({
-      lastSyncedAt: coexistSyncRunModel.lastSyncedAt,
       attempts: coexistSyncRunModel.attempts,
-      importedContactCount: coexistSyncRunModel.importedContactCount,
-      importedMessageCount: coexistSyncRunModel.importedMessageCount,
-      skippedCount: coexistSyncRunModel.skippedCount,
-      failedCount: coexistSyncRunModel.failedCount,
-      currentScan: coexistSyncRunModel.currentScan,
       currentError: coexistSyncRunModel.currentError,
+      messengerSyncPhase: coexistSyncRunModel.messengerSyncPhase,
     })
     .from(coexistSyncRunModel)
     .where(eq(coexistSyncRunModel.id, runId))
     .limit(1)
 
-  if (!runRow) {
+  if (!initRow) {
     logger.warn({ runId }, "[coexist] CoexistSyncRun row gone — abandoning")
     return
   }
 
-  // Within-run frontier (oldest CONVERSATION.updated_time processed in earlier
-  // chunks of this run) and cross-run ceiling (boundary set by the prior run).
-  //
-  // IMPORTANT: frontier is in CONVERSATION-TIME space (matches conv.updated_time
-  // that Graph DESC-sorts on). Ceiling stays in MESSAGE-TIME space because the
-  // prior run wrote message rows up to that boundary.
-  const frontier: Date | null = runRow.lastSyncedAt ?? null
-  const ceiling: Date | null = await fetchPriorRunCeiling(integrationId, runId)
-  let oldestConvProcessed: Date | null = frontier
+  const ceiling = await fetchPriorRunCeiling(integrationId, runId)
+  const attempts = initRow.attempts
 
-  let importedContacts = runRow.importedContactCount
-  let importedMessages = runRow.importedMessageCount
-  let skipped = runRow.skippedCount
-  let failed = runRow.failedCount
-  let conversationCount = runRow.currentScan
-  const attempts = runRow.attempts
-
-  // Optimistic claim: only one worker may flip status→running at a time. The
-  // OR on stale lastHeartbeatAt recovers crashed workers after 10 minutes
-  // (matches the BullMQ default job-lock duration). If the claim fails the
-  // run is already owned by a live worker; abandon this invocation so the
-  // counters and watermark aren't double-written.
+  // Optimistic claim: only one worker may flip status→running at a time.
   const claimed = await db
     .update(coexistSyncRunModel)
     .set({
@@ -351,7 +660,7 @@ export const coexistMessengerSync = async (
     return
   }
 
-  // ── Adaptive concurrency state (BUC-driven) ───────────────────────────────
+  // ── Adaptive concurrency state (BUC-driven) ──────────────────────────────
   let currentConcurrency = DEFAULT_CONCURRENCY
   let currentLimit = pLimit(currentConcurrency)
   let pauseUntil = 0
@@ -361,8 +670,6 @@ export const coexistMessengerSync = async (
     if (next === 0) {
       const waitSec = usage?.estimatedTimeToRegainAccess ?? 60
       pauseUntil = Math.max(pauseUntil, Date.now() + waitSec * 1000)
-      // Collapse concurrency to 1 so post-pause traffic drains serially
-      // instead of all in-flight tasks firing at once and re-exhausting BUC.
       if (currentConcurrency !== 1) {
         currentConcurrency = 1
         currentLimit = pLimit(1)
@@ -391,369 +698,93 @@ export const coexistMessengerSync = async (
     }
   }
 
+  const errorRef = { current: initRow.currentError ?? undefined }
+  const ctx: SyncContext = {
+    runId,
+    integrationId,
+    workspaceId,
+    pageId,
+    accessToken,
+    version,
+    inbox,
+    defaultCountry,
+    ceiling,
+    applyBucThrottle,
+    respectPause,
+    getLimit: () => currentLimit,
+    jobStart,
+    errorRef,
+  }
+
   let finalStatus: "succeeded" | "failed" | "partial" | null = null
-  // Carry prior attempt's error so retry doesn't wipe it. New errors during
-  // this attempt will overwrite via the per-page UPDATE.
-  let finalError: string | undefined = runRow.currentError ?? undefined
   let continueLater = false
+  let lastPageNumber = 0
+  let currentPhase = initRow.messengerSyncPhase
 
   try {
-    // Chunk-local pagination cursor. NOT persisted between chunks — each
-    // chunk re-walks /conversations DESC from newest and skips via timestamps.
-    let pageCursor: string | undefined
-    let pageNumber = 0
-    let stopAll = false
-
-    // Process pages until budget exhausted, ceiling hit, or no more pages.
+    // Run phases sequentially; each loop iteration either advances a phase
+    // to completion, transitions, or yields when the chunk budget exhausts.
     while (true) {
-      // Budget check BEFORE fetching next page (so we don't waste a Graph call
-      // when we'd just yield right after).
       if (Date.now() - jobStart >= CHUNK_BUDGET_MS) {
         continueLater = true
         break
       }
 
-      await respectPause()
-
-      pageNumber += 1
-
-      const conversations = await withInlineRetry(() =>
-        listConversations({
-          pageId,
-          accessToken,
-          version,
-          after: pageCursor,
-        }),
-      )
-      // log(conversations, "conversations")
-      applyBucThrottle(conversations.bucUsage)
-
-      await db
-        .update(coexistSyncRunModel)
-        .set({
-          currentStep: `page ${pageNumber} — ${conversations.data.length} conversations`,
-          lastHeartbeatAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(coexistSyncRunModel.id, runId))
-
-      // Apply frontier (skip done) + ceiling (stop walk) filters at the
-      // conversation level before paying for /messages calls.
-      const convsToProcess: typeof conversations.data = []
-      for (const conv of conversations.data) {
-        const convTime = conv.updated_time ? new Date(conv.updated_time) : null
-
-        // Defensive: Graph occasionally omits updated_time. Treat missing as
-        // "must process" (the alternative — silent skip — has caused data
-        // loss in the past) and log so we can detect API drift over time.
-        if (!convTime) {
-          // log(
-          //   { convId: conv.id, integrationId },
-          //   "[coexist] Messenger conversation missing updated_time — processing without watermark filter",
-          // )
-          convsToProcess.push(conv)
-          continue
-        }
-
-        // Cross-run boundary — Graph returns DESC by updated_time, so once
-        // we cross the ceiling there is nothing newer below.
-        if (ceiling && convTime <= ceiling) {
-          stopAll = true
-          //log({ convId: conv.id, convTime, ceiling }, "stopAll")
+      if (currentPhase === "contacts") {
+        const result = await runContactsPhase(ctx)
+        lastPageNumber = result.pageNumber
+        if (!result.done) {
+          continueLater = true
           break
         }
-
-        // Within-run skip — this conv was fully processed in an earlier chunk
-        // of THIS run. Graph DESC ordering guarantees that any conv strictly
-        // newer than the frontier was already enumerated. Strict `>` so the
-        // boundary conv (== frontier, Graph timestamps are second-precision
-        // and can collide) re-enters — idempotency dedups any double-process.
-        if (frontier && convTime > frontier) {
-          //log({ convId: conv.id, convTime, frontier }, "skip")
-          continue
-        }
-
-        convsToProcess.push(conv)
+        // Transition to phase 2 — reset frontier so messages walks from newest.
+        await db
+          .update(coexistSyncRunModel)
+          .set({
+            messengerSyncPhase: "messages",
+            lastSyncedAt: null,
+            currentStep: "contacts done — start message phase",
+            lastHeartbeatAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(coexistSyncRunModel.id, runId))
+        currentPhase = "messages"
+        continue
       }
 
-      // Fetch messages per conversation under adaptive concurrency.
-      // Each callback returns a tuple of (outcome, convTime) — collecting
-      // the conv-time into the return value rather than mutating
-      // `oldestConvProcessed` from inside concurrent callbacks avoids a
-      // read-modify-write race.
-      type ConvOutcome = {
-        result: HistoricalContactMessages | "FAILED" | "SKIPPED"
-        convTime: Date | null
-      }
-      const outcomes = await Promise.all(
-        convsToProcess.map((conv) =>
-          currentLimit(async (): Promise<ConvOutcome> => {
-            const convTime = conv.updated_time
-              ? new Date(conv.updated_time)
-              : null
-            const messageCutoff = convTime
-              ? new Date(convTime.getTime() - STORE_WINDOW_MS)
-              : fallbackCutoff
-            try {
-              const participant = conv.participants?.data?.find(
-                (entry) => entry.id !== pageId,
-              )
-              if (!participant) {
-                //log({ conv }, "skip - no participant")
-                return { result: "SKIPPED", convTime: null }
-              }
-              const { firstName, lastName } = splitName(participant.name)
-
-              // Discovery state — sourced ONLY from message bodies.
-              // `participants[].email` is unreliable (often a Facebook-internal
-              // alias rather than the user's real email) so we ignore it.
-              const discovered: {
-                phoneNumber?: string
-                email?: string
-              } = {}
-
-              const recentMessages: HistoricalContactMessages["messages"] = []
-              let messageCursor: string | undefined
-              let hitOlderBoundary = false
-              let discoveryPages = 0
-              let totalMsg = 0
-
-              while (true) {
-                await respectPause()
-                const page = await withInlineRetry(() =>
-                  listMessages({
-                    conversationId: conv.id,
-                    accessToken,
-                    version,
-                    after: messageCursor,
-                  }),
-                )
-                //log({ conv: conv.id, page }, "list messages page")
-                applyBucThrottle(page.bucUsage)
-                for (const m of page.data) {
-                  //log({ message: m }, "message")
-                  if (!m.message) {
-                    continue
-                  }
-                  totalMsg++
-                  const createdAt = m.created_time
-                    ? new Date(m.created_time)
-                    : new Date()
-
-                  // Skip messages older than the prior-run ceiling — already
-                  // imported. Stops storage AND extraction.
-                  if (ceiling && createdAt <= ceiling) {
-                    hitOlderBoundary = true
-                    //log({ m, createdAt, ceiling }, "skip - older than ceiling")
-                    continue
-                  }
-
-                  // Per-field discovery scan. Once a field is found, skip its
-                  // extractor on every subsequent message in this conv —
-                  // libphonenumber is the dominant CPU cost.
-                  const needsPhone = !discovered.phoneNumber
-                  const needsEmail = !discovered.email
-                  if (needsPhone || needsEmail) {
-                    const ex = extractContactInfo(m.message, defaultCountry, {
-                      skipPhone: !needsPhone,
-                      skipEmail: !needsEmail,
-                    })
-                    if (ex.phoneNumber && needsPhone) {
-                      discovered.phoneNumber = ex.phoneNumber
-                    }
-                    if (ex.email && needsEmail) {
-                      discovered.email = ex.email
-                    }
-                  }
-
-                  if (createdAt >= messageCutoff || totalMsg <= 100) {
-                    recentMessages.push({
-                      sourceId: m.id,
-                      messageType:
-                        m.from?.id === pageId ? "outgoing" : "incoming",
-                      contentType: "text",
-                      text: m.message,
-                      createdAt,
-                    })
-                  } else {
-                    hitOlderBoundary = true
-                  }
-                }
-
-                messageCursor = page.after
-                if (!messageCursor) {
-                  //log({ conv: conv.id }, "no more messages")
-                  break
-                }
-
-                // After consuming a page, decide whether to continue paginating.
-                // Once we cross >3mo territory, keep scanning for phone/email
-                // discovery up to MAX_DISCOVERY_PAGES extra pages. Stop early
-                // when both fields are found.
-                if (hitOlderBoundary) {
-                  discoveryPages += 1
-                  if (
-                    (discovered.phoneNumber && discovered.email) ||
-                    discoveryPages >= MAX_DISCOVERY_PAGES
-                  ) {
-                    log(
-                      { discovered, discoveryPages },
-                      "stop discovery pagination",
-                    )
-                    break
-                  }
-                }
-              }
-
-              const contact: IncomingContact = {
-                sourceId: participant.id,
-                firstName,
-                lastName,
-                email: discovered.email,
-                phoneNumber: discovered.phoneNumber,
-              }
-
-              return {
-                result: { contact, messages: recentMessages },
-                convTime,
-              }
-            } catch (error) {
-              const errMsg =
-                error instanceof Error ? error.message : "Unknown fetch error"
-              logger.error(
-                { error, conversationId: conv.id },
-                "[coexist] Messenger conversation fetch failed",
-              )
-              finalError = `conv ${conv.id} fetch failed: ${errMsg}`
-              return { result: "FAILED", convTime: null }
-            }
-          }),
-        ),
-      )
-
-      // Reduce conv-time min into the run-level watermark AFTER Promise.all
-      // settles — single-writer, no race.
-      const realBatch: HistoricalContactMessages[] = []
-      let fetchFailed = 0
-      //log({ outcomes }, "outcomes")
-      for (const o of outcomes) {
-        if (o.result === "FAILED") {
-          fetchFailed += 1
-        } else if (o.result !== "SKIPPED") {
-          realBatch.push(o.result)
-        }
-        if (
-          o.convTime &&
-          (oldestConvProcessed === null || o.convTime < oldestConvProcessed)
-        ) {
-          oldestConvProcessed = o.convTime
-        }
-      }
-
-      // Bulk-import one page transactionally.
-      let pageResult: Awaited<ReturnType<typeof bulkImportHistorical>>
-      //log({ realBatch }, "realBatch")
-      try {
-        pageResult = await bulkImportHistorical({
-          inbox,
-          workspaceId: integration.workspaceId,
-          runId,
-          batch: realBatch,
-        })
-      } catch (error) {
-        const errMsg =
-          error instanceof Error ? error.message : "Unknown bulk import error"
-        logger.error(
-          { error, runId, pageNumber },
-          "[coexist] Messenger bulk import threw — page lost",
-        )
-        const lostMessages = realBatch.reduce(
-          (sum, b) => sum + b.messages.length,
-          0,
-        )
-        pageResult = {
-          importedContacts: 0,
-          importedMessages: 0,
-          skippedContacts: 0,
-          skippedMessages: 0,
-          failedMessages: lostMessages,
-          contactInboxIds: new Map<string, string>(),
-        }
-        // Capture so finally block persists into currentError (not only pino).
-        finalError = `page ${pageNumber} bulk import failed: ${errMsg}`
-      }
-
-      importedContacts += pageResult.importedContacts
-      importedMessages += pageResult.importedMessages
-      skipped += pageResult.skippedMessages + pageResult.skippedContacts
-      failed += pageResult.failedMessages + fetchFailed
-      conversationCount += convsToProcess.length
-
-      // Dispatch one avatar-mirror job per contact upserted this page. Per-job
-      // dedupe key prevents duplicate Graph fetches on retried syncs.
-      for (const [sourceId, contactInboxId] of pageResult.contactInboxIds) {
-        //log({ sourceId, contactInboxId }, "dispatch update contact avatar")
-        await integrationQueue.add(
-          IntegrationJobAction.updateContactAvatar,
-          {
-            type: IntegrationJobAction.updateContactAvatar,
-            data: { workspaceId, contactInboxId, sourceId },
-          },
-          {
-            jobId: `update-avatar-${contactInboxId}`,
-            attempts: 2,
-            removeOnComplete: true,
-            removeOnFail: { count: 100 },
-          },
-        )
-      }
-
-      // Surface non-throw failure (e.g. workspace cap hit) so currentError is
-      // populated even when bulkImportHistorical returns failedMessages > 0
-      // without raising. Otherwise UI shows failedCount=N with empty error.
-      if (pageResult.failureReason) {
-        finalError = `page ${pageNumber}: ${pageResult.failureReason}`
-      }
-
-      // Persist progress + frontier (oldest message processed so far) after
-      // each page. The next chunk reads `lastSyncedAt` and skips conversations
-      // newer than this value.
-      await db
-        .update(coexistSyncRunModel)
-        .set({
-          currentScan: conversationCount,
-          importedContactCount: importedContacts,
-          importedMessageCount: importedMessages,
-          skippedCount: skipped,
-          failedCount: failed,
-          lastSyncedAt: oldestConvProcessed,
-          currentStep: `page ${pageNumber} processed`,
-          currentError: finalError ?? null,
-          lastHeartbeatAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(coexistSyncRunModel.id, runId))
-
-      pageCursor = conversations.after
-
-      // No more Graph pages OR we crossed the prior-run ceiling → sync done.
-      if (!pageCursor || stopAll) {
-        if (failed > 0 && (importedMessages > 0 || skipped > 0)) {
-          finalStatus = "partial"
-        } else if (failed > 0) {
-          finalStatus = "failed"
-        } else {
-          finalStatus = "succeeded"
-        }
+      // phase === "messages"
+      const result = await runMessagesPhase(ctx)
+      lastPageNumber = result.pageNumber
+      if (!result.done) {
+        continueLater = true
         break
       }
+
+      // Both phases complete — derive terminal status from counters.
+      const [terminal] = await db
+        .select({
+          importedMessages: coexistSyncRunModel.importedMessageCount,
+          skipped: coexistSyncRunModel.skippedCount,
+          failed: coexistSyncRunModel.failedCount,
+        })
+        .from(coexistSyncRunModel)
+        .where(eq(coexistSyncRunModel.id, runId))
+        .limit(1)
+
+      if (
+        terminal &&
+        terminal.failed > 0 &&
+        (terminal.importedMessages > 0 || terminal.skipped > 0)
+      ) {
+        finalStatus = "partial"
+      } else if (terminal && terminal.failed > 0) {
+        finalStatus = "failed"
+      } else {
+        finalStatus = "succeeded"
+      }
+      break
     }
 
-    // Budget exhausted but more pages remain → hot-chain next chunk.
-    // Accept null/undefined cursor as "resume from beginning of remaining pages"
-    // (first-invocation timeout case) — without this guard the run gets stuck in
-    // status='running' for an hour until heartbeat timeout.
-    //log({ continueLater }, "continueLater")
     if (continueLater) {
       try {
         await integrationQueue.add(
@@ -763,19 +794,17 @@ export const coexistMessengerSync = async (
             data: { runId, integrationId, workspaceId },
           },
           {
-            jobId: `coexist-run-${runId}-${attempts}-page-${pageNumber + 1}`,
+            jobId: `coexist-run-${runId}-${attempts}-page-${lastPageNumber + 1}`,
             attempts: 1,
             removeOnComplete: true,
             removeOnFail: { count: 100 },
           },
         )
         logger.info(
-          { runId, pageNumber, integrationId },
+          { runId, lastPageNumber, integrationId, phase: currentPhase },
           "[coexist] Messenger sync chunk done — continuation enqueued",
         )
       } catch (error) {
-        // Enqueue failed → fall back to scheduler resume. Mark status=init
-        // so the next sweep picks it up; cursor + counters already persisted.
         logger.error(
           { error, runId },
           "[coexist] Messenger continuation enqueue failed — fallback to scheduler",
@@ -792,7 +821,7 @@ export const coexistMessengerSync = async (
     }
   } catch (error) {
     finalStatus = "failed"
-    finalError =
+    errorRef.current =
       error instanceof Error
         ? error.message
         : "Unknown error during Messenger sync"
@@ -805,13 +834,9 @@ export const coexistMessengerSync = async (
           status: finalStatus,
           finishedAt: new Date(),
           lastHeartbeatAt: new Date(),
-          currentScan: conversationCount,
           currentStep: "done",
-          importedContactCount: importedContacts,
-          importedMessageCount: importedMessages,
-          skippedCount: skipped,
-          failedCount: failed,
-          currentError: finalError ?? null,
+          currentError: errorRef.current ?? null,
+          updatedAt: new Date(),
         })
         .where(eq(coexistSyncRunModel.id, runId))
     }
@@ -820,13 +845,9 @@ export const coexistMessengerSync = async (
   logger.info(
     {
       integrationId,
-      importedContacts,
-      importedMessages,
-      skipped,
-      failed,
-      conversations: conversationCount,
       runId,
       finalStatus,
+      currentPhase,
       continued: continueLater,
     },
     "[coexist] Messenger sync chunk complete",

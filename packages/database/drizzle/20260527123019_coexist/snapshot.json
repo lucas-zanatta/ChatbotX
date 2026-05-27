@@ -105,6 +105,12 @@
       "schema": "public"
     },
     {
+      "values": ["contacts", "messages"],
+      "name": "coexistMessengerSyncPhase",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
       "values": ["init", "running", "succeeded", "failed", "partial"],
       "name": "coexistRunStatus",
       "entityType": "enums",
@@ -4170,6 +4176,19 @@
       "generated": null,
       "identity": null,
       "name": "syncProgress",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "type": "coexistMessengerSyncPhase",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'contacts'",
+      "generated": null,
+      "identity": null,
+      "name": "messengerSyncPhase",
       "entityType": "columns",
       "schema": "public",
       "table": "CoexistSyncRun"
@@ -12800,6 +12819,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "CoexistSyncRun_integration_resume_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "CoexistSyncRun"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "integrationId",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "channel",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "status = 'init'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "CoexistSyncRun_integration_init_uq",
       "entityType": "indexes",
       "schema": "public",
       "table": "CoexistSyncRun"
