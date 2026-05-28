@@ -1,6 +1,7 @@
 // biome-ignore-all lint/suspicious/noBitwiseOperators: bit-packing 63-bit snowflake IDs
 import { db, eq, inArray, sql } from "@chatbotx.io/database/client"
 import {
+  attachmentModel,
   contactInboxModel,
   contactModel,
   conversationModel,
@@ -108,6 +109,10 @@ export type BulkImportContactsResult = {
 export type BulkImportMessagesResult = {
   importedMessages: number
   skippedMessages: number
+  /** Attachment row IDs inserted alongside imported messages. Empty when no
+   *  message in this call carried an `attachments[]` payload. Callers enqueue
+   *  one `coexistAttachmentDownload` job per ID to mirror bytes to S3. */
+  insertedAttachmentIds: string[]
 }
 
 /**
@@ -127,6 +132,9 @@ export type BulkImportHistoricalResult = {
   skippedMessages: number
   failedMessages: number
   contactInboxIds: Map<string, string>
+  /** Aggregated Attachment row IDs across every per-contact insert in the
+   *  batch. Caller drives the post-commit download enqueue. */
+  insertedAttachmentIds: string[]
   failureReason?: string
 }
 
@@ -550,6 +558,7 @@ export const bulkImportMessages = async (props: {
   const empty: BulkImportMessagesResult = {
     importedMessages: 0,
     skippedMessages: 0,
+    insertedAttachmentIds: [],
   }
 
   const hasEnrichment =
@@ -563,6 +572,7 @@ export const bulkImportMessages = async (props: {
   const makeMessageId = idFactory ?? createHistoricalIdFactory(runId)
   let importedMessages = 0
   let skippedMessages = 0
+  const insertedAttachmentIds: string[] = []
 
   await db.transaction(async (tx) => {
     if (hasEnrichment && contactEnrichment) {
@@ -604,11 +614,25 @@ export const bulkImportMessages = async (props: {
       },
     )
 
+    // Map message.sourceId → its attachments[] so post-insert we can resolve
+    // each inserted Message row to the right Attachment payload. Skip messages
+    // without attachments to avoid empty lookups.
+    const attachmentsBySourceId = new Map<
+      string,
+      NonNullable<IncomingMessage["attachments"]>
+    >()
+    for (const msg of messages) {
+      if (msg.attachments && msg.attachments.length > 0) {
+        attachmentsBySourceId.set(msg.sourceId, msg.attachments)
+      }
+    }
+
     const CHUNK_SIZE = 1000
     let insertedTotal = 0
+    const insertedMessageBySourceId = new Map<string, string>()
     for (let i = 0; i < messageRows.length; i += CHUNK_SIZE) {
       const chunk = messageRows.slice(i, i + CHUNK_SIZE)
-      let inserted: { id: string }[]
+      let inserted: { id: string; sourceId: string | null }[]
       try {
         inserted = await tx
           .insert(messageModel)
@@ -616,7 +640,10 @@ export const bulkImportMessages = async (props: {
           .onConflictDoNothing({
             target: [messageModel.contactInboxId, messageModel.sourceId],
           })
-          .returning({ id: messageModel.id })
+          .returning({
+            id: messageModel.id,
+            sourceId: messageModel.sourceId,
+          })
       } catch (err) {
         if (!isUniqueMessagePkViolation(err)) {
           throw err
@@ -635,12 +662,60 @@ export const bulkImportMessages = async (props: {
           .onConflictDoNothing({
             target: [messageModel.contactInboxId, messageModel.sourceId],
           })
-          .returning({ id: messageModel.id })
+          .returning({
+            id: messageModel.id,
+            sourceId: messageModel.sourceId,
+          })
       }
       insertedTotal += inserted.length
+      for (const row of inserted) {
+        if (row.sourceId) {
+          insertedMessageBySourceId.set(row.sourceId, row.id)
+        }
+      }
     }
     importedMessages = insertedTotal
     skippedMessages = messages.length - insertedTotal
+
+    // Insert Attachment rows for newly-inserted messages only. Messages that
+    // hit the (contactInboxId, sourceId) conflict are skipped — their
+    // attachments were inserted on the original successful run, so re-inserting
+    // here would duplicate. No unique constraint on (messageId, sourceId)
+    // means correctness depends on the message-level conflict guard above.
+    if (attachmentsBySourceId.size > 0) {
+      const attachmentRows: (typeof attachmentModel.$inferInsert)[] = []
+      for (const [sourceId, atts] of attachmentsBySourceId) {
+        const messageId = insertedMessageBySourceId.get(sourceId)
+        if (!messageId) {
+          continue
+        }
+        for (const att of atts) {
+          attachmentRows.push({
+            id: createId(),
+            workspaceId,
+            conversationId,
+            messageId,
+            sourceId: att.sourceId,
+            fileType: att.fileType,
+            mimeType: att.mimeType,
+            originPath: att.originPath,
+            size: att.size,
+            width: att.width ?? undefined,
+            height: att.height ?? undefined,
+            name: att.name,
+          })
+        }
+      }
+      if (attachmentRows.length > 0) {
+        const insertedAtt = await tx
+          .insert(attachmentModel)
+          .values(attachmentRows)
+          .returning({ id: attachmentModel.id })
+        for (const r of insertedAtt) {
+          insertedAttachmentIds.push(r.id)
+        }
+      }
+    }
   })
 
   // Touch parent contact lastActivityAt so list ordering reflects sync. Best
@@ -662,6 +737,7 @@ export const bulkImportMessages = async (props: {
   return {
     importedMessages,
     skippedMessages,
+    insertedAttachmentIds,
   }
 }
 
@@ -693,6 +769,7 @@ export const bulkImportHistorical = async (props: {
   let importedMessages = 0
   let skippedMessages = 0
   let failedMessages = 0
+  const insertedAttachmentIds: string[] = []
 
   for (const entry of batch) {
     if (entry.messages.length === 0) {
@@ -714,6 +791,9 @@ export const bulkImportHistorical = async (props: {
       })
       importedMessages += res.importedMessages
       skippedMessages += res.skippedMessages
+      for (const id of res.insertedAttachmentIds) {
+        insertedAttachmentIds.push(id)
+      }
     } catch (error) {
       logger.error(
         { error, runId, sourceId: entry.contact.sourceId },
@@ -730,6 +810,7 @@ export const bulkImportHistorical = async (props: {
     skippedMessages,
     failedMessages,
     contactInboxIds,
+    insertedAttachmentIds,
     failureReason: contactsResult.failureReason,
   }
 }

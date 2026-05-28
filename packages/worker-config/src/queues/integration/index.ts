@@ -33,6 +33,7 @@ export const IntegrationJobAction = {
   coexistWhatsappBuffer: "coexistWhatsappBuffer",
   coexistWhatsappFlush: "coexistWhatsappFlush",
   coexistMessengerSync: "coexistMessengerSync",
+  coexistAttachmentDownload: "coexistAttachmentDownload",
   updateContactAvatar: "updateContactAvatar",
 } as const
 
@@ -213,6 +214,27 @@ export type IntegrationJobCoexistMessengerSync = {
 }
 
 /**
+ * Downloads a Coexist attachment's bytes from the channel API (Facebook URL
+ * for Messenger; WhatsApp media-id for WhatsApp — both encoded into
+ * `Attachment.originPath` by the historical importer), uploads to object
+ * storage, and UPDATEs the row with the resulting S3 path. Dispatched per
+ * attachment after `bulkImportMessages` inserts the placeholder row.
+ *
+ * Idempotency: jobId `att-${attachmentId}` dedups concurrent enqueues; the
+ * handler additionally checks the originPath prefix to no-op on retries
+ * where a prior worker already finished the upload.
+ */
+export type IntegrationJobCoexistAttachmentDownload = {
+  type: typeof IntegrationJobAction.coexistAttachmentDownload
+  data: {
+    attachmentId: string
+    workspaceId: string
+    channel: "messenger" | "whatsapp"
+    integrationId: string
+  }
+}
+
+/**
  * Fetches a contact's profile picture from the channel's Graph/API, mirrors
  * the bytes to our object storage, and persists the storage path on the
  * Contact row. Dispatched per-contact after Coexist historical sync upserts
@@ -243,6 +265,7 @@ export type IntegrationJobData =
   | IntegrationJobCoexistWhatsappBuffer
   | IntegrationJobCoexistWhatsappFlush
   | IntegrationJobCoexistMessengerSync
+  | IntegrationJobCoexistAttachmentDownload
   | IntegrationJobUpdateContactAvatar
 
 export const integrationQueue =

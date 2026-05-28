@@ -366,6 +366,7 @@ function SdkConnectSection({
             initParams={{
               version: (settings.version as InitParams["version"]) ?? "v21.0",
             }}
+            key={embeddedSignupFeatureType ?? "default"}
             loginOptions={
               {
                 config_id: settings.configId,

@@ -1675,6 +1675,10 @@
     "billingNote": "Large pages may take several hours to complete.",
     "toggleLabel": "Sync existing contacts and chat history",
     "toggleHelper": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect.",
+    "success": {
+      "enabled": "Sync started. Historical contacts and messages will appear shortly.",
+      "disabled": "Sync disabled."
+    },
     "errors": {
       "alreadyTriggered": "Sync was already triggered for this number. Please wait for Meta to deliver the historical data.",
       "windowExpired": "The 24-hour sync window has expired. Please disconnect and reconnect this number to sync again.",

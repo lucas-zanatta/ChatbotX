@@ -1689,6 +1689,10 @@
     "billingNote": "Page lớn có thể mất vài giờ để hoàn tất.",
     "toggleLabel": "Đồng bộ liên hệ và lịch sử chat hiện có",
     "toggleHelper": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại.",
+    "success": {
+      "enabled": "Đã bắt đầu đồng bộ. Liên hệ và tin nhắn lịch sử sẽ xuất hiện sớm.",
+      "disabled": "Đã tắt đồng bộ."
+    },
     "errors": {
       "alreadyTriggered": "Đồng bộ đã được kích hoạt cho số này. Vui lòng chờ Meta gửi dữ liệu lịch sử.",
       "windowExpired": "Cửa sổ đồng bộ 24 giờ đã hết hạn. Vui lòng ngắt kết nối và kết nối lại số này để đồng bộ.",

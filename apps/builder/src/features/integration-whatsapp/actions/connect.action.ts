@@ -33,7 +33,6 @@ import {
 } from "@chatbotx.io/integration-whatsapp/api/phone-number"
 import { subscribeWebhook } from "@chatbotx.io/integration-whatsapp/api/webhook"
 import { invalidateCacheByTags } from "@chatbotx.io/redis"
-import { AuthType } from "@chatbotx.io/sdk"
 import { AuthType, SdkException } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import { updateWorkspaceLogo } from "@/features/workspaces/actions/upload-logo"

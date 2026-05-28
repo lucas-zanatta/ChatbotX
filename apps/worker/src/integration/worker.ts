@@ -15,6 +15,7 @@ import { ensureBootstrapped } from "../lib/bootstrap"
 import { logger } from "../lib/logger"
 import { processAutomatedResponse } from "./handlers/automated-response"
 import { runChallenge } from "./handlers/challenge"
+import { coexistAttachmentDownload } from "./handlers/coexist/attachment-download"
 import { coexistMessengerSync } from "./handlers/coexist/messenger-sync"
 import { coexistWhatsappBuffer } from "./handlers/coexist/whatsapp-buffer"
 import { coexistWhatsappFlush } from "./handlers/coexist/whatsapp-flush"
@@ -158,6 +159,10 @@ async function startIntegrationWorker() {
         }
         case IntegrationJobAction.coexistMessengerSync: {
           await coexistMessengerSync(job.data.data)
+          return
+        }
+        case IntegrationJobAction.coexistAttachmentDownload: {
+          await coexistAttachmentDownload(job.data.data)
           return
         }
         case IntegrationJobAction.updateContactAvatar: {

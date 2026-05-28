@@ -446,6 +446,7 @@ async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
       let pageSkipped = 0
       let pageFailed = 0
       let pageOldest: Date | null = currentOldest
+      const pageAttachmentIds: string[] = []
 
       const limit = ctx.getLimit()
       await Promise.all(
@@ -489,6 +490,9 @@ async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
               })
               pageImported += result.importedMessages
               pageSkipped += result.skippedMessages
+              for (const id of result.insertedAttachmentIds) {
+                pageAttachmentIds.push(id)
+              }
 
               if (convTime && (pageOldest === null || convTime < pageOldest)) {
                 pageOldest = convTime
@@ -508,6 +512,40 @@ async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
           }),
         ),
       )
+
+      // Bulk-enqueue per-attachment download jobs. The handler is idempotent
+      // (prefix-checked + jobId-dedup'd), so a retry of this whole chunk
+      // re-enqueues the same jobIds harmlessly.
+      if (pageAttachmentIds.length > 0) {
+        try {
+          await integrationQueue.addBulk(
+            pageAttachmentIds.map((attachmentId) => ({
+              name: IntegrationJobAction.coexistAttachmentDownload,
+              data: {
+                type: IntegrationJobAction.coexistAttachmentDownload,
+                data: {
+                  attachmentId,
+                  workspaceId,
+                  channel: "messenger" as const,
+                  integrationId: ctx.integrationId,
+                },
+              },
+              opts: {
+                jobId: `att-${attachmentId}`,
+                attempts: 5,
+                backoff: { type: "exponential", delay: 30_000 },
+                removeOnComplete: true,
+                removeOnFail: { count: 100 },
+              },
+            })),
+          )
+        } catch (error) {
+          logger.error(
+            { error, runId, pageNumber, count: pageAttachmentIds.length },
+            "[coexist] Messenger attachment download enqueue failed — bytes left as pending",
+          )
+        }
+      }
 
       await db
         .update(coexistSyncRunModel)

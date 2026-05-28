@@ -17,6 +17,25 @@ import type {
 } from "../schema/query"
 import type { MessageResourceWithRelations } from "../schema/resource"
 
+/**
+ * Coexist historical attachments stash a Graph URL or `wa-media:` sentinel in
+ * `originPath` until the follow-up `coexistAttachmentDownload` job mirrors the
+ * bytes to S3. Treat those as not-yet-downloaded and return `url=null` so the
+ * UI shows a loading placeholder instead of a broken concatenated URL.
+ */
+const isPendingOriginPath = (originPath: string): boolean =>
+  originPath.startsWith("http://") ||
+  originPath.startsWith("https://") ||
+  originPath.startsWith("wa-media:")
+
+const resolveAttachmentUrl = (
+  originPath: string,
+  storageUrl: string,
+): string | null =>
+  isPendingOriginPath(originPath)
+    ? null
+    : getPublicFileUrl(originPath, storageUrl)
+
 export const listMessages = async (
   input: ListMessagesRequest,
 ): Promise<ListMessagesResponse> => {
@@ -67,7 +86,7 @@ export const listMessages = async (
     ...message,
     attachments: message.attachments.map((attachment) => ({
       ...attachment,
-      url: getPublicFileUrl(attachment.originPath, storageUrl),
+      url: resolveAttachmentUrl(attachment.originPath, storageUrl),
     })),
   }))
 
@@ -109,7 +128,7 @@ export const findMessage = async (
     ...message,
     attachments: message.attachments.map((attachment) => ({
       ...attachment,
-      url: getPublicFileUrl(attachment.originPath, storageUrl),
+      url: resolveAttachmentUrl(attachment.originPath, storageUrl),
     })),
   } as MessageResourceWithRelations
 }

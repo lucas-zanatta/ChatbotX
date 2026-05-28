@@ -76,6 +76,8 @@ export function MessengerConnect({
     const resolvedWorkspaceId = coexist?.resolvedWorkspaceId ?? ""
     setCoexist(null)
     if (workspaceId) {
+      router.refresh()
+    } else if (resolvedWorkspaceId) {
       router.push(
         `/space/${resolvedWorkspaceId}/settings/channels?channel=messenger`,
       )

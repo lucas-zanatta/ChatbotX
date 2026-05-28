@@ -175,6 +175,7 @@ const emptyBulkResult = (overrides: Partial<Record<string, unknown>> = {}) => ({
   skippedMessages: 0,
   failedMessages: 0,
   contactInboxIds: new Map<string, string>(),
+  insertedAttachmentIds: [] as string[],
   ...overrides,
 })
 

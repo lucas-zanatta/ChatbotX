@@ -1,11 +1,60 @@
 import { extractContactInfo } from "@chatbotx.io/business"
 import {
   listMessages,
+  type MessengerHistoryAttachment,
   type MessengerHistoryMessage,
 } from "@chatbotx.io/integration-messenger/apis/sync"
 import type { BucUsage } from "@chatbotx.io/integration-messenger/apis/usage"
+import {
+  guessFileTypeFromMimeType,
+  type IncomingAttachment,
+} from "@chatbotx.io/sdk"
 import { logger } from "../../../lib/logger"
 import type { HistoricalMessage } from "./bulk-historical-import"
+
+/**
+ * Convert one Graph attachment into the SDK shape.
+ *
+ * `originPath` is intentionally the upstream Facebook CDN URL — the historical
+ * importer inserts it as-is, and a follow-up `coexistAttachmentDownload` job
+ * mirrors the bytes to object storage and rewrites this column to the S3 path.
+ * Returns null when no usable URL is present (placeholder attachments with no
+ * `image_data.url` / `video_data.url` / `file_url`).
+ */
+const toIncomingAttachment = (
+  raw: MessengerHistoryAttachment,
+): IncomingAttachment | null => {
+  const url = raw.image_data?.url ?? raw.video_data?.url ?? raw.file_url ?? null
+  if (!url) {
+    return null
+  }
+  const mimeType = raw.mime_type ?? "application/octet-stream"
+  const dims = raw.image_data ?? raw.video_data
+  return {
+    sourceId: raw.id,
+    fileType: guessFileTypeFromMimeType(mimeType),
+    mimeType,
+    originPath: url,
+    size: raw.size ?? 0,
+    width: dims?.width ?? null,
+    height: dims?.height ?? null,
+    name: raw.name,
+  }
+}
+
+const extractAttachments = (
+  raw: MessengerHistoryMessage,
+): IncomingAttachment[] => {
+  const data = raw.attachments?.data ?? []
+  const out: IncomingAttachment[] = []
+  for (const att of data) {
+    const incoming = toIncomingAttachment(att)
+    if (incoming) {
+      out.push(incoming)
+    }
+  }
+  return out
+}
 
 /** Maximum inline retry attempts on 429 / 5xx before propagating. */
 export const MAX_INLINE_RETRIES = 4
@@ -157,7 +206,11 @@ export const fetchConvMessages = async (props: {
     applyBucThrottle(page.bucUsage)
 
     for (const m of page.data as MessengerHistoryMessage[]) {
-      if (!m.message) {
+      const attachments = extractAttachments(m)
+      // Empty placeholder rows (no text + no usable attachment URL) carry no
+      // signal — skip to avoid emitting a row that bulkImportMessages would
+      // then reject for being effectively empty.
+      if (!m.message && attachments.length === 0) {
         continue
       }
       totalMsg++
@@ -168,18 +221,20 @@ export const fetchConvMessages = async (props: {
         continue
       }
 
-      const needsPhone = !discovered.phoneNumber
-      const needsEmail = !discovered.email
-      if (needsPhone || needsEmail) {
-        const ex = extractContactInfo(m.message, defaultCountry, {
-          skipPhone: !needsPhone,
-          skipEmail: !needsEmail,
-        })
-        if (ex.phoneNumber && needsPhone) {
-          discovered.phoneNumber = ex.phoneNumber
-        }
-        if (ex.email && needsEmail) {
-          discovered.email = ex.email
+      if (m.message) {
+        const needsPhone = !discovered.phoneNumber
+        const needsEmail = !discovered.email
+        if (needsPhone || needsEmail) {
+          const ex = extractContactInfo(m.message, defaultCountry, {
+            skipPhone: !needsPhone,
+            skipEmail: !needsEmail,
+          })
+          if (ex.phoneNumber && needsPhone) {
+            discovered.phoneNumber = ex.phoneNumber
+          }
+          if (ex.email && needsEmail) {
+            discovered.email = ex.email
+          }
         }
       }
 
@@ -188,8 +243,9 @@ export const fetchConvMessages = async (props: {
           sourceId: m.id,
           messageType: m.from?.id === pageId ? "outgoing" : "incoming",
           contentType: "text",
-          text: m.message,
+          text: m.message ?? "",
           createdAt,
+          ...(attachments.length > 0 ? { attachments } : {}),
         })
       } else {
         hitOlderBoundary = true

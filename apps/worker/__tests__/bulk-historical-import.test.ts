@@ -230,6 +230,8 @@ describe("bulkImportHistorical", () => {
       skippedMessages: 0,
       failedMessages: 0,
       contactInboxIds: new Map(),
+      insertedAttachmentIds: [],
+      failureReason: undefined,
     })
     expect(mockTransaction).not.toHaveBeenCalled()
   })

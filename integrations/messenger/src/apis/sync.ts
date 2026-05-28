@@ -20,12 +20,39 @@ export type MessengerConversation = {
   updated_time?: string
 }
 
+/**
+ * Single attachment as returned by the Graph `attachments{...}` subfield on
+ * `/conversations/<id>/messages`. Audio/video/file expose `file_url` at the
+ * top level; images expose the URL via the nested `image_data.url`. Mime,
+ * size, dimensions are best-effort — Graph omits them for older messages.
+ */
+export type MessengerHistoryAttachment = {
+  id: string
+  name?: string
+  mime_type?: string
+  size?: number
+  image_data?: {
+    url?: string
+    preview_url?: string
+    width?: number
+    height?: number
+  }
+  video_data?: {
+    url?: string
+    preview_url?: string
+    width?: number
+    height?: number
+  }
+  file_url?: string
+}
+
 /** A single message inside a conversation thread. */
 export type MessengerHistoryMessage = {
   id: string
   message?: string
   from?: MessengerParticipant
   created_time?: string
+  attachments?: { data?: MessengerHistoryAttachment[] }
 }
 
 type GraphPage<T> = {
@@ -104,7 +131,8 @@ export const listMessages = (props: {
       >(endpoint, {
         headers: { Authorization: `Bearer ${accessToken}` },
         searchParams: {
-          fields: "id,message,from,created_time",
+          fields:
+            "id,message,from,created_time,attachments{id,name,mime_type,size,image_data,video_data,file_url}",
           limit: String(PAGE_LIMIT),
           ...(after ? { after } : {}),
         },

@@ -11,6 +11,7 @@ import {
   sql,
 } from "@chatbotx.io/database/client"
 import {
+  attachmentModel,
   coexistSyncRunModel,
   contactInboxModel,
   inboxModel,
@@ -18,7 +19,13 @@ import {
   messageModel,
   whatsappCoexistStagingModel,
 } from "@chatbotx.io/database/schema"
-import type { IncomingContact, IncomingMessage } from "@chatbotx.io/sdk"
+import {
+  guessFileTypeFromMimeType,
+  type IncomingAttachment,
+  type IncomingContact,
+  type IncomingMessage,
+} from "@chatbotx.io/sdk"
+import { createId } from "@chatbotx.io/utils"
 import {
   IntegrationJobAction,
   type IntegrationJobCoexistWhatsappFlush,
@@ -178,27 +185,59 @@ const extractMedia = (
   return null
 }
 
+/**
+ * Convert one extracted Meta media payload into the SDK shape inserted by
+ * `bulkImportMessages` / `applyMediaFollowUps`. The Coexist webhook delivers
+ * only `mediaId` for thread + echo messages — never a direct URL — so we
+ * stash the id in `originPath` with the `wa-media:` sentinel. The follow-up
+ * `coexistAttachmentDownload` job resolves it via `client.retrieveMedia(id)`,
+ * mirrors the bytes to S3, and rewrites `originPath` to the S3 path.
+ *
+ * Returns null when no mediaId is present — a placeholder media stub we
+ * cannot resolve.
+ */
+const buildWaIncomingAttachment = (
+  _fileType: MediaKey,
+  payload: z.infer<typeof waMediaSchema>,
+): IncomingAttachment | null => {
+  if (!payload.id) {
+    return null
+  }
+  const mimeType = payload.mime_type ?? "application/octet-stream"
+  return {
+    sourceId: payload.id,
+    fileType: guessFileTypeFromMimeType(mimeType),
+    mimeType,
+    originPath: `wa-media:${payload.id}`,
+    size: 0,
+    width: null,
+    height: null,
+    name: payload.caption,
+  }
+}
+
 /** History-decline error code per Meta docs. */
 const HISTORY_DECLINED_ERROR_CODE = 2_593_109
 
-type MediaPatch = {
+/**
+ * Media follow-up: `value.messages[]` carries the media asset for a thread
+ * message Meta sent earlier. The history row is already in `Message`; we
+ * insert an Attachment row pointing at the resolved (contactInboxId, sourceId)
+ * → messageId. Followed by a `coexistAttachmentDownload` enqueue.
+ */
+type MediaFollowUp = {
   sourceId: string
   contactWaId: string
-  media: {
-    fileType: MediaKey
-    caption?: string
-    mimeType?: string
-    sha256?: string
-    mediaId?: string
-    url?: string
-  }
+  attachment: IncomingAttachment
 }
 
 type EditPatch = {
   sourceId: string
   contactWaId: string
   text: string | null
-  mediaPatch: MediaPatch["media"] | null
+  /** When the edit carries new media, an Attachment row is inserted in
+   *  addition to the text UPDATE. Null when text-only edit. */
+  attachment: IncomingAttachment | null
 }
 
 type RevokePatch = {
@@ -227,7 +266,7 @@ const reduceMetadata = (
 
 type ExtractResult = {
   entries: ContactWithMessage[]
-  mediaPatches: MediaPatch[]
+  mediaFollowUps: MediaFollowUp[]
   edits: EditPatch[]
   revokes: RevokePatch[]
   declined: boolean
@@ -249,24 +288,12 @@ const toDate = (timestamp: string | number | undefined): Date => {
 
 const EMPTY_EXTRACT: ExtractResult = {
   entries: [],
-  mediaPatches: [],
+  mediaFollowUps: [],
   edits: [],
   revokes: [],
   declined: false,
   metadata: null,
 }
-
-const mediaFromPayload = (
-  fileType: MediaKey,
-  payload: z.infer<typeof waMediaSchema>,
-): MediaPatch["media"] => ({
-  fileType,
-  caption: payload.caption,
-  mimeType: payload.mime_type,
-  sha256: payload.sha256,
-  mediaId: payload.id,
-  url: payload.url,
-})
 
 /**
  * Extracts contacts + historical messages + post-batch patches from one
@@ -302,7 +329,7 @@ const extractFromValue = (payload: unknown): ExtractResult => {
   }
 
   const entries: ContactWithMessage[] = []
-  const mediaPatches: MediaPatch[] = []
+  const mediaFollowUps: MediaFollowUp[] = []
   const edits: EditPatch[] = []
   const revokes: RevokePatch[] = []
   let declined = false
@@ -348,6 +375,10 @@ const extractFromValue = (payload: unknown): ExtractResult => {
         const isOutgoing = message.from !== customerWaId
         const text =
           message.text?.body ?? (message.type ? `[${message.type}]` : "")
+        const media = extractMedia(message)
+        const attachment = media
+          ? buildWaIncomingAttachment(media.fileType, media.payload)
+          : null
         entries.push({
           contact,
           message: {
@@ -356,6 +387,7 @@ const extractFromValue = (payload: unknown): ExtractResult => {
             contentType: "text",
             text,
             createdAt: toDate(message.timestamp),
+            ...(attachment ? { attachments: [attachment] } : {}),
           },
         })
       }
@@ -385,6 +417,10 @@ const extractFromValue = (payload: unknown): ExtractResult => {
       firstName: nameByWaId.get(customerWaId),
     }
     const text = echo.text?.body ?? (echo.type ? `[${echo.type}]` : "")
+    const media = extractMedia(echo)
+    const attachment = media
+      ? buildWaIncomingAttachment(media.fileType, media.payload)
+      : null
     entries.push({
       contact,
       message: {
@@ -393,17 +429,9 @@ const extractFromValue = (payload: unknown): ExtractResult => {
         contentType: "text",
         text,
         createdAt: toDate(echo.timestamp),
+        ...(attachment ? { attachments: [attachment] } : {}),
       },
     })
-
-    const media = extractMedia(echo)
-    if (media) {
-      mediaPatches.push({
-        sourceId: echo.id,
-        contactWaId: customerWaId,
-        media: mediaFromPayload(media.fileType, media.payload),
-      })
-    }
   }
 
   for (const message of value.messages ?? []) {
@@ -428,28 +456,35 @@ const extractFromValue = (payload: unknown): ExtractResult => {
       const editedMedia = editedMediaSource
         ? extractMedia(editedMediaSource)
         : null
+      const editedAttachment = editedMedia
+        ? buildWaIncomingAttachment(editedMedia.fileType, editedMedia.payload)
+        : null
       edits.push({
         sourceId: original,
         contactWaId,
         text: editedText,
-        mediaPatch: editedMedia
-          ? mediaFromPayload(editedMedia.fileType, editedMedia.payload)
-          : null,
+        attachment: editedAttachment,
       })
       continue
     }
 
     const media = extractMedia(message)
     if (media && message.from) {
-      mediaPatches.push({
-        sourceId: message.id,
-        contactWaId: message.from,
-        media: mediaFromPayload(media.fileType, media.payload),
-      })
+      const attachment = buildWaIncomingAttachment(
+        media.fileType,
+        media.payload,
+      )
+      if (attachment) {
+        mediaFollowUps.push({
+          sourceId: message.id,
+          contactWaId: message.from,
+          attachment,
+        })
+      }
     }
   }
 
-  return { entries, mediaPatches, edits, revokes, declined, metadata }
+  return { entries, mediaFollowUps, edits, revokes, declined, metadata }
 }
 
 /**
@@ -488,53 +523,149 @@ const resolveContactInboxIds = async (
 }
 
 /**
+ * Resolve a set of (contactWaId, sourceId) pairs back to the live Message row
+ * — needed by media follow-up + edit-with-media paths to know which message
+ * the new Attachment belongs to. Missing keys mean Meta delivered the patch
+ * before the parent history insert; the next chunk picks it up.
+ */
+const resolveMessageRows = async (
+  contactInboxIds: string[],
+  sourceIds: string[],
+): Promise<
+  Map<string, { id: string; conversationId: string; contactInboxId: string }>
+> => {
+  const out = new Map<
+    string,
+    { id: string; conversationId: string; contactInboxId: string }
+  >()
+  if (contactInboxIds.length === 0 || sourceIds.length === 0) {
+    return out
+  }
+  const rows = await db
+    .select({
+      id: messageModel.id,
+      conversationId: messageModel.conversationId,
+      contactInboxId: messageModel.contactInboxId,
+      sourceId: messageModel.sourceId,
+    })
+    .from(messageModel)
+    .where(
+      and(
+        inArray(messageModel.contactInboxId, contactInboxIds),
+        inArray(messageModel.sourceId, sourceIds),
+      ),
+    )
+  for (const row of rows) {
+    if (row.sourceId) {
+      out.set(`${row.contactInboxId}:${row.sourceId}`, {
+        id: row.id,
+        conversationId: row.conversationId,
+        contactInboxId: row.contactInboxId,
+      })
+    }
+  }
+  return out
+}
+
+/**
  * Applies the three post-batch patch families that bulkImportHistorical cannot
  * express (insert-only contract):
  *
- *   - Media follow-ups → UPDATE messageModel.contentAttributes with the resolved
- *     mediaId/mimeType/caption/url. Idempotent — the placeholder text row stays.
+ *   - Media follow-ups → INSERT one Attachment row per follow-up, pointing at
+ *     the existing Message row. Returned IDs are enqueued for download by the
+ *     caller. Drops silently when the parent message hasn't been inserted yet.
  *   - Edits → UPDATE text and merge `edited: true` into contentAttributes.
+ *     When the edit carries media, also INSERT a fresh Attachment row.
  *   - Revokes → merge `revoked: true` into contentAttributes (text retained).
  *
- * Lookups are scoped by (contactInboxId, sourceId) — Message's natural key.
+ * Returns the Attachment IDs inserted in this batch so the caller can enqueue
+ * `coexistAttachmentDownload` jobs after the flush UPDATEs commit.
  */
 const applyPostBatchPatches = async (input: {
+  workspaceId: string
   inboxId: string
-  mediaPatches: MediaPatch[]
+  mediaFollowUps: MediaFollowUp[]
   edits: EditPatch[]
   revokes: RevokePatch[]
-}): Promise<void> => {
-  const { inboxId, mediaPatches, edits, revokes } = input
-  if (mediaPatches.length === 0 && edits.length === 0 && revokes.length === 0) {
-    return
+}): Promise<{ insertedAttachmentIds: string[] }> => {
+  const { workspaceId, inboxId, mediaFollowUps, edits, revokes } = input
+  const insertedAttachmentIds: string[] = []
+  if (
+    mediaFollowUps.length === 0 &&
+    edits.length === 0 &&
+    revokes.length === 0
+  ) {
+    return { insertedAttachmentIds }
   }
   const allWaIds = [
-    ...mediaPatches.map((p) => p.contactWaId),
+    ...mediaFollowUps.map((p) => p.contactWaId),
     ...edits.map((p) => p.contactWaId),
     ...revokes.map((p) => p.contactWaId),
   ]
   const contactInboxIdByWaId = await resolveContactInboxIds(inboxId, allWaIds)
 
+  // Pre-load message rows for both attachment-inserting paths (follow-ups +
+  // edits-with-media). Single round-trip per batch.
+  const attachmentInsertPatches = [
+    ...mediaFollowUps,
+    ...edits
+      .filter((e) => e.attachment !== null)
+      .map((e) => ({
+        sourceId: e.sourceId,
+        contactWaId: e.contactWaId,
+        attachment: e.attachment as IncomingAttachment,
+      })),
+  ]
+  const lookupContactInboxIds: string[] = []
+  const lookupSourceIds: string[] = []
+  for (const patch of attachmentInsertPatches) {
+    const cid = contactInboxIdByWaId.get(patch.contactWaId)
+    if (cid) {
+      lookupContactInboxIds.push(cid)
+      lookupSourceIds.push(patch.sourceId)
+    }
+  }
+  const messageByKey = await resolveMessageRows(
+    lookupContactInboxIds,
+    lookupSourceIds,
+  )
+
   const mergeJsonb = (overlay: Record<string, unknown>) =>
     sql`COALESCE(${messageModel.contentAttributes}, '{}'::jsonb) || ${JSON.stringify(overlay)}::jsonb`
 
-  for (const patch of mediaPatches) {
+  const attachmentRows: (typeof attachmentModel.$inferInsert)[] = []
+  for (const patch of attachmentInsertPatches) {
     const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
     if (!contactInboxId) {
       continue
     }
-    await db
-      .update(messageModel)
-      .set({
-        contentAttributes: mergeJsonb({ media: patch.media }),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(messageModel.contactInboxId, contactInboxId),
-          eq(messageModel.sourceId, patch.sourceId),
-        ),
-      )
+    const msg = messageByKey.get(`${contactInboxId}:${patch.sourceId}`)
+    if (!msg) {
+      continue
+    }
+    attachmentRows.push({
+      id: createId(),
+      workspaceId,
+      conversationId: msg.conversationId,
+      messageId: msg.id,
+      sourceId: patch.attachment.sourceId,
+      fileType: patch.attachment.fileType,
+      mimeType: patch.attachment.mimeType,
+      originPath: patch.attachment.originPath,
+      size: patch.attachment.size,
+      width: patch.attachment.width ?? undefined,
+      height: patch.attachment.height ?? undefined,
+      name: patch.attachment.name,
+    })
+  }
+  if (attachmentRows.length > 0) {
+    const inserted = await db
+      .insert(attachmentModel)
+      .values(attachmentRows)
+      .returning({ id: attachmentModel.id })
+    for (const r of inserted) {
+      insertedAttachmentIds.push(r.id)
+    }
   }
 
   for (const patch of edits) {
@@ -542,15 +673,11 @@ const applyPostBatchPatches = async (input: {
     if (!contactInboxId) {
       continue
     }
-    const overlay: Record<string, unknown> = { edited: true }
-    if (patch.mediaPatch) {
-      overlay.media = patch.mediaPatch
-    }
     await db
       .update(messageModel)
       .set({
         ...(patch.text === null ? {} : { text: patch.text }),
-        contentAttributes: mergeJsonb(overlay),
+        contentAttributes: mergeJsonb({ edited: true }),
         updatedAt: new Date(),
       })
       .where(
@@ -579,6 +706,8 @@ const applyPostBatchPatches = async (input: {
         ),
       )
   }
+
+  return { insertedAttachmentIds }
 }
 
 /** Staging rows processed per chunk. Tuned for ~30s wall-time per chunk. */
@@ -779,7 +908,7 @@ export const coexistWhatsappFlush = async (
       // accumulate post-batch patches (media follow-ups, edits, revokes),
       // a decline flag, and the highest-progress history metadata seen.
       const rowGroups = new Map<string, ContactWithMessage[]>()
-      const batchMediaPatches: MediaPatch[] = []
+      const batchMediaFollowUps: MediaFollowUp[] = []
       const batchEdits: EditPatch[] = []
       const batchRevokes: RevokePatch[] = []
       let batchDeclined = false
@@ -794,7 +923,7 @@ export const coexistWhatsappFlush = async (
           group.push(e)
           rowGroups.set(e.contact.sourceId, group)
         }
-        batchMediaPatches.push(...extracted.mediaPatches)
+        batchMediaFollowUps.push(...extracted.mediaFollowUps)
         batchEdits.push(...extracted.edits)
         batchRevokes.push(...extracted.revokes)
         if (extracted.declined) {
@@ -863,15 +992,54 @@ export const coexistWhatsappFlush = async (
 
       // Apply post-batch patches (media follow-ups, edits, revokes). These
       // target rows already inserted by bulkImportHistorical (or by an earlier
-      // batch). Patches that cannot resolve a contactInboxId are silently
-      // dropped — Meta sometimes delivers a media follow-up before the
-      // history insert, and the next chunk's UPDATE will pick it up.
-      await applyPostBatchPatches({
+      // batch). Patches that cannot resolve a contactInboxId / messageId are
+      // silently dropped — Meta sometimes delivers a media follow-up before
+      // the history insert, and the next chunk picks it up.
+      const patchResult = await applyPostBatchPatches({
+        workspaceId: integration.workspaceId,
         inboxId: integration.inboxId,
-        mediaPatches: batchMediaPatches,
+        mediaFollowUps: batchMediaFollowUps,
         edits: batchEdits,
         revokes: batchRevokes,
       })
+
+      // Collect Attachment IDs from both phases: inline (bulkImportHistorical)
+      // and post-batch (media follow-ups + edit-with-media). Enqueue each as
+      // a separate download job — handler is idempotent + jobId-dedup'd.
+      const attachmentIdsToDownload = [
+        ...batchResult.insertedAttachmentIds,
+        ...patchResult.insertedAttachmentIds,
+      ]
+      if (attachmentIdsToDownload.length > 0) {
+        try {
+          await integrationQueue.addBulk(
+            attachmentIdsToDownload.map((attachmentId) => ({
+              name: IntegrationJobAction.coexistAttachmentDownload,
+              data: {
+                type: IntegrationJobAction.coexistAttachmentDownload,
+                data: {
+                  attachmentId,
+                  workspaceId: integration.workspaceId,
+                  channel: "whatsapp" as const,
+                  integrationId: integration.id,
+                },
+              },
+              opts: {
+                jobId: `att-${attachmentId}`,
+                attempts: 5,
+                backoff: { type: "exponential", delay: 30_000 },
+                removeOnComplete: true,
+                removeOnFail: { count: 100 },
+              },
+            })),
+          )
+        } catch (error) {
+          logger.error(
+            { error, runId, count: attachmentIdsToDownload.length },
+            "[coexist] WhatsApp attachment download enqueue failed — bytes left as pending",
+          )
+        }
+      }
 
       // Mark ALL rows in this batch processed — bulk pipeline was atomic.
       // Cap-rejected contacts also count as "processed" (deterministic skip,
