@@ -212,6 +212,19 @@ type HistoryMetadata = {
   progress: number
 }
 
+// Pick the metadata row with the highest progress (ties broken by chunkOrder).
+// Used twice: inside extractFromValue across history entries, and across
+// staging rows in the flush loop.
+const reduceMetadata = (
+  current: HistoryMetadata | null,
+  next: HistoryMetadata,
+): HistoryMetadata =>
+  current === null ||
+  next.progress > current.progress ||
+  next.chunkOrder > current.chunkOrder
+    ? next
+    : current
+
 type ExtractResult = {
   entries: ContactWithMessage[]
   mediaPatches: MediaPatch[]
@@ -300,16 +313,11 @@ const extractFromValue = (payload: unknown): ExtractResult => {
       declined = true
     }
     if (entry.metadata) {
-      const phase = entry.metadata.phase ?? 0
-      const chunkOrder = entry.metadata.chunk_order ?? 0
-      const progress = entry.metadata.progress ?? 0
-      if (
-        metadata === null ||
-        progress > metadata.progress ||
-        chunkOrder > metadata.chunkOrder
-      ) {
-        metadata = { phase, chunkOrder, progress }
-      }
+      metadata = reduceMetadata(metadata, {
+        phase: entry.metadata.phase ?? 0,
+        chunkOrder: entry.metadata.chunk_order ?? 0,
+        progress: entry.metadata.progress ?? 0,
+      })
     }
 
     for (const thread of entry.threads ?? []) {
@@ -320,7 +328,17 @@ const extractFromValue = (payload: unknown): ExtractResult => {
         firstName: nameByWaId.get(customerWaId),
       }
 
-      const messages = thread.messages ?? []
+      const rawMessages = thread.messages ?? []
+      // Skip type="errors" entries — Meta could not decode the message
+      // (e.g. code 131051 "Message type unknown"). They carry no usable
+      // content and are not user-authored.
+      const messages = rawMessages.filter((m) => m.type !== "errors")
+
+      // Thread had only error placeholders → contact is meaningless, skip.
+      if (rawMessages.length > 0 && messages.length === 0) {
+        continue
+      }
+
       if (messages.length === 0) {
         entries.push({ contact, message: null })
         continue
@@ -584,27 +602,14 @@ const CHUNK_BUDGET_MS = 4 * 60 * 1000
 export const coexistWhatsappFlush = async (
   data: IntegrationJobCoexistWhatsappFlush["data"],
 ): Promise<void> => {
-  const { runId, phoneNumberId } = data
+  const { phoneNumberId } = data
   const jobStart = Date.now()
-
-  const failRun = async (currentError: string): Promise<void> => {
-    await db
-      .update(coexistSyncRunModel)
-      .set({
-        status: "failed",
-        currentError,
-        finishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(coexistSyncRunModel.id, runId))
-  }
 
   const integration = await db.query.integrationWhatsappModel.findFirst({
     where: { phoneNumberId },
   })
   if (!integration) {
     logger.warn({ phoneNumberId }, "[coexist] Flush: WhatsApp integration gone")
-    await failRun("WhatsApp integration not found")
     return
   }
   if (!integration.coexistEnabled) {
@@ -612,11 +617,67 @@ export const coexistWhatsappFlush = async (
       { phoneNumberId },
       "[coexist] Flush skipped — coexist disabled, payloads remain staged",
     )
-    await failRun("Coexist disabled on integration")
     return
   }
 
-  // ── Read resume state ─────────────────────────────────────────────────────
+  // Resolve runId. Webhook-driven enqueues omit it (delayed + jobId-dedup);
+  // scheduler + self-continuation pass it explicitly. Lookup picks the
+  // newest non-terminal run owned by popup-enable.
+  let runId = data.runId
+  if (!runId) {
+    const liveRun = await db.query.coexistSyncRunModel.findFirst({
+      where: {
+        integrationId: integration.id,
+        channel: "whatsapp",
+        status: { in: ["init", "running"] },
+      },
+      columns: { id: true },
+      orderBy: { createdAt: "desc" },
+    })
+    if (!liveRun) {
+      logger.info(
+        { phoneNumberId },
+        "[coexist] Flush: no live run — payloads remain staged",
+      )
+      return
+    }
+    runId = liveRun.id
+  }
+
+  // Optimistic claim FIRST — avoids wasting a SELECT + inbox lookup if another
+  // worker already owns this run. 10-minute stale heartbeat fallback recovers
+  // a crashed prior worker. `startedAt` uses COALESCE so the FIRST chunk's
+  // start is preserved across resume.
+  const claimed = await db
+    .update(coexistSyncRunModel)
+    .set({
+      status: "running",
+      startedAt: sql`COALESCE(${coexistSyncRunModel.startedAt}, NOW())`,
+      lastHeartbeatAt: new Date(),
+    })
+    .where(
+      and(
+        eq(coexistSyncRunModel.id, runId),
+        or(
+          ne(coexistSyncRunModel.status, "running"),
+          lt(
+            coexistSyncRunModel.lastHeartbeatAt,
+            sql`NOW() - INTERVAL '10 minutes'`,
+          ),
+        ),
+      ),
+    )
+    .returning({ id: coexistSyncRunModel.id })
+
+  if (claimed.length === 0) {
+    logger.warn(
+      { runId, phoneNumberId },
+      "[coexist] WhatsApp flush run already claimed by another worker — abandoning",
+    )
+    return
+  }
+
+  // ── Read resume state (after claim — counter values are stable now) ──────
   const [runRow] = await db
     .select({
       workspaceId: coexistSyncRunModel.workspaceId,
@@ -651,7 +712,14 @@ export const coexistWhatsappFlush = async (
       },
       "[coexist] Flush: workspaceId mismatch — refusing",
     )
-    await failRun("workspaceId mismatch between integration and run")
+    await db
+      .update(coexistSyncRunModel)
+      .set({
+        status: "failed",
+        currentError: "workspaceId mismatch between integration and run",
+        finishedAt: new Date(),
+      })
+      .where(eq(coexistSyncRunModel.id, runId))
     return
   }
 
@@ -669,41 +737,6 @@ export const coexistWhatsappFlush = async (
   let batchNumber = runRow.currentPageNumber
   const attempts = runRow.attempts
 
-  // Optimistic claim: refuse the run if another worker already owns it
-  // (BullMQ manual retry, lock loss, scheduler resume). 10-minute stale
-  // heartbeat fallback recovers a crashed prior worker. `startedAt` uses
-  // COALESCE so the FIRST chunk's start is preserved across resume — the
-  // value is consumed by downstream resume logic as a boundary marker.
-  const claimed = await db
-    .update(coexistSyncRunModel)
-    .set({
-      status: "running",
-      startedAt: sql`COALESCE(${coexistSyncRunModel.startedAt}, NOW())`,
-      lastHeartbeatAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(coexistSyncRunModel.id, runId),
-        or(
-          ne(coexistSyncRunModel.status, "running"),
-          lt(
-            coexistSyncRunModel.lastHeartbeatAt,
-            sql`NOW() - INTERVAL '10 minutes'`,
-          ),
-        ),
-      ),
-    )
-    .returning({ id: coexistSyncRunModel.id })
-
-  if (claimed.length === 0) {
-    logger.warn(
-      { runId, phoneNumberId },
-      "[coexist] WhatsApp flush run already claimed by another worker — abandoning",
-    )
-    return
-  }
-
   let finalStatus: "succeeded" | "failed" | "partial" | null = null
   // Carry prior attempt's error so retry doesn't wipe it. New errors during
   // this attempt will overwrite via the per-batch UPDATE or outer catch.
@@ -719,13 +752,11 @@ export const coexistWhatsappFlush = async (
       }
 
       batchNumber += 1
+      // Pre-batch heartbeat only — counters + currentStep are written at
+      // batch end. Keeps the stale-claim window honest while bulk import runs.
       await db
         .update(coexistSyncRunModel)
-        .set({
-          currentStep: `flushing batch ${batchNumber}`,
-          lastHeartbeatAt: new Date(),
-          updatedAt: new Date(),
-        })
+        .set({ lastHeartbeatAt: new Date() })
         .where(eq(coexistSyncRunModel.id, runId))
 
       const stagedRows = await db
@@ -747,7 +778,7 @@ export const coexistWhatsappFlush = async (
       // Flatten + coalesce per sourceId across rows in this batch. Also
       // accumulate post-batch patches (media follow-ups, edits, revokes),
       // a decline flag, and the highest-progress history metadata seen.
-      const rowGroups = new Map<string, { entries: ContactWithMessage[] }>()
+      const rowGroups = new Map<string, ContactWithMessage[]>()
       const batchMediaPatches: MediaPatch[] = []
       const batchEdits: EditPatch[] = []
       const batchRevokes: RevokePatch[] = []
@@ -759,8 +790,8 @@ export const coexistWhatsappFlush = async (
           if (!e.contact.sourceId) {
             continue
           }
-          const group = rowGroups.get(e.contact.sourceId) ?? { entries: [] }
-          group.entries.push(e)
+          const group = rowGroups.get(e.contact.sourceId) ?? []
+          group.push(e)
           rowGroups.set(e.contact.sourceId, group)
         }
         batchMediaPatches.push(...extracted.mediaPatches)
@@ -770,23 +801,18 @@ export const coexistWhatsappFlush = async (
           batchDeclined = true
         }
         if (extracted.metadata) {
-          const m = extracted.metadata
-          if (
-            batchMetadata === null ||
-            m.progress > batchMetadata.progress ||
-            m.chunkOrder > batchMetadata.chunkOrder
-          ) {
-            batchMetadata = m
-          }
+          batchMetadata = reduceMetadata(batchMetadata, extracted.metadata)
         }
       }
 
       const flat: HistoricalContactMessages[] = []
-      for (const [, group] of rowGroups) {
+      for (const entries of rowGroups.values()) {
         // Coalesce contact fields across entries (first non-null wins).
-        const merged: IncomingContact = group.entries.reduce<IncomingContact>(
+        // Seed from entries[0] so sourceId is non-empty from the start.
+        const [first, ...rest] = entries
+        const merged: IncomingContact = rest.reduce<IncomingContact>(
           (acc, e) => ({
-            sourceId: acc.sourceId || e.contact.sourceId,
+            sourceId: acc.sourceId,
             phoneNumber: acc.phoneNumber ?? e.contact.phoneNumber,
             phoneNumberId: acc.phoneNumberId ?? e.contact.phoneNumberId,
             firstName: acc.firstName ?? e.contact.firstName,
@@ -795,11 +821,9 @@ export const coexistWhatsappFlush = async (
             avatar: acc.avatar ?? e.contact.avatar,
             gender: acc.gender ?? e.contact.gender,
           }),
-          { sourceId: "" },
+          first.contact,
         )
-        const messages = group.entries.flatMap((e) =>
-          e.message ? [e.message] : [],
-        )
+        const messages = entries.flatMap((e) => (e.message ? [e.message] : []))
         flat.push({ contact: merged, messages })
       }
 
@@ -812,40 +836,15 @@ export const coexistWhatsappFlush = async (
           batch: flat,
         })
       } catch (error) {
+        // Count every message in this batch as failed; staging rows are NOT
+        // marked processed → scheduler retries the batch. Outer catch + finally
+        // write the final counters, so no per-batch UPDATE is needed here.
+        failed += flat.reduce((sum, b) => sum + b.messages.length, 0)
+        totalRows += stagedRows.length
         logger.error(
           { error, runId, batchNumber },
           "[coexist] WhatsApp bulk import threw — batch lost",
         )
-        // Roll counters: count every message in this batch as failed.
-        const lostMessages = flat.reduce((sum, b) => sum + b.messages.length, 0)
-        batchResult = {
-          importedContacts: 0,
-          importedMessages: 0,
-          skippedContacts: 0,
-          skippedMessages: 0,
-          failedMessages: lostMessages,
-          contactInboxIds: new Map<string, string>(),
-        }
-        // Do NOT mark staging rows processed — let scheduler retry the batch.
-        importedContacts += batchResult.importedContacts
-        importedMessages += batchResult.importedMessages
-        skipped += batchResult.skippedMessages + batchResult.skippedContacts
-        failed += batchResult.failedMessages
-        totalRows += stagedRows.length
-        await db
-          .update(coexistSyncRunModel)
-          .set({
-            currentScan: totalRows,
-            importedContactCount: importedContacts,
-            importedMessageCount: importedMessages,
-            skippedCount: skipped,
-            failedCount: failed,
-            currentPageNumber: batchNumber,
-            lastHeartbeatAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(coexistSyncRunModel.id, runId))
-        // Break out to status='failed' end-of-run.
         throw error
       }
 
@@ -896,9 +895,9 @@ export const coexistWhatsappFlush = async (
           skippedCount: skipped,
           failedCount: failed,
           currentPageNumber: batchNumber,
+          currentStep: `flushing batch ${batchNumber}`,
           currentError: finalError ?? null,
           lastHeartbeatAt: new Date(),
-          updatedAt: new Date(),
           ...(batchMetadata
             ? {
                 lastPhase: batchMetadata.phase,
@@ -940,7 +939,10 @@ export const coexistWhatsappFlush = async (
       }
     }
 
-    if (continueLater && !exhausted) {
+    // continueLater and exhausted are mutually exclusive: continueLater is
+    // only set by the time-budget break at the top of the loop, never on the
+    // empty/decline/final-page paths.
+    if (continueLater) {
       try {
         await integrationQueue.add(
           IntegrationJobAction.coexistWhatsappFlush,
@@ -969,7 +971,6 @@ export const coexistWhatsappFlush = async (
           .set({
             status: "init",
             lastHeartbeatAt: new Date(),
-            updatedAt: new Date(),
           })
           .where(eq(coexistSyncRunModel.id, runId))
       }

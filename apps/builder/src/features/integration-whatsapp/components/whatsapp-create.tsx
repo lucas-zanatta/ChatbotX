@@ -260,46 +260,45 @@ export default function WhatsappCreate({
     }
   }, [watchTransferPhoneNumber, setValue, updateVisibility])
 
+  if (showCoexist) {
+    return (
+      <CoexistPopup
+        channel="whatsapp"
+        integrationId={showCoexist.integrationId}
+        onDone={() => router.push(showCoexist.redirectUrl)}
+        workspaceId={showCoexist.workspaceId}
+      />
+    )
+  }
+
   return (
-    <>
-      {showCoexist && (
-        <CoexistPopup
-          channel="whatsapp"
-          integrationId={showCoexist.integrationId}
-          onDone={() => router.push(showCoexist.redirectUrl)}
-          workspaceId={showCoexist.workspaceId}
-        />
-      )}
-      <Card className={`${CARD_MARGIN} ${MAX_CARD_WIDTH}`}>
-        <CardHeader>
-          <CardTitle>
-            <InboxIcon channel="whatsapp" size="large" />
-          </CardTitle>
-          <CardDescription />
-        </CardHeader>
-        <CardContent>
-          {manualResult ? (
-            <WhatsappOnboardingResult result={manualResult} />
-          ) : (
-            <Form {...form}>
-              <form className="space-y-4" onSubmit={handleSubmitWithAction}>
-                {watchManualConnect ? (
-                  <ManualConnectSection
-                    watchManualConnect={watchManualConnect}
-                  />
-                ) : (
-                  <SdkConnectSection
-                    settings={settings}
-                    visibility={visibility}
-                    watchManualConnect={watchManualConnect}
-                  />
-                )}
-              </form>
-            </Form>
-          )}
-        </CardContent>
-      </Card>
-    </>
+    <Card className={`${CARD_MARGIN} ${MAX_CARD_WIDTH}`}>
+      <CardHeader>
+        <CardTitle>
+          <InboxIcon channel="whatsapp" size="large" />
+        </CardTitle>
+        <CardDescription />
+      </CardHeader>
+      <CardContent>
+        {manualResult ? (
+          <WhatsappOnboardingResult result={manualResult} />
+        ) : (
+          <Form {...form}>
+            <form className="space-y-4" onSubmit={handleSubmitWithAction}>
+              {watchManualConnect ? (
+                <ManualConnectSection watchManualConnect={watchManualConnect} />
+              ) : (
+                <SdkConnectSection
+                  settings={settings}
+                  visibility={visibility}
+                  watchManualConnect={watchManualConnect}
+                />
+              )}
+            </form>
+          </Form>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

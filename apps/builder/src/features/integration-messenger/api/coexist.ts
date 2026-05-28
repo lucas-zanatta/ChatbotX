@@ -12,6 +12,21 @@ const setCoexistMessengerRequest = z.object({
   integrationId: z.string(),
   enabled: z.boolean(),
 })
+export type SetCoexistMessengerRequest = z.infer<
+  typeof setCoexistMessengerRequest
+>
+
+const setCoexistMessengerResponse = z.discriminatedUnion("success", [
+  z.object({ success: z.literal(true) }),
+  z.object({
+    success: z.literal(false),
+    reason: z.string().optional(),
+    msg: z.string().optional(),
+  }),
+])
+export type SetCoexistMessengerResponse = z.infer<
+  typeof setCoexistMessengerResponse
+>
 
 export const integrationMessengerCoexistAPIs = {
   setCoexistMessengerAPI: authorizedAPI
@@ -22,6 +37,7 @@ export const integrationMessengerCoexistAPIs = {
       tags: ["Integrations"],
     })
     .input(setCoexistMessengerRequest)
+    .output(setCoexistMessengerResponse)
     .use(workspaceAuthorizedMidddleware, (input) => input.workspaceId)
     .handler(async ({ input }) => {
       const { workspaceId, integrationId, enabled } = input

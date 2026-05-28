@@ -9,17 +9,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@chatbotx.io/ui/components/ui/dialog"
+import ky from "ky"
 import { Loader2Icon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
 import { toast } from "sonner"
-import { client } from "@/lib/orpc/orpc"
+import type { SetCoexistMessengerResponse } from "@/features/integration-messenger/api/coexist"
+import type { SetCoexistWhatsappResponse } from "@/features/integration-whatsapp/api/coexist"
+import { clientErrorHandler } from "@/lib/errors/client-handler"
 
 type CoexistPopupProps = {
   channel: "whatsapp" | "messenger"
   integrationId: string
   workspaceId: string
   onDone: () => void
+}
+
+type CoexistResponse = SetCoexistWhatsappResponse | SetCoexistMessengerResponse
+
+const KNOWN_REASONS = [
+  "already_triggered",
+  "window_expired",
+  "not_eligible",
+  "trigger_failed",
+] as const
+
+type KnownReason = (typeof KNOWN_REASONS)[number]
+
+const REASON_TO_KEY: Record<KnownReason, string> = {
+  already_triggered: "coexist.errors.alreadyTriggered",
+  window_expired: "coexist.errors.windowExpired",
+  not_eligible: "coexist.errors.notEligible",
+  trigger_failed: "coexist.errors.triggerFailed",
+}
+
+function isKnownReason(reason: string): reason is KnownReason {
+  return (KNOWN_REASONS as readonly string[]).includes(reason)
 }
 
 export function CoexistPopup({
@@ -34,24 +59,38 @@ export function CoexistPopup({
   const handleChoice = async (enabled: boolean) => {
     setPending(enabled ? "enable" : "decline")
     try {
-      if (channel === "whatsapp") {
-        await client.integrationWhatsappAPIs.setCoexistWhatsappAPI({
-          workspaceId,
-          integrationId,
-          enabled,
+      const endpoint = `/api/workspaces/${workspaceId}/integrations/${channel}/${integrationId}/coexist`
+      const result = await ky
+        .post<CoexistResponse>(endpoint, {
+          json: { workspaceId, integrationId, enabled },
         })
-      } else {
-        await client.integrationMessengerAPIs.setCoexistMessengerAPI({
-          workspaceId,
-          integrationId,
-          enabled,
-        })
+        .json()
+
+      setPending(null)
+
+      if (!result.success) {
+        if (result.msg) {
+          toast.error(result.msg, {
+            duration: 5000,
+          })
+        } else {
+          const reason = result.reason
+          const messageKey =
+            reason && isKnownReason(reason)
+              ? REASON_TO_KEY[reason]
+              : "coexist.errors.unknown"
+
+          toast.error(t(messageKey), {
+            duration: 5000,
+          })
+        }
       }
-      onDone()
-    } catch {
-      toast.error(t("messages.unknownError"))
+    } catch (error) {
+      await clientErrorHandler(error)
       setPending(null)
     }
+
+    onDone()
   }
 
   const isPending = pending !== null
@@ -69,7 +108,7 @@ export function CoexistPopup({
         showCloseButton={false}
       >
         <DialogHeader>
-          <DialogTitle>{t("coexist.title")}</DialogTitle>
+          <DialogTitle className="mb-4">{t("coexist.title")}</DialogTitle>
           <DialogDescription>
             {t(
               channel === "whatsapp"

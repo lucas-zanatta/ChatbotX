@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto"
 import { db } from "@chatbotx.io/database/client"
-import {
-  coexistSyncRunModel,
-  whatsappCoexistStagingModel,
-} from "@chatbotx.io/database/schema"
+import { whatsappCoexistStagingModel } from "@chatbotx.io/database/schema"
 import { createId } from "@chatbotx.io/utils"
 import {
   IntegrationJobAction,
@@ -15,13 +12,19 @@ import { logger } from "../../../lib/logger"
 const hashPayload = (payload: unknown): string =>
   createHash("sha256").update(JSON.stringify(payload)).digest("hex")
 
+// Coalesce burst webhooks into a single delayed flush. BullMQ jobId dedup
+// drops subsequent webhooks within the delay window; the in-flight job
+// drains everything staged so far in one pass.
+const FLUSH_DELAY_MS = 60_000
+
 /**
  * Buffers a raw WhatsApp Coexistence history payload into the staging table.
  *
- * The webhook always buffers — it never decides billing. If the integration
- * already has `coexistEnabled = true` (user confirmed the popup earlier), this
- * chains a flush immediately; otherwise the payload waits in staging until the
- * popup decision enqueues a flush.
+ * Per-webhook overhead is intentionally minimal: stage the payload, then
+ * enqueue a delayed flush keyed by phoneNumberId. The flush handler looks up
+ * the live run on entry — buffer does not query CoexistSyncRun.
+ *
+ * Run rows are created by the popup-enable action (builder api/coexist.ts).
  */
 export const coexistWhatsappBuffer = async (
   data: IntegrationJobCoexistWhatsappBuffer["data"],
@@ -55,31 +58,15 @@ export const coexistWhatsappBuffer = async (
     })
     .onConflictDoNothing()
 
-  if (integration.coexistEnabled) {
-    // Create the run row here so the flush handler receives a pre-existing runId
-    // and only needs to UPDATE it to 'running' on entry.
-    const [run] = await db
-      .insert(coexistSyncRunModel)
-      .values({
-        workspaceId: integration.workspaceId,
-        integrationId: integration.id,
-        channel: "whatsapp",
-        status: "init",
-        triggerSource: "buffer-chain",
-      })
-      .returning({ id: coexistSyncRunModel.id })
-
-    if (!run) {
-      logger.error(
-        { phoneNumberId },
-        "[coexist] Buffer: failed to create run row",
-      )
-      return
-    }
-
-    await integrationQueue.add(IntegrationJobAction.coexistWhatsappFlush, {
+  await integrationQueue.add(
+    IntegrationJobAction.coexistWhatsappFlush,
+    {
       type: IntegrationJobAction.coexistWhatsappFlush,
-      data: { runId: run.id, phoneNumberId },
-    })
-  }
+      data: { phoneNumberId },
+    },
+    {
+      delay: FLUSH_DELAY_MS,
+      jobId: `coexist-flush-${phoneNumberId}`,
+    },
+  )
 }

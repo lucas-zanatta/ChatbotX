@@ -1668,13 +1668,20 @@
   },
   "coexist": {
     "title": "Sync existing contacts and chat history?",
-    "descriptionWhatsapp": "When enabled, ChatbotX will import contacts and up to 6 months of chat history from this WhatsApp number. WhatsApp may take up to 24 hours to deliver the historical data.",
-    "descriptionMessenger": "When enabled, ChatbotX will import all existing Messenger contacts and their full conversation history from this Page. Large pages may take several minutes to complete.",
+    "descriptionWhatsapp": "When enabled, ChatbotX will import contacts and up to 6 months of chat history from this WhatsApp number.",
+    "descriptionMessenger": "When enabled, ChatbotX will import existing Messenger contacts and up to 3 months of conversation history from this Page.",
     "enable": "Enable sync",
     "decline": "Don't sync",
-    "billingNote": "Imported contacts count toward your monthly active contact usage and may affect your billing.",
+    "billingNote": "Large pages may take several hours to complete.",
     "toggleLabel": "Sync existing contacts and chat history",
-    "toggleHelper": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect."
+    "toggleHelper": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect.",
+    "errors": {
+      "alreadyTriggered": "Sync was already triggered for this number. Please wait for Meta to deliver the historical data.",
+      "windowExpired": "The 24-hour sync window has expired. Please disconnect and reconnect this number to sync again.",
+      "notEligible": "This number is not eligible for historical sync.",
+      "triggerFailed": "Could not start the sync. Please try again later.",
+      "unknown": "Could not enable sync. Please try again later."
+    }
   },
   "messenger": {
     "description": "This integration lets you create Messenger bots.",

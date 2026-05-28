@@ -533,6 +533,244 @@ describe("coexistWhatsappFlush", () => {
     ).toBe(true)
   })
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // type="errors" thread filtering — Meta could not decode the message
+  // (e.g. code 131051 "Message type unknown"). No contact should be created.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Real staging payload captured on 2026-05-27 (phoneNumberId=1111111111111111,
+  // display_phone_number=84123456789). Thread "84123456789" carries a single
+  // type="errors" / code 131051 message (Meta could not decode). Thread
+  // "84123456789" carries one outgoing + one incoming text. Buffer staged 3
+  // rows total — this one (phase=0 with threads) + two phase markers below.
+  const ERRORS_ONLY_WA_ID = "84123456789"
+  const VALID_WA_ID = "22223456789"
+  const BUSINESS_PN = "33333456789"
+  const REAL_PHONE_NUMBER_ID = "1111111111111111"
+  const ERRORS_WAMID =
+    "wamid.HBgMNDQ3NzEwMTczNzM2FQIAEhgSNzA2QTU4MUUwNjdDMzMyREZGAA=="
+  const OUTGOING_WAMID =
+    "wamid.HBgLODQ5NjQ0ODQ4MzkVAgARGBQyQUNDMEJBQzhBNzRBMjA5QjY0QQA="
+  const INCOMING_WAMID =
+    "wamid.HBgLODQzNDk1NjY1NTAVAgASGBQzQUU4MEE5MjNDOTJBQ0Y2QTc2MwA="
+
+  const realRowWithErrorsAndValid = {
+    id: "11539619131146240",
+    phoneNumberId: REAL_PHONE_NUMBER_ID,
+    processedAt: null,
+    payload: {
+      messaging_product: "whatsapp",
+      metadata: {
+        phone_number_id: REAL_PHONE_NUMBER_ID,
+        display_phone_number: BUSINESS_PN,
+      },
+      history: [
+        {
+          metadata: { phase: 0, progress: 100, chunk_order: 1 },
+          threads: [
+            {
+              id: ERRORS_ONLY_WA_ID,
+              context: {
+                wa_id: ERRORS_ONLY_WA_ID,
+                user_id: "GB.4452997605017458",
+              },
+              messages: [
+                {
+                  id: ERRORS_WAMID,
+                  from: ERRORS_ONLY_WA_ID,
+                  type: "errors",
+                  errors: [
+                    {
+                      code: 131_051,
+                      title: "Message type unknown",
+                      message: "Message type unknown",
+                      error_data: { details: "Unsupported message received" },
+                    },
+                  ],
+                  timestamp: "1779915326",
+                  from_user_id: "GB.4452997605017458",
+                  history_context: { status: "pending" },
+                },
+              ],
+            },
+            {
+              id: VALID_WA_ID,
+              context: {
+                wa_id: VALID_WA_ID,
+                user_id: "VN.4416742385309647",
+              },
+              messages: [
+                {
+                  id: OUTGOING_WAMID,
+                  from: BUSINESS_PN,
+                  text: { body: "Ok fine" },
+                  type: "text",
+                  timestamp: "1779889338",
+                  history_context: { status: "delivered", from_me: true },
+                },
+                {
+                  id: INCOMING_WAMID,
+                  from: VALID_WA_ID,
+                  text: { body: "Alo" },
+                  type: "text",
+                  timestamp: "1779889324",
+                  from_user_id: "VN.4416742385309647",
+                  history_context: { status: "pending" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  }
+
+  // Real staging rows 2 & 3: phase-marker payloads (history entries with only
+  // metadata, no threads). Meta sends these to signal phase rollover. Flush
+  // must persist phase/progress/chunkOrder without creating any contact.
+  const realRowPhase1Marker = {
+    id: "11539619156115456",
+    phoneNumberId: REAL_PHONE_NUMBER_ID,
+    processedAt: null,
+    payload: {
+      messaging_product: "whatsapp",
+      metadata: {
+        phone_number_id: REAL_PHONE_NUMBER_ID,
+        display_phone_number: BUSINESS_PN,
+      },
+      history: [{ metadata: { phase: 1, progress: 100, chunk_order: 1 } }],
+    },
+  }
+
+  const realRowPhase2Marker = {
+    id: "11539619181969408",
+    phoneNumberId: REAL_PHONE_NUMBER_ID,
+    processedAt: null,
+    payload: {
+      messaging_product: "whatsapp",
+      metadata: {
+        phone_number_id: REAL_PHONE_NUMBER_ID,
+        display_phone_number: BUSINESS_PN,
+      },
+      history: [{ metadata: { phase: 2, progress: 100, chunk_order: 1 } }],
+    },
+  }
+
+  it("skips contact creation for threads whose messages are all type='errors' (real payload)", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [realRowWithErrorsAndValid])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    expect(mockBulkImport).toHaveBeenCalledOnce()
+    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+      {
+        batch: Array<{
+          contact: { sourceId: string }
+          messages: Array<{
+            sourceId: string
+            messageType: string
+            text?: string
+          }>
+        }>
+      },
+    ]
+    const sourceIds = bulkArgs.batch.map((b) => b.contact.sourceId)
+    expect(sourceIds).not.toContain(ERRORS_ONLY_WA_ID)
+    expect(sourceIds).toContain(VALID_WA_ID)
+    expect(bulkArgs.batch).toHaveLength(1)
+
+    const messages = bulkArgs.batch[0]?.messages ?? []
+    expect(messages).toHaveLength(2)
+    const wamids = messages.map((m) => m.sourceId)
+    expect(wamids).toContain(OUTGOING_WAMID)
+    expect(wamids).toContain(INCOMING_WAMID)
+    expect(wamids).not.toContain(ERRORS_WAMID)
+  })
+
+  it("keeps outgoing/incoming direction correct in the real payload thread", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [realRowWithErrorsAndValid])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+      {
+        batch: Array<{
+          messages: Array<{
+            sourceId: string
+            messageType: string
+            text?: string
+          }>
+        }>
+      },
+    ]
+    const byWamid = new Map(
+      (bulkArgs.batch[0]?.messages ?? []).map((m) => [m.sourceId, m]),
+    )
+    expect(byWamid.get(OUTGOING_WAMID)?.messageType).toBe("outgoing")
+    expect(byWamid.get(INCOMING_WAMID)?.messageType).toBe("incoming")
+  })
+
+  it("phase-marker payloads (no threads) do not create contacts but still persist phase metadata", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [realRowPhase1Marker, realRowPhase2Marker])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    // Either bulkImport is skipped entirely, or it is called with an empty
+    // batch. Both shapes are acceptable; the invariant is "no contact rows".
+    if (mockBulkImport.mock.calls.length > 0) {
+      const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+        { batch: Array<{ contact: { sourceId: string } }> },
+      ]
+      expect(bulkArgs.batch).toHaveLength(0)
+    }
+
+    const setPayloads = mockUpdate.mock.results
+      .flatMap((r) => {
+        const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
+        return value?.set?.mock.calls ?? []
+      })
+      .map((args) => args[0] as Record<string, unknown>)
+
+    // Aggregator keeps the first marker when progress+chunkOrder tie across
+    // rows (both real markers ship progress=100 chunk_order=1). Either phase
+    // is acceptable — invariant is "phase metadata reached the run row".
+    expect(
+      setPayloads.some((p) => p.lastPhase === 1 || p.lastPhase === 2),
+    ).toBe(true)
+    expect(setPayloads.some((p) => p.syncProgress === 100)).toBe(true)
+  })
+
+  it("real 3-row staging set: only the errors+valid row produces a single VALID_WA_ID contact", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [
+      realRowWithErrorsAndValid,
+      realRowPhase1Marker,
+      realRowPhase2Marker,
+    ])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    expect(mockBulkImport).toHaveBeenCalledOnce()
+    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+      {
+        batch: Array<{
+          contact: { sourceId: string }
+          messages: Array<{ sourceId: string }>
+        }>
+      },
+    ]
+    expect(bulkArgs.batch).toHaveLength(1)
+    expect(bulkArgs.batch[0]?.contact.sourceId).toBe(VALID_WA_ID)
+    expect(bulkArgs.batch[0]?.messages).toHaveLength(2)
+  })
+
   it("counter inflation regression: failed contact's N messages do NOT inflate failedCount", async () => {
     mockFindFirst.mockResolvedValue(fakeIntegration)
     mockFindOrFail.mockResolvedValue(fakeInbox)

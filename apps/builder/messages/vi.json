@@ -1682,13 +1682,20 @@
   },
   "coexist": {
     "title": "Đồng bộ liên hệ và lịch sử chat hiện có?",
-    "descriptionWhatsapp": "Khi bật, ChatbotX sẽ nhập liên hệ và tối đa 6 tháng lịch sử chat từ số WhatsApp này. WhatsApp có thể mất tới 24 giờ để gửi dữ liệu lịch sử.",
-    "descriptionMessenger": "Khi bật, ChatbotX sẽ nhập toàn bộ liên hệ Messenger hiện có và toàn bộ lịch sử hội thoại từ Page này. Page lớn có thể mất vài phút để hoàn tất.",
+    "descriptionWhatsapp": "Khi bật, ChatbotX sẽ nhập liên hệ và tối đa 6 tháng lịch sử chat từ số WhatsApp này.",
+    "descriptionMessenger": "Khi bật, ChatbotX sẽ nhập liên hệ Messenger hiện có và tối đa 3 tháng lịch sử hội thoại từ Page này.",
     "enable": "Bật đồng bộ",
     "decline": "Không đồng bộ",
-    "billingNote": "Liên hệ đã nhập sẽ tính vào hạn mức liên hệ hoạt động hàng tháng và có thể ảnh hưởng tới hóa đơn của bạn.",
+    "billingNote": "Page lớn có thể mất vài giờ để hoàn tất.",
     "toggleLabel": "Đồng bộ liên hệ và lịch sử chat hiện có",
-    "toggleHelper": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại."
+    "toggleHelper": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại.",
+    "errors": {
+      "alreadyTriggered": "Đồng bộ đã được kích hoạt cho số này. Vui lòng chờ Meta gửi dữ liệu lịch sử.",
+      "windowExpired": "Cửa sổ đồng bộ 24 giờ đã hết hạn. Vui lòng ngắt kết nối và kết nối lại số này để đồng bộ.",
+      "notEligible": "Số này không đủ điều kiện đồng bộ lịch sử.",
+      "triggerFailed": "Không thể bắt đầu đồng bộ. Vui lòng thử lại sau.",
+      "unknown": "Không thể bật đồng bộ. Vui lòng thử lại sau."
+    }
   },
   "messenger": {
     "description": "Tích hợp này cho phép bạn tạo bot Messenger.",

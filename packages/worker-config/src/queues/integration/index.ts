@@ -188,11 +188,16 @@ export type IntegrationJobCoexistWhatsappBuffer = {
   }
 }
 
-/** Flushes buffered WhatsApp staging rows into Contact/Message once enabled. */
+/**
+ * Flushes buffered WhatsApp staging rows into Contact/Message once enabled.
+ * `runId` is optional: the buffer (webhook-driven) omits it and the flush
+ * handler looks up the live run by phoneNumberId. Scheduler + self-continuation
+ * keep passing the explicit runId so they stay pinned to a specific run.
+ */
 export type IntegrationJobCoexistWhatsappFlush = {
   type: typeof IntegrationJobAction.coexistWhatsappFlush
   data: {
-    runId: string
+    runId?: string
     phoneNumberId: string
   }
 }
