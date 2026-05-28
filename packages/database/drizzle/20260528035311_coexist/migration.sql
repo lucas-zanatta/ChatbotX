@@ -1,6 +1,6 @@
 CREATE TYPE "coexistChannel" AS ENUM('whatsapp', 'messenger');--> statement-breakpoint
-CREATE TYPE "coexistRunStatus" AS ENUM('init', 'running', 'succeeded', 'failed', 'partial');--> statement-breakpoint
 CREATE TYPE "coexistMessengerSyncPhase" AS ENUM('contacts', 'messages');--> statement-breakpoint
+CREATE TYPE "coexistRunStatus" AS ENUM('init', 'running', 'succeeded', 'failed', 'partial');--> statement-breakpoint
 CREATE TABLE "CoexistSyncRun" (
 	"id" bigint PRIMARY KEY,
 	"createdAt" timestamp(6) with time zone DEFAULT now() NOT NULL,
