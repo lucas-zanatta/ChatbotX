@@ -68,8 +68,6 @@ const handleWebhookEvent = async (
 
     const entry = webhookData.entry[0]
 
-    console.log({ entry: JSON.stringify(entry, null, 2) })
-
     const labelChange = entry.changes?.find((c) => c.field === "inbox_labels")
     if (labelChange) {
       await queue?.add("channelLabelChange", {
