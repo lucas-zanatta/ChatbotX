@@ -68,11 +68,40 @@ export async function processWhatsappTemplate(
 
   const isValid = await validateWhatsappTemplate(template, contactInbox.inboxId)
 
+  const eventLogData = {
+    context: {
+      workspaceId: conversation.workspaceId,
+      contactId: conversation.contactId,
+      conversationId: conversation.id,
+      channel: contactInbox.channel,
+      contactInboxId: contactInbox.id,
+      inboxId: contactInbox.inboxId,
+    },
+    action: {
+      flowId: flow?.id || "",
+      flowVersionId: flow?.versionId || "",
+    },
+    stepId: step?.id || "",
+    nodeId: step?.nodeId || "",
+    metadata,
+  }
+
   if (!isValid) {
     logger.error(
       { templateId: template.id, inboxId: contactInbox.inboxId },
       "Template validation failed - not approved or not found",
     )
+
+    await emit(messageEventTypeSchema.enum["message:failed"], {
+      ...eventLogData,
+      action: {
+        messageId: "",
+        flowId: flow?.id || "",
+      },
+      errorData: await parseSdkError(new Error("Template validation failed")),
+      occurredAt: new Date(),
+    })
+
     throw new Error(`Template validation failed: ${template.id}`)
   }
 
@@ -136,24 +165,6 @@ export async function processWhatsappTemplate(
     eventType: RealtimeEventType.messageCreated,
     data: newMessage,
   })
-
-  const eventLogData = {
-    context: {
-      workspaceId: conversation.workspaceId,
-      contactId: conversation.contactId,
-      conversationId: conversation.id,
-      channel: contactInbox.channel,
-      contactInboxId: contactInbox.id,
-      inboxId: contactInbox.inboxId,
-    },
-    action: {
-      flowId: flow?.id || "",
-      flowVersionId: flow?.versionId || "",
-    },
-    stepId: step?.id || "",
-    nodeId: step?.nodeId || "",
-    metadata,
-  }
 
   try {
     const result = await sendFlowStepToChannel({

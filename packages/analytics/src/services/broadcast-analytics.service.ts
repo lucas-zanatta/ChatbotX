@@ -9,6 +9,7 @@ import {
   type MessageSeenPayload,
   type MessageSentPayload,
 } from "@chatbotx.io/flow-config"
+import { toDate } from "../lib/date"
 import { broadcastStatsRepository } from "../repositories/postgres"
 import type {
   BroadcastBulkUpdateItem,
@@ -129,7 +130,7 @@ export class BroadcastAnalyticsService {
         broadcastId: metadata.broadcastId,
         contactId: p.context.contactId,
         contactInboxId: metadata.contactInboxId,
-        occurredAt: new Date(p.occurredAt),
+        occurredAt: toDate(p.occurredAt),
       }
     })
 
@@ -149,10 +150,12 @@ export class BroadcastAnalyticsService {
         broadcastId: (p.metadata as BroadcastMetadataPayload).broadcastId,
         contactId: p.context.contactId,
         contactInboxId: (p.metadata as BroadcastMetadataPayload).contactInboxId,
-        occurredAt: new Date(p.occurredAt),
+        occurredAt: toDate(p.occurredAt),
         errorContent: JSON.stringify(p.errorData),
       }),
     )
+
+    console.log({ updateItems })
 
     await broadcastStatsRepository.updateFailedBulk(updateItems)
   }
@@ -172,7 +175,7 @@ export class BroadcastAnalyticsService {
         broadcastId: metadata.broadcastId,
         contactId: p.context.contactId,
         contactInboxId: metadata.contactInboxId,
-        occurredAt: p.occurredAt,
+        occurredAt: toDate(p.occurredAt),
       }
     })
 
@@ -250,7 +253,7 @@ export class BroadcastAnalyticsService {
     const updateItems: BroadcastBulkUpdateItem[] = broadcastClicks.map((p) => ({
       broadcastId: p.action.broadcastId as string,
       contactInboxId: p.context.contactInboxId ?? "",
-      occurredAt: p.occurredAt,
+      occurredAt: toDate(p.occurredAt),
     }))
 
     await broadcastStatsRepository.updateClickedBulk(updateItems)

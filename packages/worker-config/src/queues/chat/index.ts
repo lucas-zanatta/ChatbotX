@@ -4,6 +4,7 @@ import type {
   MessageModel,
 } from "@chatbotx.io/database/types"
 import type {
+  MessengerTemplateParams,
   MetadataPayload,
   SendAudioStepSchema,
   SendCardStepSchema,
@@ -11,6 +12,7 @@ import type {
   SendFileStepSchema,
   SendGifStepSchema,
   SendImageStepSchema,
+  SendMessengerTemplateMessageStepSchema,
   SendQuickReplyStepSchema,
   SendTextStepSchema,
   SendVideoStepSchema,
@@ -31,6 +33,7 @@ export const ChatJobAction = {
   sendFlowMessage: "sendFlowMessage",
   sendChatMessage: "sendChatMessage",
   sendWhatsappTemplateMessage: "sendWhatsappTemplateMessage",
+  sendMessengerTemplateMessage: "sendMessengerTemplateMessage",
   sendTyping: "sendTyping",
   notifyExportResult: "notifyExportResult",
   broadcastEvent: "broadcastEvent",
@@ -63,6 +66,7 @@ export type ChatJobSendFlowStep = {
       | SendCarouselStepSchema
       | SendQuickReplyStepSchema
       | SendWaTemplateMessageStepSchema
+      | SendMessengerTemplateMessageStepSchema
     trackingContext?: BotResponseTrackingContext
     metadata?: MetadataPayload
   }
@@ -93,6 +97,18 @@ export type ChatJobSendWhatsappTemplateMessage = {
   }
 }
 
+export type ChatJobSendMessengerTemplateMessage = {
+  type: typeof ChatJobAction.sendMessengerTemplateMessage
+  data: {
+    conversation: ConversationModel
+    contactInbox: ContactInboxModel
+    templateId: string
+    broadcastId: string
+    templateData?: MessengerTemplateParams
+    metadata?: MetadataPayload
+  }
+}
+
 export type ChatJobSendTyping = {
   type: typeof ChatJobAction.sendTyping
   data: {
@@ -112,13 +128,20 @@ export type ChatJobBroadcastEvent = {
   }
 }
 
+export type ChatJobNotifyExportResult = {
+  type: typeof ChatJobAction.notifyExportResult
+  data: Record<string, unknown>
+}
+
 export type ChatJobData =
   | ChatJobSendChannelMessage
   | ChatJobSendFlowStep
   | ChatJobSendChatMessage
   | ChatJobSendWhatsappTemplateMessage
+  | ChatJobSendMessengerTemplateMessage
   | ChatJobSendTyping
   | ChatJobBroadcastEvent
+  | ChatJobNotifyExportResult
 
 export const chatQueue =
   process.env.NEXT_PHASE === "phase-production-build"

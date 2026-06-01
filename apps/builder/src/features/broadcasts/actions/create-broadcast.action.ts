@@ -38,30 +38,56 @@ export const createBroadcastAction = workspaceActionClient
     }
 
     if (parsedInput.templateId) {
-      const template = await db.query.whatsappMessageTemplateModel.findFirst({
-        where: {
-          id: parsedInput.templateId,
-          integrationWhatsapp: {
-            workspaceId,
-            id: parsedInput.integrationWhatsappId,
+      if (parsedInput.channel === "messenger") {
+        const template = await db.query.messengerMessageTemplateModel.findFirst(
+          {
+            where: {
+              id: parsedInput.templateId,
+              integrationMessengerId: parsedInput.integrationMessengerId,
+              integrationMessenger: { workspaceId },
+            },
           },
-        },
-      })
-      if (!template) {
-        return returnValidationErrors(createBroadcastRequest, {
-          _errors: ["Validation Exception"],
-          templateId: {
-            _errors: ["Template not found"],
+        )
+        if (!template) {
+          return returnValidationErrors(createBroadcastRequest, {
+            _errors: ["Validation Exception"],
+            templateId: {
+              _errors: ["Template not found"],
+            },
+          })
+        }
+        broadcastName = template.name
+      } else {
+        const template = await db.query.whatsappMessageTemplateModel.findFirst({
+          where: {
+            id: parsedInput.templateId,
+            integrationWhatsapp: {
+              workspaceId,
+              id: parsedInput.integrationWhatsappId,
+            },
           },
         })
+        if (!template) {
+          return returnValidationErrors(createBroadcastRequest, {
+            _errors: ["Validation Exception"],
+            templateId: {
+              _errors: ["Template not found"],
+            },
+          })
+        }
+        broadcastName = template.name
       }
-      broadcastName = template.name
     }
+
+    // integrationMessengerId is a UI-only filter field; the Broadcast table
+    // has no such column, so strip it before insert.
+    const { integrationMessengerId: _integrationMessengerId, ...insertValues } =
+      parsedInput
 
     const [broadcast] = await db
       .insert(broadcastModel)
       .values({
-        ...parsedInput,
+        ...insertValues,
         name: broadcastName,
         workspaceId,
         status: "scheduled",

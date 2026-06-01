@@ -6,6 +6,7 @@ import {
 } from "@chatbotx.io/database/schema"
 import {
   BROADCAST_PAYLOAD_TYPE,
+  type MessengerTemplateParams,
   type WaTemplateParams,
 } from "@chatbotx.io/flow-config"
 import {
@@ -73,23 +74,43 @@ export const processBroadcastContacts = async () => {
           }
 
           if (broadcast.templateId) {
-            await chatQueue.add(ChatJobAction.sendWhatsappTemplateMessage, {
-              type: ChatJobAction.sendWhatsappTemplateMessage,
-              data: {
-                conversation: contactOnBroadcast.conversation,
-                contactInbox: contactOnBroadcast.contactInbox,
-                templateId: broadcast.templateId,
-                broadcastId: broadcast.id,
-                templateData: broadcast.templateData as
-                  | WaTemplateParams
-                  | undefined,
-                metadata: {
-                  type: BROADCAST_PAYLOAD_TYPE,
+            if (broadcast.channel === "messenger") {
+              await chatQueue.add(ChatJobAction.sendMessengerTemplateMessage, {
+                type: ChatJobAction.sendMessengerTemplateMessage,
+                data: {
+                  conversation: contactOnBroadcast.conversation,
+                  contactInbox: contactOnBroadcast.contactInbox,
+                  templateId: broadcast.templateId,
                   broadcastId: broadcast.id,
-                  contactInboxId: contactOnBroadcast.contactInboxId,
+                  templateData: broadcast.templateData as
+                    | MessengerTemplateParams
+                    | undefined,
+                  metadata: {
+                    type: BROADCAST_PAYLOAD_TYPE,
+                    broadcastId: broadcast.id,
+                    contactInboxId: contactOnBroadcast.contactInboxId,
+                  },
                 },
-              },
-            })
+              })
+            } else {
+              await chatQueue.add(ChatJobAction.sendWhatsappTemplateMessage, {
+                type: ChatJobAction.sendWhatsappTemplateMessage,
+                data: {
+                  conversation: contactOnBroadcast.conversation,
+                  contactInbox: contactOnBroadcast.contactInbox,
+                  templateId: broadcast.templateId,
+                  broadcastId: broadcast.id,
+                  templateData: broadcast.templateData as
+                    | WaTemplateParams
+                    | undefined,
+                  metadata: {
+                    type: BROADCAST_PAYLOAD_TYPE,
+                    broadcastId: broadcast.id,
+                    contactInboxId: contactOnBroadcast.contactInboxId,
+                  },
+                },
+              })
+            }
           }
 
           await db
