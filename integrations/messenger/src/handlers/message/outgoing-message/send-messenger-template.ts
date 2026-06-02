@@ -5,7 +5,11 @@ import type {
   MetadataPayload,
   SendMessengerTemplateMessageStepSchema,
 } from "@chatbotx.io/flow-config"
-import { encodeButtonPayload, extractMetadata } from "@chatbotx.io/flow-config"
+import {
+  buttonTypes,
+  encodeButtonPayload,
+  extractMetadata,
+} from "@chatbotx.io/flow-config"
 import type { MessageHandlers } from "@chatbotx.io/sdk"
 import type {
   FacebookSendMessageRequest,
@@ -146,6 +150,26 @@ export function buildMessengerTemplateComponents(
     const broadcastId = extractMetadata("broadcastId", metadata)
     const sequenceStepId = extractMetadata("sequenceStepId", metadata)
     for (const button of flowButtons) {
+      // startExternalFlow: encode the button's own target flowId without a
+      // buttonId so runFlowPostback takes the direct-start path instead of
+      // the node-lookup path (which requires a live flow context).
+      if (button.buttonType === buttonTypes.enum.startExternalFlow) {
+        components.push({
+          type: "buttons",
+          parameters: [
+            {
+              type: "POSTBACK",
+              payload: encodeButtonPayload({
+                flowId: button.beforeStep.flowId,
+                broadcastId,
+                sequenceStepId,
+              }),
+            },
+          ],
+        })
+        continue
+      }
+
       components.push({
         type: "buttons",
         parameters: [

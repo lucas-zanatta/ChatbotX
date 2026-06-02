@@ -10,6 +10,7 @@ import {
   channelTypes,
 } from "@chatbotx.io/database/partials"
 import {
+  extractMessengerFlowButtons,
   extractMessengerTemplateParams,
   extractTemplateParams,
   type MessengerTemplateComponent,
@@ -54,6 +55,7 @@ import { TemplatePreview } from "../integration-whatsapp/message-templates/compo
 import { useTemplateStore } from "../integration-whatsapp/message-templates/provider/template-store-context"
 import type { MessageTemplateWithComponents } from "../integration-whatsapp/message-templates/schema/resource"
 import { useIntegrationStore } from "../integration-whatsapp/provider/integration-store-context"
+import { MessengerBroadcastFlowButtons } from "./components/messenger-broadcast-flow-buttons"
 
 type BroadcastConfig = {
   value: ChannelType
@@ -399,6 +401,7 @@ function BroadcastFlowTypeSelector({
 
       if (type === broadcastFlowTypes.enum.flow) {
         setValue("templateId", undefined)
+        setValue("buttons", [])
       } else {
         setValue("flowId", undefined)
       }
@@ -573,6 +576,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
   const handleRemoveInbox = useCallback(() => {
     setValue("channel", null)
     setValue("subaction", null)
+    setValue("buttons", [])
   }, [])
 
   useEffect(() => {
@@ -642,9 +646,17 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
         template.parameterFormat as "POSITIONAL" | "NAMED",
       )
       setValue("templateData", initialParams)
+      // seed flow buttons from template
+      setValue(
+        "buttons",
+        extractMessengerFlowButtons(
+          template.components as MessengerTemplateComponent[],
+        ).map((b) => ({ id: b.id, label: b.label, flowId: "" })),
+      )
     } else {
       setSelectedMessengerTemplate(null)
       setValue("templateData", undefined)
+      setValue("buttons", []) // clear buttons
     }
   }, [props.subaction, watchedTemplateId, messengerTemplatesData, setValue])
 
@@ -747,7 +759,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
                 <>
                   <ComboboxField
                     key="messengerTemplateId"
-                    label={t("fields.templateId.label")}
+                    label={t("fields.messengerTemplateId.label")}
                     name="templateId"
                     options={filteredMessengerTemplates.map((template) => ({
                       label: `${template.name} (${template.language})`,
@@ -786,6 +798,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
                           }
                         />
                       </div>
+                      <MessengerBroadcastFlowButtons />
                     </div>
                   )}
                 </>

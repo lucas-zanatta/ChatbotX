@@ -57,7 +57,6 @@ export async function validateMessengerTemplate(
     with: { integrationMessenger: true },
   })
 
-  console.log({ inbox, id: template.id })
   if (!inbox?.integrationMessenger) {
     return false
   }
@@ -71,7 +70,6 @@ export async function validateMessengerTemplate(
       },
     })
 
-  console.log({ messengerTemplate })
   if (!messengerTemplate) {
     return false
   }

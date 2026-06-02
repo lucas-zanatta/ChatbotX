@@ -21,6 +21,15 @@ export const createBroadcastRequest = z
     templateData: z
       .union([waTemplateParamsSchema, messengerTemplateParamsSchema])
       .optional(),
+    buttons: z
+      .array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          flowId: z.string().optional(),
+        }),
+      )
+      .optional(),
     subaction: broadcastSubactions,
     schedulesType: broadcastScheduleTypes,
     schedulesAt: z

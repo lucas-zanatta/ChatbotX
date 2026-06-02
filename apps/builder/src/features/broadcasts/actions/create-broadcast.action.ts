@@ -81,8 +81,11 @@ export const createBroadcastAction = workspaceActionClient
 
     // integrationMessengerId is a UI-only filter field; the Broadcast table
     // has no such column, so strip it before insert.
-    const { integrationMessengerId: _integrationMessengerId, ...insertValues } =
-      parsedInput
+    const {
+      integrationMessengerId: _integrationMessengerId,
+      buttons,
+      ...insertValues
+    } = parsedInput
 
     const [broadcast] = await db
       .insert(broadcastModel)
@@ -94,7 +97,12 @@ export const createBroadcastAction = workspaceActionClient
         schedulesAt: startOfMinute(
           new Date(parsedInput.schedulesAt ?? new Date()),
         ),
-        templateData: parsedInput.templateData ?? "{}",
+        templateData: parsedInput.templateData
+          ? {
+              ...(parsedInput.templateData as Record<string, unknown>),
+              buttons: buttons ?? [],
+            }
+          : null,
       })
       .returning()
 

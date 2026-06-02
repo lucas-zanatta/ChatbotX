@@ -155,8 +155,6 @@ export class BroadcastAnalyticsService {
       }),
     )
 
-    console.log({ updateItems })
-
     await broadcastStatsRepository.updateFailedBulk(updateItems)
   }
 

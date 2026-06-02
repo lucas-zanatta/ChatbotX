@@ -1216,6 +1216,9 @@
     "templateId": {
       "label": "WhatsApp Template"
     },
+    "messengerTemplateId": {
+      "label": "Messenger Template"
+    },
     "whatsappChannel": {
       "label": "WhatsApp Channel"
     },
