@@ -7,10 +7,10 @@ import {
   messengerMessageTemplateModel,
 } from "@chatbotx.io/database/schema"
 import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { SdkException } from "@chatbotx.io/sdk"
 import { createId, zodBigintAsString } from "@chatbotx.io/utils"
 import { integrations } from "@/integration"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 export const syncMessengerMessageTemplateAction = workspaceActionClient
@@ -114,5 +114,7 @@ export const syncMessengerMessageTemplateAction = workspaceActionClient
       }
     })
 
-    revalidateCacheTags(`workspaces:${workspaceId}#messenger#messageTemplates`)
+    await invalidateCacheByTags([
+      `workspaces:${workspaceId}#messenger#messageTemplates`,
+    ])
   })

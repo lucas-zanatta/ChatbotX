@@ -51,11 +51,17 @@ export type MessengerActions<
 }
 
 // Common attachment types
-const attachmentTypeSchema = z.enum(["image", "video", "audio", "file"])
+const attachmentTypeSchema = z.enum([
+  "image",
+  "video",
+  "audio",
+  "file",
+  "template",
+])
 
-// Base attachment payload
+// Base attachment payload — url optional because template attachments have no url
 const baseAttachmentPayloadSchema = z.object({
-  url: z.url(),
+  url: z.url().optional(),
 })
 
 // Common ID schemas
@@ -176,7 +182,6 @@ export const facebookMessageAttachmentPayloadSchema = z.object({
       "airline_checkin",
       "airline_itinerary",
       "airline_update",
-      "utility",
     ])
     .optional(),
   text: z.string().optional(),

@@ -8,12 +8,12 @@ import {
 import { createPageMessageTemplate } from "@chatbotx.io/integration-messenger/apis/message-templates"
 import { resumableUploadImage } from "@chatbotx.io/integration-messenger/apis/upload"
 import type { MessengerAuthValue } from "@chatbotx.io/integration-messenger/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { SdkException } from "@chatbotx.io/sdk"
 import { createId, zodBigintAsString } from "@chatbotx.io/utils"
 import { chunk } from "remeda"
 import { z } from "zod"
 import { getAllWorkspaceMembers } from "@/features/workspace-members/queries"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 // IMAGE header handles are page-scoped — re-upload each one to the target page
@@ -205,9 +205,9 @@ export const cloneMessengerMessageTemplateAction = workspaceActionClient
     )
     affectedWorkspaceIds.add(workspaceId)
     for (const affectedWorkspaceId of affectedWorkspaceIds) {
-      revalidateCacheTags(
+      await invalidateCacheByTags([
         `workspaces:${affectedWorkspaceId}#messenger#messageTemplates`,
-      )
+      ])
     }
 
     return { succeeded, failed }

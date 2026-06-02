@@ -1,5 +1,5 @@
 import { broadcastToWorkspaceParty } from "@chatbotx.io/business"
-import { db } from "@chatbotx.io/database/client"
+import { db, eq } from "@chatbotx.io/database/client"
 import { messageModel } from "@chatbotx.io/database/schema"
 import type {
   ContactInboxModel,
@@ -88,17 +88,15 @@ export async function processMessengerTemplate(
   let newMessage: typeof messageModel.$inferSelect | null = null
 
   try {
-    const isValid = await validateMessengerTemplate(
-      template,
+    const validated = await validateMessengerTemplate(
+      template.id,
       contactInbox.inboxId,
     )
-
-    if (!isValid) {
+    if (!validated) {
       logger.error(
         { templateId: template.id, inboxId: contactInbox.inboxId },
         "Messenger template validation failed - not approved or not found",
       )
-
       throw new Error(`Messenger template validation failed: ${template.id}`)
     }
 
@@ -181,6 +179,13 @@ export async function processMessengerTemplate(
 
     const providerMessageId = result?.messageIds?.[0]
 
+    if (providerMessageId) {
+      await db
+        .update(messageModel)
+        .set({ sourceId: providerMessageId })
+        .where(eq(messageModel.id, newMessage.id))
+    }
+
     return {
       messageId: newMessage.id,
       providerMessageId,
@@ -219,6 +224,7 @@ export async function sendMessengerTemplateMessage(
     templateId,
     broadcastId,
     templateData,
+    buttons: jobButtons,
     contactInbox,
     metadata,
   } = data
@@ -240,74 +246,33 @@ export async function sendMessengerTemplateMessage(
   }
 
   try {
-    const inbox = await db.query.inboxModel.findFirst({
-      where: { id: contactInbox.inboxId },
-      with: { integrationMessenger: true },
-    })
+    const validated = await validateMessengerTemplate(
+      templateId,
+      contactInbox.inboxId,
+    )
 
-    const integrationMessengerId = inbox?.integrationMessenger?.id
-
-    if (!integrationMessengerId) {
-      const integrationNotFoundError = new Error(
-        `No Messenger integration found for inbox: ${contactInbox.inboxId}`,
+    if (!validated) {
+      const error = new Error(
+        `Messenger template not found or not approved: templateId=${templateId}, inboxId=${contactInbox.inboxId}`,
       )
-
       await emit(messageEventTypeSchema.enum["message:failed"], {
         ...eventLogData,
-        action: {
-          messageId: "",
-          flowId: "",
-        },
-        errorData: await parseSdkError(integrationNotFoundError),
+        action: { messageId: "", flowId: "" },
+        errorData: await parseSdkError(error),
         occurredAt: new Date(),
       })
-
-      throw integrationNotFoundError
+      throw error
     }
 
-    const template = await db.query.messengerMessageTemplateModel.findFirst({
-      where: { id: templateId, integrationMessengerId, status: "APPROVED" },
-    })
-
-    if (!template) {
-      const templateNotFoundError = new Error(
-        `Messenger template not found: ${templateId}`,
-      )
-
-      await emit(messageEventTypeSchema.enum["message:failed"], {
-        ...eventLogData,
-        action: {
-          messageId: "",
-          flowId: "",
-        },
-        errorData: await parseSdkError(templateNotFoundError),
-        occurredAt: new Date(),
-      })
-
-      throw templateNotFoundError
-    }
-
+    const { template } = validated
     const parameterFormat =
       (template.parameterFormat as "POSITIONAL" | "NAMED") || "POSITIONAL"
 
-    // Extract stored buttons from templateData before using remainder as params.
-    // The action merges { ...templateParams, buttons: [...] } into templateData.
-    type TemplateDataWithButtons = MessengerTemplateParams & {
-      buttons?: Array<{ id: string; label: string; flowId?: string }>
-    }
-    const rawTemplateData = templateData as TemplateDataWithButtons | undefined
-    const storedButtons = rawTemplateData?.buttons
+    // buttons is now a separate typed field in the job data (T5 fix)
+    const storedButtons = jobButtons
 
-    // Strip the buttons key so the remaining object is a clean MessengerTemplateParams.
-    let cleanTemplateParams: MessengerTemplateParams | undefined
-    if (rawTemplateData) {
-      const { buttons: _buttons, ...rest } = rawTemplateData
-      cleanTemplateParams = rest as MessengerTemplateParams
-    }
-
-    // Use templateData from job if provided, otherwise extract from template components
     const templateParams: MessengerTemplateParams =
-      cleanTemplateParams ??
+      templateData ??
       extractMessengerTemplateParams(
         (template.components as MessengerTemplateComponent[]) || [],
         parameterFormat,

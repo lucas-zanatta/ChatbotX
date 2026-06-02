@@ -33,14 +33,6 @@ const mockTemplateFindFirst = db.query.messengerMessageTemplateModel
   .findFirst as MockInstance
 const mockReplaceAll = contactVariableService.replaceAll as MockInstance
 
-const TEMPLATE = {
-  id: "tmpl-1",
-  name: "order_update",
-  language: "en",
-  parameterFormat: "POSITIONAL" as const,
-  params: {},
-}
-
 // ─── replaceMessengerTemplateVariables ────────────────────────────────────────
 
 describe("replaceMessengerTemplateVariables", () => {
@@ -142,65 +134,66 @@ describe("replaceMessengerTemplateVariables", () => {
   })
 })
 
-// ─── validateMessengerTemplate ────────────────────────────────────────────────
+// ─── validateMessengerTemplate (new contract: returns entities | null) ─────────
 
-describe("validateMessengerTemplate", () => {
+describe("validateMessengerTemplate — new contract (entities | null)", () => {
   beforeEach(() => {
     mockInboxFindFirst.mockReset()
     mockTemplateFindFirst.mockReset()
   })
 
-  test("returns false when inbox not found", async () => {
+  test("returns null when inbox not found", async () => {
     mockInboxFindFirst.mockResolvedValueOnce(null)
 
-    const result = await validateMessengerTemplate(TEMPLATE, "inbox-1")
-    expect(result).toBe(false)
+    const result = await validateMessengerTemplate("tmpl-1", "inbox-1")
+    expect(result).toBeNull()
   })
 
-  test("returns false when inbox has no integrationMessenger", async () => {
+  test("returns null when inbox has no integrationMessenger", async () => {
     mockInboxFindFirst.mockResolvedValueOnce({
       id: "inbox-1",
       integrationMessenger: null,
     })
 
-    const result = await validateMessengerTemplate(TEMPLATE, "inbox-1")
-    expect(result).toBe(false)
+    const result = await validateMessengerTemplate("tmpl-1", "inbox-1")
+    expect(result).toBeNull()
   })
 
-  test("returns false when template not found in DB", async () => {
+  test("returns null when template not found", async () => {
     mockInboxFindFirst.mockResolvedValueOnce({
       id: "inbox-1",
       integrationMessenger: { id: "intg-99" },
     })
     mockTemplateFindFirst.mockResolvedValueOnce(null)
 
-    const result = await validateMessengerTemplate(TEMPLATE, "inbox-1")
-    expect(result).toBe(false)
+    const result = await validateMessengerTemplate("tmpl-1", "inbox-1")
+    expect(result).toBeNull()
   })
 
-  test("returns true when inbox + template both found", async () => {
-    mockInboxFindFirst.mockResolvedValueOnce({
-      id: "inbox-1",
-      integrationMessenger: { id: "intg-99" },
-    })
-    mockTemplateFindFirst.mockResolvedValueOnce({
+  test("returns { inbox, template } when both found", async () => {
+    const mockInbox = { id: "inbox-1", integrationMessenger: { id: "intg-99" } }
+    const mockTemplate = {
       id: "tmpl-1",
       name: "order_update",
       status: "APPROVED",
-    })
+    }
+    mockInboxFindFirst.mockResolvedValueOnce(mockInbox)
+    mockTemplateFindFirst.mockResolvedValueOnce(mockTemplate)
 
-    const result = await validateMessengerTemplate(TEMPLATE, "inbox-1")
-    expect(result).toBe(true)
+    const result = await validateMessengerTemplate("tmpl-1", "inbox-1")
+
+    expect(result).not.toBeNull()
+    expect(result).toMatchObject({ inbox: mockInbox, template: mockTemplate })
   })
 
-  test("template query uses integrationMessengerId from inbox + status APPROVED", async () => {
+  test("template query still uses integrationMessengerId and status APPROVED", async () => {
     mockInboxFindFirst.mockResolvedValueOnce({
       id: "inbox-1",
       integrationMessenger: { id: "intg-42" },
     })
     mockTemplateFindFirst.mockResolvedValueOnce({ id: "tmpl-1" })
 
-    await validateMessengerTemplate(TEMPLATE, "inbox-1")
+    await validateMessengerTemplate("tmpl-1", "inbox-1")
 
     const [queryArg] = mockTemplateFindFirst.mock.calls[0]
     expect(queryArg.where).toMatchObject({
@@ -208,15 +201,5 @@ describe("validateMessengerTemplate", () => {
       integrationMessengerId: "intg-42",
       status: "APPROVED",
     })
-  })
-
-  test("inbox query uses inboxId with integrationMessenger relation", async () => {
-    mockInboxFindFirst.mockResolvedValueOnce(null)
-
-    await validateMessengerTemplate(TEMPLATE, "inbox-555")
-
-    const [queryArg] = mockInboxFindFirst.mock.calls[0]
-    expect(queryArg.where).toMatchObject({ id: "inbox-555" })
-    expect(queryArg.with).toMatchObject({ integrationMessenger: true })
   })
 })

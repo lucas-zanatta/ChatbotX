@@ -105,6 +105,9 @@ export type ChatJobSendMessengerTemplateMessage = {
     templateId: string
     broadcastId: string
     templateData?: MessengerTemplateParams
+    // Separate from templateData — create-broadcast.action previously stored
+    // buttons inside templateData causing a type lie. Now explicitly typed.
+    buttons?: Array<{ id: string; label: string; flowId?: string }>
     metadata?: MetadataPayload
   }
 }

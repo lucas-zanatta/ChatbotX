@@ -4,6 +4,7 @@ import {
   extractMessengerParameterInfos,
   extractMessengerTemplateParams,
   type MessengerTemplateComponent,
+  messengerTemplateButtonParamSchema,
   sendMessengerTemplateMessageStepDefaultFn,
   sendMessengerTemplateMessageStepSchema,
 } from "../src/steps/send-messenger-message-template"
@@ -519,5 +520,51 @@ describe("sendMessengerTemplateMessageStepDefaultFn", () => {
     })
     expect(step.template.id).toBe("tmpl-99")
     expect(step.template.parameterFormat).toBe("NAMED")
+  })
+})
+
+describe("sendMessengerTemplateMessageStepSchema — inboxId/integrationMessengerId", () => {
+  test("preserves inboxId through schema parse", () => {
+    const step = sendMessengerTemplateMessageStepDefaultFn()
+    const withMeta = {
+      ...step,
+      template: { ...step.template, id: "tmpl-1", inboxId: "inbox-123" },
+    }
+
+    const parsed = sendMessengerTemplateMessageStepSchema.safeParse(withMeta)
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect((parsed.data.template as Record<string, unknown>).inboxId).toBe(
+        "inbox-123",
+      )
+    }
+  })
+
+  test("preserves integrationMessengerId through schema parse", () => {
+    const step = sendMessengerTemplateMessageStepDefaultFn()
+    const withMeta = {
+      ...step,
+      template: {
+        ...step.template,
+        id: "tmpl-1",
+        integrationMessengerId: "intg-456",
+      },
+    }
+
+    const parsed = sendMessengerTemplateMessageStepSchema.safeParse(withMeta)
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(
+        (parsed.data.template as Record<string, unknown>)
+          .integrationMessengerId,
+      ).toBe("intg-456")
+    }
+  })
+
+  test("messengerTemplateButtonParamSchema rejects sub_type quick_reply", () => {
+    const result = messengerTemplateButtonParamSchema.safeParse({
+      sub_type: "quick_reply",
+    })
+    expect(result.success).toBe(false)
   })
 })

@@ -87,17 +87,15 @@ export async function processWhatsappTemplate(
   let newMessage: typeof messageModel.$inferSelect | null = null
 
   try {
-    const isValid = await validateWhatsappTemplate(
-      template,
+    const validated = await validateWhatsappTemplate(
+      template.id,
       contactInbox.inboxId,
     )
-
-    if (!isValid) {
+    if (!validated) {
       logger.error(
         { templateId: template.id, inboxId: contactInbox.inboxId },
         "Template validation failed - not approved or not found",
       )
-
       throw new Error(`Template validation failed: ${template.id}`)
     }
 
@@ -256,29 +254,25 @@ export async function sendWhatsappTemplateMessage(
   }
 
   try {
-    const template = await db.query.whatsappMessageTemplateModel.findFirst({
-      where: { id: templateId },
-    })
+    const validated = await validateWhatsappTemplate(
+      templateId,
+      contactInbox.inboxId,
+    )
 
-    if (!template) {
-      const templateNotFoundError = new Error(
-        `WhatsApp template not found: ${templateId}`,
+    if (!validated) {
+      const error = new Error(
+        `WhatsApp template not found or not approved: ${templateId}`,
       )
-
       await emit(messageEventTypeSchema.enum["message:failed"], {
         ...eventLogData,
-        action: {
-          messageId: "",
-          flowId: "",
-        },
-        errorData: await parseSdkError(templateNotFoundError),
+        action: { messageId: "", flowId: "" },
+        errorData: await parseSdkError(error),
         occurredAt: new Date(),
       })
-
-      throw templateNotFoundError
+      throw error
     }
 
-    // Use templateData from job if provided, otherwise extract from template components
+    const { template } = validated
     const templateParams =
       templateData ??
       extractTemplateParams((template.components as TemplateComponent[]) || [])

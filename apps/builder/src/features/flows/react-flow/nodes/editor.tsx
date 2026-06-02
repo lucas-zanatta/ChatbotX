@@ -157,7 +157,15 @@ const NodeEditorMenu = memo(
       } else {
         setNodeMenus([])
       }
-    }, [nodeType, t, inboxes, whatsappTemplates, whatsappFlows, messengerTemplates, beforeStep])
+    }, [
+      nodeType,
+      t,
+      inboxes,
+      whatsappTemplates,
+      whatsappFlows,
+      messengerTemplates,
+      beforeStep,
+    ])
 
     return (
       nodeMenus.length > 0 && (

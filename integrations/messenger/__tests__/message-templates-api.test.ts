@@ -81,7 +81,10 @@ describe("listPageMessageTemplates", () => {
     mockGet
       .mockResolvedValueOnce({
         data: [page1],
-        paging: { next: "/v23.0/PAGE123/message_templates?after=cursor123" },
+        paging: {
+          cursors: { before: "cursor_start", after: "cursor123" },
+          next: "https://graph.facebook.com/v23.0/PAGE123/message_templates?after=cursor123",
+        },
       })
       .mockResolvedValueOnce({ data: [page2] })
 
@@ -93,16 +96,66 @@ describe("listPageMessageTemplates", () => {
     expect(mockGet).toHaveBeenCalledTimes(2)
   })
 
-  test("second get call uses paging.next url", async () => {
-    const nextUrl = "/v23.0/PAGE123/message_templates?after=xyz"
+  test("second get call uses cursors.after (not absolute paging.next url)", async () => {
+    const cursorAfter = "xyz"
     mockGet
-      .mockResolvedValueOnce({ data: [], paging: { next: nextUrl } })
+      .mockResolvedValueOnce({
+        data: [],
+        paging: {
+          cursors: { before: "abc", after: cursorAfter },
+          next: "https://graph.facebook.com/v23.0/PAGE123/message_templates?after=xyz",
+        },
+      })
       .mockResolvedValueOnce({ data: [] })
 
     await listPageMessageTemplates(AUTH)
 
     const secondCall = mockGet.mock.calls[1]
-    expect(secondCall[0]).toBe(nextUrl)
+    expect(secondCall[0]).toContain(`after=${cursorAfter}`)
+    expect(secondCall[0]).not.toContain("https://")
+  })
+
+  test("uses paging.cursors.after to build second page URL (not absolute paging.next)", async () => {
+    const absoluteNextUrl =
+      "https://graph.facebook.com/v23.0/PAGE123/message_templates?after=cursor_abc"
+    mockGet
+      .mockResolvedValueOnce({
+        data: [],
+        paging: {
+          cursors: { before: "cursor_start", after: "cursor_abc" },
+          next: absoluteNextUrl,
+        },
+      })
+      .mockResolvedValueOnce({ data: [] })
+
+    await listPageMessageTemplates(AUTH)
+
+    const secondCallUrl = mockGet.mock.calls[1][0] as string
+    expect(secondCallUrl).toContain("after=cursor_abc")
+    expect(secondCallUrl).not.toContain("https://")
+    expect(secondCallUrl).not.toContain("graph.facebook.com")
+  })
+
+  test("stops pagination when paging.next is absent even if cursors.after exists", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: "t1",
+          name: "t",
+          status: "APPROVED",
+          language: "en",
+          category: "UTILITY",
+          components: [],
+        },
+      ],
+      paging: {
+        cursors: { before: "x", after: "y" },
+      },
+    })
+
+    await listPageMessageTemplates(AUTH)
+
+    expect(mockGet).toHaveBeenCalledTimes(1)
   })
 
   test("Authorization Bearer header passed on first call", async () => {

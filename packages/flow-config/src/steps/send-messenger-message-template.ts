@@ -7,7 +7,9 @@ import { stepTypes } from "./step-action"
 import type { ParameterInfo } from "./wa-template-utils"
 
 export const messengerTemplateButtonParamSchema = z.object({
-  sub_type: z.enum(["quick_reply", "url"]),
+  // "quick_reply" has no handler in buildMessengerTemplateComponents — silently dropped.
+  // extractMessengerTemplateParams only creates sub_type "url".
+  sub_type: z.literal("url"),
   index: z.number().optional(),
   text: z.string().optional(),
   payload: z.string().optional(),
@@ -65,6 +67,11 @@ export const sendMessengerTemplateMessageStepSchema = baseStepSchema.extend({
     language: z.string(),
     parameterFormat: z.enum(["POSITIONAL", "NAMED"]).default("POSITIONAL"),
     params: messengerTemplateParamsSchema,
+    // UI state — filters templates by inbox in the editor.
+    // Zod strips unknown fields on parse() — without these, useWatch returns
+    // undefined after save/reload, breaking inbox-based template filtering.
+    inboxId: z.string().optional(),
+    integrationMessengerId: z.string().optional(),
   }),
   // Messenger utility messages have no delivery-status webhook, so this step
   // behaves like a normal send (linear continuation) — no Delivered/Failed

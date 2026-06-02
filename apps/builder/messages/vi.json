@@ -1403,6 +1403,9 @@
     "aiEditImage": {
       "label": "{name}: AI Chỉnh sửa hình ảnh"
     },
+    "aiAnalyzeImage": {
+      "label": "{name}: AI Phân tích hình ảnh"
+    },
     "aiExtractData": {
       "label": "{name}: AI Trích xuất dữ liệu"
     },

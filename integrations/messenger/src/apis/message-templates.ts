@@ -17,6 +17,10 @@ export type MessengerMessageTemplateEntity = {
 export type ListMessengerMessageTemplatesResponse = {
   data: MessengerMessageTemplateEntity[]
   paging?: {
+    cursors?: {
+      before?: string
+      after?: string
+    }
     next?: string
   }
 }
@@ -37,25 +41,34 @@ export const listPageMessageTemplates = (
   const pageId = auth.metadata.pageId
   const accessToken = auth.tokens.accessToken
 
+  const BASE_PATH = `/${version}/${pageId}/message_templates?fields=name,status,language,category,parameter_format,components`
+  const MAX_PAGES = 50
+
   return rescue("message_templates", async () => {
     const allTemplates: MessengerMessageTemplateEntity[] = []
-    let nextUrl: string | undefined =
-      `/${version}/${pageId}/message_templates?fields=name,status,language,category,parameter_format,components`
+    let currentUrl: string | undefined = BASE_PATH
+    let pageCount = 0
 
-    while (nextUrl) {
+    while (currentUrl && pageCount < MAX_PAGES) {
       const response: ListMessengerMessageTemplatesResponse =
-        await facebookGraphClient.get(nextUrl, {
+        await facebookGraphClient.get(currentUrl, {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
 
       allTemplates.push(...response.data)
-      nextUrl = response.paging?.next
+      pageCount++
+
+      // paging.next is only present when more pages exist.
+      // Build relative URL from cursors.after — paging.next is absolute and
+      // causes double-prefix error with ky's prefixUrl configuration.
+      if (response.paging?.next && response.paging.cursors?.after) {
+        currentUrl = `${BASE_PATH}&after=${response.paging.cursors.after}`
+      } else {
+        currentUrl = undefined
+      }
     }
 
-    return {
-      data: allTemplates,
-      paging: {},
-    }
+    return { data: allTemplates, paging: {} }
   })
 }
 

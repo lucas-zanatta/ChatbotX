@@ -1,8 +1,5 @@
 import { db } from "@chatbotx.io/database/client"
-import type {
-  MessengerTemplateParams,
-  SendMessengerTemplateMessageStepSchema,
-} from "@chatbotx.io/flow-config"
+import type { MessengerTemplateParams } from "@chatbotx.io/flow-config"
 import {
   contactVariableService,
   type ReplaceVariableProps,
@@ -48,31 +45,39 @@ export async function replaceMessengerTemplateVariables(props: {
   return replacedParams
 }
 
+export type ValidatedMessengerTemplate = {
+  inbox: NonNullable<Awaited<ReturnType<typeof db.query.inboxModel.findFirst>>>
+  template: NonNullable<
+    Awaited<ReturnType<typeof db.query.messengerMessageTemplateModel.findFirst>>
+  >
+}
+
+// Accepts templateId string — returns fetched entities so caller avoids re-querying.
+// Returns null on any validation failure (inbox not found, no integration, template not approved).
 export async function validateMessengerTemplate(
-  template: SendMessengerTemplateMessageStepSchema["template"],
+  templateId: string,
   inboxId: string,
-): Promise<boolean> {
+): Promise<ValidatedMessengerTemplate | null> {
   const inbox = await db.query.inboxModel.findFirst({
     where: { id: inboxId },
     with: { integrationMessenger: true },
   })
 
   if (!inbox?.integrationMessenger) {
-    return false
+    return null
   }
 
-  const messengerTemplate =
-    await db.query.messengerMessageTemplateModel.findFirst({
-      where: {
-        id: template.id,
-        integrationMessengerId: inbox.integrationMessenger.id,
-        status: "APPROVED",
-      },
-    })
+  const template = await db.query.messengerMessageTemplateModel.findFirst({
+    where: {
+      id: templateId,
+      integrationMessengerId: inbox.integrationMessenger.id,
+      status: "APPROVED",
+    },
+  })
 
-  if (!messengerTemplate) {
-    return false
+  if (!template) {
+    return null
   }
 
-  return true
+  return { inbox, template }
 }

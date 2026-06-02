@@ -2,8 +2,8 @@
 
 import { and, db, eq } from "@chatbotx.io/database/client"
 import { messengerMessageTemplateModel } from "@chatbotx.io/database/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { zodBigintAsString } from "@chatbotx.io/utils"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 export const deleteMessengerMessageTemplateAction = workspaceActionClient
@@ -42,5 +42,7 @@ export const deleteMessengerMessageTemplateAction = workspaceActionClient
         ),
       )
 
-    revalidateCacheTags(`workspaces:${workspaceId}#messenger#messageTemplates`)
+    await invalidateCacheByTags([
+      `workspaces:${workspaceId}#messenger#messageTemplates`,
+    ])
   })
