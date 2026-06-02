@@ -4,8 +4,7 @@ import { CreateBroadcastForm } from "@/features/broadcasts/create-broadcast-form
 import { ContactStoreProvider } from "@/features/contacts/provider/contact-store-context"
 import { CustomFieldStoreProvider } from "@/features/custom-fields/provider/custom-field-store-context"
 import { FlowStoreProvider } from "@/features/flows/provider/flow-store-context"
-import { FlowMessengerTemplateStoreProvider } from "@/features/flows/react-flow/stores/flow-messenger-template-store-provider"
-import { TemplateStoreProvider } from "@/features/integration-whatsapp/message-templates/provider/template-store-context"
+import { FlowTemplateStoreProvider } from "@/features/flows/react-flow/stores/flow-template-store-provider"
 import { IntegrationStoreProvider } from "@/features/integration-whatsapp/provider/integration-store-context"
 import { TagStoreProvider } from "@/features/tags/provider/tag-store-context"
 
@@ -24,16 +23,14 @@ export default async function CreateBroadcastPage({
       <CustomFieldStoreProvider workspaceId={workspaceId}>
         <IntegrationStoreProvider workspaceId={workspaceId}>
           <TagStoreProvider workspaceId={workspaceId}>
-            <TemplateStoreProvider workspaceId={workspaceId}>
-              <FlowMessengerTemplateStoreProvider workspaceId={workspaceId}>
-                <ContactStoreProvider
-                  autoInitialize={false}
-                  workspaceId={workspaceId}
-                >
-                  <CreateBroadcastForm workspaceId={workspaceId} />
-                </ContactStoreProvider>
-              </FlowMessengerTemplateStoreProvider>
-            </TemplateStoreProvider>
+            <FlowTemplateStoreProvider workspaceId={workspaceId}>
+              <ContactStoreProvider
+                autoInitialize={false}
+                workspaceId={workspaceId}
+              >
+                <CreateBroadcastForm workspaceId={workspaceId} />
+              </ContactStoreProvider>
+            </FlowTemplateStoreProvider>
           </TagStoreProvider>
         </IntegrationStoreProvider>
       </CustomFieldStoreProvider>

@@ -16,7 +16,7 @@ import { useMessengerInboxOptions } from "@/features/inboxes/provider/inbox-hook
 import { MessengerTemplateParamsForm } from "@/features/integration-messenger/message-templates/components/template-params-form"
 import { MessengerTemplatePreview } from "@/features/integration-messenger/message-templates/components/template-preview"
 import type { FlowMessengerTemplateResource } from "@/features/integration-messenger/message-templates/schema/resource"
-import { useFlowMessengerTemplate } from "../../stores/flow-messenger-template-store-provider"
+import { useFlowTemplate } from "../../stores/flow-template-store-provider"
 import { BaseStepEditor } from "../base/editor"
 import { ButtonStepEditor } from "../button/editor"
 
@@ -36,9 +36,7 @@ function SendMessengerTemplateMessageStepEditor(
   const prevInboxIdRef = useRef<string | undefined>(undefined)
 
   const messengerInboxOptions = useMessengerInboxOptions()
-  const messengerTemplates = useFlowMessengerTemplate(
-    (s) => s.messengerTemplates,
-  )
+  const messengerTemplates = useFlowTemplate((s) => s.messengerTemplates)
 
   const integrationInboxId = watch(`${parentName}.template.inboxId`)
   const templateId = watch(`${parentName}.template.id`)

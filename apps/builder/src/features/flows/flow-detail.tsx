@@ -12,7 +12,6 @@ import { TagStoreProvider } from "../tags/provider/tag-store-context"
 import { UserStoreProvider } from "../users/provider/user-store-context"
 import { FlowStoreProvider } from "./provider/flow-store-context"
 import { ReactFlowFrame } from "./react-flow/frame"
-import { FlowMessengerTemplateStoreProvider } from "./react-flow/stores/flow-messenger-template-store-provider"
 import { FlowTemplateStoreProvider } from "./react-flow/stores/flow-template-store-provider"
 import { StepStoreProvider } from "./react-flow/stores/step-store-provider"
 import { WhatsappFlowStoreProvider } from "./react-flow/stores/whatsapp-flow-store-provider"
@@ -33,34 +32,30 @@ export function FlowDetail({ flow, flowVersion }: FlowDetailProps) {
       >
         <FlowTemplateStoreProvider workspaceId={flow.workspaceId}>
           <WhatsappFlowStoreProvider workspaceId={flow.workspaceId}>
-            <FlowMessengerTemplateStoreProvider workspaceId={flow.workspaceId}>
-              <InboxStoreProvider workspaceId={flow.workspaceId}>
-                <FlowStoreProvider workspaceId={flow.workspaceId}>
-                  <TagStoreProvider workspaceId={flow.workspaceId}>
-                    <EmailTopicStoreProvider workspaceId={flow.workspaceId}>
-                      <UserStoreProvider workspaceId={flow.workspaceId}>
-                        <CustomFieldStoreProvider
-                          workspaceId={flow.workspaceId}
-                        >
-                          <AIToolsStoreProvider workspaceId={flow.workspaceId}>
-                            <PlatformCredentialsStoreProvider>
-                              <AIAgentStoreProvider
-                                workspaceId={flow.workspaceId}
-                              >
-                                <ReactFlowFrame
-                                  flow={flow}
-                                  flowVersion={flowVersion}
-                                />
-                              </AIAgentStoreProvider>
-                            </PlatformCredentialsStoreProvider>
-                          </AIToolsStoreProvider>
-                        </CustomFieldStoreProvider>
-                      </UserStoreProvider>
-                    </EmailTopicStoreProvider>
-                  </TagStoreProvider>
-                </FlowStoreProvider>
-              </InboxStoreProvider>
-            </FlowMessengerTemplateStoreProvider>
+            <InboxStoreProvider workspaceId={flow.workspaceId}>
+              <FlowStoreProvider workspaceId={flow.workspaceId}>
+                <TagStoreProvider workspaceId={flow.workspaceId}>
+                  <EmailTopicStoreProvider workspaceId={flow.workspaceId}>
+                    <UserStoreProvider workspaceId={flow.workspaceId}>
+                      <CustomFieldStoreProvider workspaceId={flow.workspaceId}>
+                        <AIToolsStoreProvider workspaceId={flow.workspaceId}>
+                          <PlatformCredentialsStoreProvider>
+                            <AIAgentStoreProvider
+                              workspaceId={flow.workspaceId}
+                            >
+                              <ReactFlowFrame
+                                flow={flow}
+                                flowVersion={flowVersion}
+                              />
+                            </AIAgentStoreProvider>
+                          </PlatformCredentialsStoreProvider>
+                        </AIToolsStoreProvider>
+                      </CustomFieldStoreProvider>
+                    </UserStoreProvider>
+                  </EmailTopicStoreProvider>
+                </TagStoreProvider>
+              </FlowStoreProvider>
+            </InboxStoreProvider>
           </WhatsappFlowStoreProvider>
         </FlowTemplateStoreProvider>
       </StepStoreProvider>

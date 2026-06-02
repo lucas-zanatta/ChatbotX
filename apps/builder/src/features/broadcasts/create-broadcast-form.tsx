@@ -46,13 +46,12 @@ import { useWorkspaceId } from "@/hooks/routing"
 import { ContactFilter } from "../contacts/components/contact-filter"
 import { useContactStore } from "../contacts/provider/contact-store-context"
 import { useFlowStore } from "../flows/provider/flow-store-context"
-import { useFlowMessengerTemplate } from "../flows/react-flow/stores/flow-messenger-template-store-provider"
+import { useFlowTemplate } from "../flows/react-flow/stores/flow-template-store-provider"
 import { InboxIcon } from "../inboxes/components/inbox-icon"
 import { MessengerTemplateParamsForm } from "../integration-messenger/message-templates/components/template-params-form"
 import { MessengerTemplatePreview } from "../integration-messenger/message-templates/components/template-preview"
 import { TemplateParamsForm } from "../integration-whatsapp/message-templates/components/template-params-form"
 import { TemplatePreview } from "../integration-whatsapp/message-templates/components/template-preview"
-import { useTemplateStore } from "../integration-whatsapp/message-templates/provider/template-store-context"
 import type { MessageTemplateWithComponents } from "../integration-whatsapp/message-templates/schema/resource"
 import { useIntegrationStore } from "../integration-whatsapp/provider/integration-store-context"
 import { MessengerBroadcastFlowButtons } from "./components/messenger-broadcast-flow-buttons"
@@ -521,11 +520,12 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
     useState<MessageTemplateWithComponents | null>(null)
 
   const { integrations } = useIntegrationStore((state) => state)
-  const { templates, setIntegrationWhatsappId } = useTemplateStore(
-    (state) => state,
+  const whatsappTemplates = useFlowTemplate((s) => s.whatsappTemplates)
+  const setIntegrationWhatsappId = useFlowTemplate(
+    (s) => s.setIntegrationWhatsappId,
   )
 
-  const messengerTemplatesData = useFlowMessengerTemplate(
+  const messengerTemplatesData = useFlowTemplate(
     (state) => state.messengerTemplates,
   )
 
@@ -599,8 +599,12 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
   useEffect(() => {
     if (watchedIntegrationWhatsappId) {
       setIntegrationWhatsappId(watchedIntegrationWhatsappId)
+      // Clear stale template selection from previous integration
+      setValue("templateId", undefined)
+      setValue("templateData", undefined)
+      setSelectedTemplate(null)
     }
-  }, [watchedIntegrationWhatsappId, setIntegrationWhatsappId])
+  }, [watchedIntegrationWhatsappId, setIntegrationWhatsappId, setValue])
 
   useEffect(() => {
     getContactInboxesCount({
@@ -610,10 +614,10 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
   }, [watchedContactFilter, props.channel, getContactInboxesCount])
 
   useEffect(() => {
-    if (watchedTemplateId && templates.length > 0) {
-      const template = templates.find((t) => t.id === watchedTemplateId) as
-        | MessageTemplateWithComponents
-        | undefined
+    if (watchedTemplateId && whatsappTemplates.length > 0) {
+      const template = whatsappTemplates.find(
+        (t) => t.id === watchedTemplateId,
+      ) as MessageTemplateWithComponents | undefined
       if (template) {
         setSelectedTemplate(template)
         const initialParams = extractTemplateParams(
@@ -625,7 +629,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
         setValue("templateData", undefined)
       }
     }
-  }, [watchedTemplateId, templates, setValue])
+  }, [watchedTemplateId, whatsappTemplates, setValue])
 
   useEffect(() => {
     if (
@@ -709,7 +713,7 @@ function CreateBroadcastChooseFlow(props: CreateBroadcastChooseFlowProps) {
                     key="templateId"
                     label={t("fields.templateId.label")}
                     name="templateId"
-                    options={templates.map((template) => ({
+                    options={whatsappTemplates.map((template) => ({
                       label: `${template.name} (${template.language})`,
                       value: template.id,
                     }))}

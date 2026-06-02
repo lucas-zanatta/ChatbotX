@@ -39,7 +39,6 @@ import RecursiveDropdownMenu from "../components/recursive-dropdown-menu"
 import { allSteps, DynamicStepEditor } from "../steps"
 import { ButtonStepEditor } from "../steps/button/editor"
 import { ErrorAlert } from "../steps/error-alert"
-import { useFlowMessengerTemplate } from "../stores/flow-messenger-template-store-provider"
 import { useFlowTemplate } from "../stores/flow-template-store-provider"
 import { useStepStore } from "../stores/step-store-provider"
 import { useWhatsappFlow } from "../stores/whatsapp-flow-store-provider"
@@ -139,9 +138,7 @@ const NodeEditorMenu = memo(
     const inboxes = useInboxStore((s) => s.inboxes)
     const whatsappTemplates = useFlowTemplate((s) => s.whatsappTemplates)
     const whatsappFlows = useWhatsappFlow((s) => s.whatsappFlows)
-    const messengerTemplates = useFlowMessengerTemplate(
-      (s) => s.messengerTemplates,
-    )
+    const messengerTemplates = useFlowTemplate((s) => s.messengerTemplates)
     const beforeStep = useWatch({ name: "beforeStep" })
 
     const [nodeMenus, setNodeMenus] = useState<MenuItem[]>([])
