@@ -18,6 +18,7 @@ export const ScheduleJobData = {
   reconcileMac: "reconcileMac",
   maintainMacPartitions: "maintainMacPartitions",
   scanCoexistRuns: "scanCoexistRuns",
+  purgeCoexistStaging: "purgeCoexistStaging",
 } as const
 
 export type ScheduleJobBroadcast = {
@@ -63,6 +64,7 @@ export type ScheduleJobScanSmartDelay = {
 
 export type ScheduleJobSyncUserQuota = {
   type: typeof ScheduleJobData.syncUserQuota
+  data: Record<string, never>
 }
 
 export type ScheduleJobScanCoexistRuns = {
@@ -80,6 +82,11 @@ export type ScheduleJobMaintainMacPartitions = {
   data: Record<string, never>
 }
 
+export type ScheduleJobPurgeCoexistStaging = {
+  type: typeof ScheduleJobData.purgeCoexistStaging
+  data: Record<string, never>
+}
+
 export type ScheduleJobData =
   | ScheduleJobBroadcast
   | ScheduleJobEnqueueBroadcast
@@ -92,6 +99,7 @@ export type ScheduleJobData =
   | ScheduleJobReconcileMac
   | ScheduleJobMaintainMacPartitions
   | ScheduleJobScanCoexistRuns
+  | ScheduleJobPurgeCoexistStaging
 
 export const scheduleQueue =
   process.env.NEXT_PHASE === "phase-production-build"

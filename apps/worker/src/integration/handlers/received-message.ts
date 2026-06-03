@@ -2,9 +2,9 @@ import {
   broadcastToWorkspaceParty,
   buildContext,
   resolvePlatformSettings,
+  updateContactFromMessage,
   userQuotaService,
   workspaceService,
-  updateContactFromMessage,
 } from "@chatbotx.io/business"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import type { IntegrationType } from "@chatbotx.io/database/partials"

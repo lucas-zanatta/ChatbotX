@@ -95,7 +95,8 @@ vi.mock("@chatbotx.io/database/schema", () => ({
     contactInboxId: "contactInboxId",
     sourceId: "sourceId",
   },
-  workspaceUsageModel: {},
+  userQuotaModel: {},
+  workspaceModel: {},
 }))
 
 vi.mock("@chatbotx.io/utils", async (importOriginal) => {

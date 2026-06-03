@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   index,
   jsonb,
@@ -38,5 +39,8 @@ export const whatsappCoexistStagingModel = pgTable(
       table.phoneNumberId.asc().nullsLast(),
       table.payloadHash.asc().nullsLast(),
     ),
+    index("WhatsappCoexistStaging_processedAt_idx")
+      .using("btree", table.processedAt.asc().nullsLast())
+      .where(sql`"processedAt" IS NOT NULL`),
   ],
 )

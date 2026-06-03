@@ -6,7 +6,8 @@ import {
   contactModel,
   conversationModel,
   messageModel,
-  workspaceUsageModel,
+  userQuotaModel,
+  workspaceModel,
 } from "@chatbotx.io/database/schema"
 import type { InboxModel } from "@chatbotx.io/database/types"
 import { emit } from "@chatbotx.io/event-bus"
@@ -419,12 +420,28 @@ export const bulkImportContacts = async (props: {
       }
 
       if (trulyNew > 0) {
-        await tx
-          .update(workspaceUsageModel)
-          .set({
-            contactsCount: sql`${workspaceUsageModel.contactsCount} + ${trulyNew}`,
-          })
-          .where(sql`${workspaceUsageModel.workspaceId} = ${workspaceId}`)
+        const workspaceRow = await tx
+          .select({ ownerId: workspaceModel.ownerId })
+          .from(workspaceModel)
+          .where(eq(workspaceModel.id, workspaceId))
+          .limit(1)
+        const ownerId = workspaceRow[0]?.ownerId
+        if (ownerId) {
+          await tx
+            .insert(userQuotaModel)
+            .values({
+              userId: ownerId,
+              contactsUsed: trulyNew,
+              syncedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: userQuotaModel.userId,
+              set: {
+                contactsUsed: sql`${userQuotaModel.contactsUsed} + ${trulyNew}`,
+                updatedAt: sql`CURRENT_TIMESTAMP`,
+              },
+            })
+        }
       }
 
       // Resolve conversation ids for everything just inserted (or raced).

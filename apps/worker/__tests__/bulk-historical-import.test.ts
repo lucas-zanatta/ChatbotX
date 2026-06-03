@@ -69,9 +69,14 @@ vi.mock("@chatbotx.io/database/schema", () => ({
     sourceId: "m_sid",
     $inferInsert: {},
   },
-  workspaceUsageModel: {
-    workspaceId: "wu_workspaceId",
-    contactsCount: "wu_count",
+  userQuotaModel: {
+    userId: "uq_userId",
+    contactsUsed: "uq_contactsUsed",
+    updatedAt: "uq_updatedAt",
+  },
+  workspaceModel: {
+    id: "w_id",
+    ownerId: "w_ownerId",
   },
 }))
 

@@ -101,4 +101,18 @@ export const registerSchedules = async () => {
       },
     },
   )
+
+  await scheduleQueue.upsertJobScheduler(
+    ScheduleJobData.purgeCoexistStaging,
+    {
+      pattern: "0 * * * *",
+    },
+    {
+      name: ScheduleJobData.purgeCoexistStaging,
+      data: {
+        type: ScheduleJobData.purgeCoexistStaging,
+        data: {},
+      },
+    },
+  )
 }

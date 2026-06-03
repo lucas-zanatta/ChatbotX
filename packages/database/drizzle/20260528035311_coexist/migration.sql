@@ -51,4 +51,5 @@ CREATE INDEX "CoexistSyncRun_active_idx" ON "CoexistSyncRun" ("status","lastHear
 CREATE INDEX "CoexistSyncRun_integration_resume_idx" ON "CoexistSyncRun" ("integrationId","channel","startedAt" DESC) WHERE status IN ('succeeded', 'partial');--> statement-breakpoint
 CREATE UNIQUE INDEX "CoexistSyncRun_integration_init_uq" ON "CoexistSyncRun" ("integrationId","channel") WHERE status = 'init';--> statement-breakpoint
 CREATE INDEX "WhatsappCoexistStaging_phoneNumberId_idx" ON "WhatsappCoexistStaging" ("phoneNumberId");--> statement-breakpoint
-CREATE UNIQUE INDEX "WhatsappCoexistStaging_phone_hash_uq" ON "WhatsappCoexistStaging" ("phoneNumberId","payloadHash");
+CREATE UNIQUE INDEX "WhatsappCoexistStaging_phone_hash_uq" ON "WhatsappCoexistStaging" ("phoneNumberId","payloadHash");--> statement-breakpoint
+CREATE INDEX "WhatsappCoexistStaging_processedAt_idx" ON "WhatsappCoexistStaging" ("processedAt") WHERE "processedAt" IS NOT NULL;
