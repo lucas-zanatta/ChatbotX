@@ -1689,6 +1689,8 @@
     "billingNote": "Page lớn có thể mất vài giờ để hoàn tất.",
     "toggleLabel": "Đồng bộ liên hệ và lịch sử chat hiện có",
     "toggleHelper": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại.",
+    "toggleHelperMessenger": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại trang Messenger.",
+    "toggleHelperWhatsapp": "Bật lại chỉ hoạt động nếu Meta còn đệm dữ liệu (trong vòng 24 giờ kể từ khi onboarding). Nếu không, hãy ngắt kết nối và kết nối lại số WhatsApp.",
     "success": {
       "enabled": "Đã bắt đầu đồng bộ. Liên hệ và tin nhắn lịch sử sẽ xuất hiện sớm.",
       "disabled": "Đã tắt đồng bộ."
@@ -1802,6 +1804,8 @@
       "label": "Lệnh"
     },
     "connectExisting": "Kết nối tài khoản WhatsApp Business hiện có",
+    "fillRequiredFields": "Vui lòng điền đầy đủ các trường bắt buộc",
+    "continueManualConnect": "Tiếp tục — kết nối thủ công",
     "icebreakers": {
       "description": "Đây là những câu hỏi phổ biến mà mọi người có thể dễ dàng hỏi bạn.",
       "label": "Câu mở đầu"

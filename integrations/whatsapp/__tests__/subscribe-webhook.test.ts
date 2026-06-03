@@ -95,4 +95,58 @@ describe("subscribeWebhook", () => {
       process.env.WHATSAPP_OVERRIDE_CALLBACK_URI = prev
     }
   })
+
+  // -------------------------------------------------------------------------
+  // H8 — override_callback_uri inverted-logic tests
+  // -------------------------------------------------------------------------
+
+  it("H8(1): falls back to env override_callback_uri when overrideCallbackUrl=false and env set", async () => {
+    // Deployment-level override (WHATSAPP_OVERRIDE_CALLBACK_URI) must apply on
+    // the standard connect path where the caller does not pass
+    // overrideCallbackUrl — this is how self-hosted/dev/staging route Meta
+    // webhooks to the real deployment URL. The branches are exclusive, so this
+    // env path and the metadata path never overwrite each other.
+    const prev = process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
+    process.env.WHATSAPP_OVERRIDE_CALLBACK_URI =
+      "https://env-override.example.com/wh"
+    postMock.mockReturnValueOnce(okResponse())
+
+    await subscribeWebhook({ auth: buildAuth(), overrideCallbackUrl: false })
+
+    const [, options] = postMock.mock.calls[0]
+    expect(options.json.override_callback_uri).toBe(
+      "https://env-override.example.com/wh",
+    )
+    expect(options.json.verify_token).toBeDefined()
+
+    if (prev === undefined) {
+      delete process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
+    } else {
+      process.env.WHATSAPP_OVERRIDE_CALLBACK_URI = prev
+    }
+  })
+
+  it("H8(2): uses metadata.webhookUrl when overrideCallbackUrl=true", async () => {
+    // When the caller explicitly requests an override, the URL comes from
+    // auth.metadata.webhookUrl — not from the env var.
+    const prev = process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
+    process.env.WHATSAPP_OVERRIDE_CALLBACK_URI =
+      "https://env-override.example.com/wh"
+    postMock.mockReturnValueOnce(okResponse())
+
+    await subscribeWebhook({
+      auth: buildAuth(),
+      overrideCallbackUrl: true,
+    })
+
+    const [, options] = postMock.mock.calls[0]
+    expect(options.json.override_callback_uri).toBe("https://example.com/wh")
+    expect(options.json.verify_token).toBe("verify")
+
+    if (prev === undefined) {
+      delete process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
+    } else {
+      process.env.WHATSAPP_OVERRIDE_CALLBACK_URI = prev
+    }
+  })
 })

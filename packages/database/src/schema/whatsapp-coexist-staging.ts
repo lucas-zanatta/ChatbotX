@@ -26,7 +26,7 @@ export const whatsappCoexistStagingModel = pgTable(
     ...sharedColumns,
     phoneNumberId: text().notNull(),
     payload: jsonb().notNull(),
-    payloadHash: text(),
+    payloadHash: text().notNull(),
     processedAt: timestamp(timestampConfig),
   },
   (table) => [

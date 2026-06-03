@@ -1,4 +1,5 @@
 // biome-ignore-all lint/suspicious/noBitwiseOperators: bit-packing 63-bit snowflake IDs
+
 import { db, eq, inArray, sql } from "@chatbotx.io/database/client"
 import {
   attachmentModel,
@@ -14,6 +15,7 @@ import { emit } from "@chatbotx.io/event-bus"
 import { emitContactCreated } from "@chatbotx.io/events"
 import type { IncomingContact, IncomingMessage } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
+import pLimit from "p-limit"
 import { logger } from "../../../lib/logger"
 
 // ---------- Coexist time-derived Message IDs ----------
@@ -391,11 +393,12 @@ export const bulkImportContacts = async (props: {
           insertedSourceIds.add(w.sourceId)
         }
 
+        const racedSet = new Set(racedSourceIds)
         const orphanIds: string[] = []
         for (let i = 0; i < acceptedNew.length; i++) {
           const sourceId = acceptedNew[i]?.[0]
           const contactId = contactRows[i]?.id
-          if (sourceId && contactId && racedSourceIds.includes(sourceId)) {
+          if (sourceId && contactId && racedSet.has(sourceId)) {
             orphanIds.push(contactId)
           }
         }
@@ -409,8 +412,9 @@ export const bulkImportContacts = async (props: {
       const trulyNew = acceptedNew.length - racedSourceIds.length
       importedContacts = trulyNew
 
+      const racedSet2 = new Set(racedSourceIds)
       const conversationsToInsert = conversationRows.filter(
-        (_row, i) => !racedSourceIds.includes(acceptedNew[i]?.[0]),
+        (_row, i) => !racedSet2.has(acceptedNew[i]?.[0]),
       )
       if (conversationsToInsert.length > 0) {
         await tx
@@ -518,7 +522,7 @@ export const bulkImportContacts = async (props: {
           triggerType: "contact_created",
         },
       },
-    }).catch((error) => {
+    })?.catch((error) => {
       logger.error(error, "[coexist] Failed to emit contact:created")
     })
   }
@@ -788,37 +792,47 @@ export const bulkImportHistorical = async (props: {
   let failedMessages = 0
   const insertedAttachmentIds: string[] = []
 
-  for (const entry of batch) {
-    if (entry.messages.length === 0) {
-      continue
-    }
-    const link = contactsResult.contactInboxIds.get(entry.contact.sourceId)
-    if (!link) {
-      skippedMessages += entry.messages.length
-      continue
-    }
-    try {
-      const res = await bulkImportMessages({
-        workspaceId,
-        runId,
-        contactInboxId: link.contactInboxId,
-        contactId: link.contactId,
-        conversationId: link.conversationId,
-        messages: entry.messages,
-      })
-      importedMessages += res.importedMessages
-      skippedMessages += res.skippedMessages
-      for (const id of res.insertedAttachmentIds) {
-        insertedAttachmentIds.push(id)
-      }
-    } catch (error) {
-      logger.error(
-        { error, runId, sourceId: entry.contact.sourceId },
-        "[coexist] bulkImportMessages threw inside bulkImportHistorical",
-      )
-      failedMessages += entry.messages.length
-    }
-  }
+  const limit = pLimit(3)
+  await Promise.all(
+    batch.map((entry) =>
+      limit(async () => {
+        if (entry.messages.length === 0) {
+          return
+        }
+        const link = contactsResult.contactInboxIds.get(entry.contact.sourceId)
+        if (!link) {
+          // No link = the contact could not be set up (import error or workspace
+          // cap) so its messages can never be imported. Count as FAILED, not
+          // skipped: "skipped" means an intentional no-op (duplicate / outside
+          // the retention window), whereas this is an error condition — same
+          // semantics as the catch branch below.
+          failedMessages += entry.messages.length
+          return
+        }
+        try {
+          const res = await bulkImportMessages({
+            workspaceId,
+            runId,
+            contactInboxId: link.contactInboxId,
+            contactId: link.contactId,
+            conversationId: link.conversationId,
+            messages: entry.messages,
+          })
+          importedMessages += res.importedMessages
+          skippedMessages += res.skippedMessages
+          for (const id of res.insertedAttachmentIds) {
+            insertedAttachmentIds.push(id)
+          }
+        } catch (error) {
+          logger.error(
+            { error, runId, sourceId: entry.contact.sourceId },
+            "[coexist] bulkImportMessages threw inside bulkImportHistorical",
+          )
+          failedMessages += entry.messages.length
+        }
+      }),
+    ),
+  )
 
   return {
     importedContacts: contactsResult.importedContacts,

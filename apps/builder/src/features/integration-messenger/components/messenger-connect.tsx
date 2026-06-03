@@ -141,8 +141,7 @@ export function MessengerConnectButton({
       initParams={{
         version: (publicConfig.version as InitParams["version"]) ?? "v18.0",
       }}
-      onFail={(error) => {
-        console.log("error", error)
+      onFail={() => {
         toast.error(t("messages.connectFailed", { feature: "Messenger" }))
       }}
       onSuccess={() => {

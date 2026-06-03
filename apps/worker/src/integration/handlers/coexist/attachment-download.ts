@@ -1,5 +1,7 @@
+import { extname } from "node:path"
+
 import { buildContext, type IntegrationContext } from "@chatbotx.io/business"
-import { db, eq, sql } from "@chatbotx.io/database/client"
+import { and, db, eq, sql } from "@chatbotx.io/database/client"
 import { attachmentModel } from "@chatbotx.io/database/schema"
 import {
   getWhatsappClient,
@@ -21,6 +23,48 @@ import { logger } from "../../../lib/logger"
  */
 const WA_MEDIA_PREFIX = "wa-media:"
 
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "image/bmp": "bmp",
+  "image/svg+xml": "svg",
+  "application/pdf": "pdf",
+  "text/plain": "txt",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/ogg": "ogg",
+  "audio/wav": "wav",
+  "application/zip": "zip",
+}
+
+const getStorageExtension = (
+  originPath: string,
+  mimeType: string,
+): string | undefined => {
+  if (originPath.startsWith("http://") || originPath.startsWith("https://")) {
+    try {
+      const extension = extname(new URL(originPath).pathname)
+      if (extension) {
+        return extension.slice(1)
+      }
+    } catch {
+      // Fall through to MIME-based inference below.
+    }
+  }
+
+  return MIME_EXTENSION_MAP[mimeType] ?? ""
+}
+
+/** Maximum allowed attachment size in bytes (50 MiB). */
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
+
 const isPendingOriginPath = (path: string): boolean =>
   path.startsWith("http://") ||
   path.startsWith("https://") ||
@@ -30,6 +74,62 @@ type DownloadedMedia = {
   bytes: ArrayBuffer
   mimeType: string
   size: number
+}
+
+/**
+ * Read a response body into an ArrayBuffer while enforcing
+ * MAX_ATTACHMENT_BYTES. Unlike `response.arrayBuffer()`, this streams and
+ * aborts as soon as the cumulative size exceeds the cap, so an origin that
+ * lies about (or omits) `content-length` cannot OOM the worker by sending an
+ * unbounded body.
+ */
+const readBodyWithCap = async (
+  response: Response,
+  label: string,
+): Promise<ArrayBuffer> => {
+  const declaredHeader = response.headers.get("content-length")
+  if (declaredHeader !== null) {
+    const declared = Number.parseInt(declaredHeader, 10)
+    if (!Number.isNaN(declared) && declared > MAX_ATTACHMENT_BYTES) {
+      throw new SdkException(
+        `[coexist-attachment] ${label} exceeds size limit: ${declared} bytes (max ${MAX_ATTACHMENT_BYTES})`,
+      )
+    }
+  }
+
+  const body = response.body
+  if (!body) {
+    throw new SdkException(`[coexist-attachment] ${label} has no response body`)
+  }
+
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+    if (!value) {
+      continue
+    }
+    total += value.byteLength
+    if (total > MAX_ATTACHMENT_BYTES) {
+      await reader.cancel()
+      throw new SdkException(
+        `[coexist-attachment] ${label} body exceeds size limit: >${MAX_ATTACHMENT_BYTES} bytes`,
+      )
+    }
+    chunks.push(value)
+  }
+
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out.buffer
 }
 
 const downloadMessengerMedia = async (
@@ -42,17 +142,18 @@ const downloadMessengerMedia = async (
       Authorization: `Bearer ${accessToken}`,
       "User-Agent": "node",
     },
+    signal: AbortSignal.timeout(30_000),
   })
   if (!(response.ok && response.body)) {
     throw new SdkException(
       `[coexist-attachment] Messenger fetch failed: ${response.status} ${response.statusText}`,
     )
   }
-  const bytes = await response.arrayBuffer()
+  const bytes = await readBodyWithCap(response, "Messenger attachment")
   return {
     bytes,
     mimeType: response.headers.get("content-type") ?? fallbackMime,
-    size: Number.parseInt(response.headers.get("content-length") ?? "0", 10),
+    size: bytes.byteLength,
   }
 }
 
@@ -73,17 +174,18 @@ const downloadWhatsappMedia = async (
       Authorization: `Bearer ${ctx.auth.tokens.accessToken}`,
       "User-Agent": "node",
     },
+    signal: AbortSignal.timeout(30_000),
   })
   if (!(response.ok && response.body)) {
     throw new SdkException(
       `[coexist-attachment] WhatsApp media fetch failed: ${response.status} ${response.statusText}`,
     )
   }
-  const bytes = await response.arrayBuffer()
+  const bytes = await readBodyWithCap(response, "WhatsApp attachment")
   return {
     bytes,
     mimeType: meta.mime_type ?? fallbackMime,
-    size: Number.parseInt(response.headers.get("content-length") ?? "0", 10),
+    size: bytes.byteLength,
   }
 }
 
@@ -98,7 +200,7 @@ const loadIntegrationRow = async (
     inboxId: string
     auth: unknown
   }>(
-    sql`SELECT * FROM ${sql.identifier(table)} WHERE "id" = ${integrationId} LIMIT 1`,
+    sql`SELECT "id", "inboxId", "auth" FROM ${sql.identifier(table)} WHERE "id" = ${integrationId} LIMIT 1`,
   )
   return result.rows[0] ?? null
 }
@@ -123,7 +225,12 @@ export const coexistAttachmentDownload = async (
       mimeType: attachmentModel.mimeType,
     })
     .from(attachmentModel)
-    .where(eq(attachmentModel.id, attachmentId))
+    .where(
+      and(
+        eq(attachmentModel.id, attachmentId),
+        eq(attachmentModel.workspaceId, workspaceId),
+      ),
+    )
     .limit(1)
 
   if (!row) {
@@ -177,9 +284,10 @@ export const coexistAttachmentDownload = async (
     throw error
   }
 
-  const newOriginPath = `${ctx.storagePrefix}/${createId()}`
+  const extension = getStorageExtension(row.originPath, media.mimeType)
+  const newOriginPath = `workspace/${ctx.storagePrefix}/${createId()}${extension ? `.${extension}` : ""}`
+
   await ctx.uploader?.putObject(newOriginPath, Buffer.from(media.bytes), {
-    ACL: "public-read",
     ContentLength: media.size,
     ContentType: media.mimeType,
   })

@@ -26,17 +26,17 @@ export function subscribeWebhook({
       subscribed_fields: WHATSAPP_SUBSCRIBED_FIELDS,
     }
 
-    const envOverrideUri = process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
-
-    if (!overrideCallbackUrl && envOverrideUri) {
-      json.override_callback_uri = envOverrideUri
-      json.verify_token = auth.verifyToken
-    }
-
     if (overrideCallbackUrl && auth.metadata.webhookUrl && auth.verifyToken) {
       json.override_callback_uri = auth.metadata.webhookUrl
       json.verify_token = auth.verifyToken
     }
+
+    const envOverrideUri = process.env.WHATSAPP_OVERRIDE_CALLBACK_URI
+    if (envOverrideUri && auth.verifyToken) {
+      json.override_callback_uri = envOverrideUri
+      json.verify_token = auth.verifyToken
+    }
+    console.log({ json })
 
     try {
       const result = await ky

@@ -217,7 +217,7 @@ export default function WhatsappCreate({
           }
         }
       } catch {
-        console.log("handle message event error: ", event)
+        // Ignore malformed postMessage payloads from Facebook SDK
       }
     }
 
@@ -384,8 +384,7 @@ function SdkConnectSection({
                 // biome-ignore lint/suspicious/noExplicitAny: some types are not supported
               } as any
             }
-            onFail={(error) => {
-              console.log("error", error)
+            onFail={() => {
               toast.error(t("messages.connectFailed", { feature: "Whatsapp" }))
             }}
             // biome-ignore lint/suspicious/noExplicitAny: this library does not support code returned
@@ -460,7 +459,7 @@ function ManualConnectSection({
   // Event handlers
   const handleListPhoneNumbers = useCallback(() => {
     if (!(getValues().wabaId && getValues().accessToken)) {
-      toast.error("Please fill in all required fields")
+      toast.error(t("whatsapp.fillRequiredFields"))
       return
     }
 
@@ -550,7 +549,7 @@ function ManualConnectSection({
                   {formState.isSubmitting && (
                     <Loader2Icon className="animate-spin" />
                   )}
-                  {t("actions.continue")} manual connect
+                  {t("whatsapp.continueManualConnect")}
                 </Button>
               </div>
             </>

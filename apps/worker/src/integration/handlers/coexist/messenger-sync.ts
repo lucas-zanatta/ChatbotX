@@ -224,6 +224,9 @@ async function walkConversationsPages(
       }),
     )
     ctx.applyBucThrottle(conversations.bucUsage)
+    // Honour any BUC-imposed pause immediately — including when this is the
+    // final page and the loop will exit without a subsequent respectPause().
+    await ctx.respectPause()
 
     await db
       .update(coexistSyncRunModel)
@@ -466,7 +469,7 @@ async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
               : fallbackCutoff
 
             try {
-              const { messages, discovered } = await fetchConvMessages({
+              await fetchConvMessages({
                 conversationId: conv.id,
                 accessToken: ctx.accessToken,
                 version: ctx.version,
@@ -476,23 +479,26 @@ async function runMessagesPhase(ctx: SyncContext): Promise<PhaseResult> {
                 defaultCountry: ctx.defaultCountry,
                 applyBucThrottle: ctx.applyBucThrottle,
                 respectPause: ctx.respectPause,
+                // M3: flush each Graph page immediately — `pageDiscovered` is
+                // the live enrichment object so all data found so far is passed.
+                onPage: async (pageMessages, pageDiscovered) => {
+                  const result = await bulkImportMessages({
+                    workspaceId,
+                    runId,
+                    contactInboxId: link.contactInboxId,
+                    contactId: link.contactId,
+                    conversationId: link.conversationId,
+                    messages: pageMessages,
+                    contactEnrichment: pageDiscovered,
+                    idFactory,
+                  })
+                  pageImported += result.importedMessages
+                  pageSkipped += result.skippedMessages
+                  for (const id of result.insertedAttachmentIds) {
+                    pageAttachmentIds.push(id)
+                  }
+                },
               })
-
-              const result = await bulkImportMessages({
-                workspaceId,
-                runId,
-                contactInboxId: link.contactInboxId,
-                contactId: link.contactId,
-                conversationId: link.conversationId,
-                messages,
-                contactEnrichment: discovered,
-                idFactory,
-              })
-              pageImported += result.importedMessages
-              pageSkipped += result.skippedMessages
-              for (const id of result.insertedAttachmentIds) {
-                pageAttachmentIds.push(id)
-              }
 
               if (convTime && (pageOldest === null || convTime < pageOldest)) {
                 pageOldest = convTime
@@ -703,10 +709,18 @@ export const coexistMessengerSync = async (
   let currentLimit = pLimit(currentConcurrency)
   let pauseUntil = 0
 
+  // Maximum in-process pause duration for a BUC budget exhaustion. A larger
+  // value would hold the worker concurrency slot for too long and exceed the
+  // chunk budget. Future improvement: re-enqueue with a BullMQ delay instead.
+  const MAX_PAUSE_SEC = 300
+
   const applyBucThrottle = (usage: BucUsage | null | undefined): void => {
     const next = concurrencyForUsage(usage ?? null)
     if (next === 0) {
-      const waitSec = usage?.estimatedTimeToRegainAccess ?? 60
+      const waitSec = Math.min(
+        usage?.estimatedTimeToRegainAccess ?? 60,
+        MAX_PAUSE_SEC,
+      )
       pauseUntil = Math.max(pauseUntil, Date.now() + waitSec * 1000)
       if (currentConcurrency !== 1) {
         currentConcurrency = 1

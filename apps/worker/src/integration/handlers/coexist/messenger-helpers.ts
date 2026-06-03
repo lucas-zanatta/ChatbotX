@@ -140,9 +140,22 @@ export const splitName = (
 }
 
 export type FetchConvMessagesResult = {
+  /** Always empty when `onPage` is provided — messages are flushed per page. */
   messages: HistoricalMessage[]
   discovered: { phoneNumber?: string; email?: string }
 }
+
+/**
+ * Called after each Graph `/messages` page with the messages collected from
+ * that page. `discovered` is the live contact-enrichment object mutated by
+ * all pages so far — callers may read it inside the callback. Allows the
+ * caller to flush to the database incrementally, preventing unbounded
+ * in-memory accumulation across many pages.
+ */
+export type OnMessagePageFn = (
+  messages: HistoricalMessage[],
+  discovered: { phoneNumber?: string; email?: string },
+) => Promise<void>
 
 /**
  * Walk `/messages` for one Messenger conversation, paginating with the Graph
@@ -159,6 +172,10 @@ export type FetchConvMessagesResult = {
  *    cutoff — a brand-new conversation with no recent activity should still
  *    surface in the inbox UI.
  *
+ * When `onPage` is provided, `messages` from each Graph page are flushed via
+ * that callback immediately and the returned `messages` array is always empty.
+ * When omitted (backward-compat), messages accumulate into the returned array.
+ *
  * Discovery uses libphonenumber and basic email regex via
  * `extractContactInfo`. Once a field is found we skip its extractor on every
  * subsequent message to avoid the dominant CPU cost.
@@ -173,6 +190,8 @@ export const fetchConvMessages = async (props: {
   defaultCountry: string | null
   applyBucThrottle: (usage: BucUsage | null | undefined) => void
   respectPause: () => Promise<void>
+  /** Optional per-page flush callback — called once per Graph page. */
+  onPage?: OnMessagePageFn
 }): Promise<FetchConvMessagesResult> => {
   const {
     conversationId,
@@ -184,6 +203,7 @@ export const fetchConvMessages = async (props: {
     defaultCountry,
     applyBucThrottle,
     respectPause,
+    onPage,
   } = props
 
   const messages: HistoricalMessage[] = []
@@ -204,6 +224,9 @@ export const fetchConvMessages = async (props: {
       }),
     )
     applyBucThrottle(page.bucUsage)
+
+    // Collect messages for this page only; flush or accumulate below.
+    const pageMessages: HistoricalMessage[] = []
 
     for (const m of page.data as MessengerHistoryMessage[]) {
       const attachments = extractAttachments(m)
@@ -239,7 +262,7 @@ export const fetchConvMessages = async (props: {
       }
 
       if (createdAt >= cutoff || totalMsg <= 100) {
-        messages.push({
+        pageMessages.push({
           sourceId: m.id,
           messageType: m.from?.id === pageId ? "outgoing" : "incoming",
           contentType: "text",
@@ -249,6 +272,16 @@ export const fetchConvMessages = async (props: {
         })
       } else {
         hitOlderBoundary = true
+      }
+    }
+
+    // Flush this page's messages: either via the per-page callback (M3) or
+    // accumulate into the return array for callers that don't provide onPage.
+    if (onPage) {
+      await onPage(pageMessages, discovered)
+    } else {
+      for (const msg of pageMessages) {
+        messages.push(msg)
       }
     }
 

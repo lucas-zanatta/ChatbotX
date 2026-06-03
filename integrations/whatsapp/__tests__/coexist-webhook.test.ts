@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { extractCoexistPayloads } from "../src/handlers/webhook"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { extractCoexistPayloads, webhookHandler } from "../src/handlers/webhook"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -248,5 +248,145 @@ describe("extractCoexistPayloads", () => {
         extractCoexistPayloads({ entry: [{ changes: [{ value: "string" }] }] }),
       ).toEqual([])
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// H2 — setTimeout race: coexist payloads must be enqueued even when
+// handle_post resolves AFTER the 300 ms timeout window.
+// ---------------------------------------------------------------------------
+
+const { handlePostMock } = vi.hoisted(() => ({
+  handlePostMock: vi.fn<() => Promise<number>>(),
+}))
+
+vi.mock("whatsapp-api-js/middleware/next", () => ({
+  // A class (not vi.fn().mockImplementation) so `new Middleware()` stays
+  // constructable under vitest 4's restoreMocks, which resets vi.fn() impls
+  // between tests and would otherwise make the constructor "not a function".
+  WhatsAppAPI: class {
+    on: Record<string, unknown> = { message: null, sent: null, status: null }
+    get = vi.fn().mockResolvedValue("ok")
+    handle_post = handlePostMock
+  },
+}))
+
+/** Build a minimal Request that looks like a WhatsApp POST webhook. */
+const makePostRequest = (body: unknown) =>
+  new Request("https://example.com/webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+
+/** A minimal coexist body envelope with a history payload. */
+const coexistBody = {
+  entry: [
+    {
+      changes: [
+        {
+          field: "history",
+          value: {
+            metadata: { phone_number_id: "phone-race" },
+            history: [{ dummy: true }],
+          },
+        },
+      ],
+    },
+  ],
+}
+
+const baseConfig = {
+  clientSecret: "secret",
+  verifyToken: "verify",
+  version: "v20.0",
+} as never
+
+describe("webhookHandler — H2 setTimeout race", () => {
+  beforeEach(() => {
+    // The WhatsAppAPI mock is a class (see vi.mock above), so it stays
+    // constructable across tests; only the per-test handle_post stub needs
+    // resetting.
+    handlePostMock.mockReset()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("(a) enqueues coexist payloads even when handle_post resolves after the 300 ms window", async () => {
+    // Use a deferred promise so we control exactly when handle_post resolves.
+    // We resolve it AFTER advancing past the 300 ms guard, simulating a slow
+    // handle_post that would have lost the race with the old setTimeout(300).
+    let resolveHandlePost!: (status: number) => void
+    const deferredHandlePost = new Promise<number>((res) => {
+      resolveHandlePost = res
+    })
+    // Suppress the "unhandled rejection" warning while the promise is pending.
+    deferredHandlePost.catch(() => undefined)
+    handlePostMock.mockReturnValue(deferredHandlePost)
+
+    const queueAdd = vi.fn().mockResolvedValue(undefined)
+    const queue = { add: queueAdd } as never
+
+    const handlerPromise = webhookHandler({
+      config: baseConfig,
+      req: makePostRequest(coexistBody),
+      queue,
+    })
+
+    // Advance past the internal 300 ms guard — handle_post is still pending.
+    // In the OLD code the enqueue check would run here with hmacVerified=false.
+    // In the NEW code the handler is waiting for handle_post to resolve.
+    await vi.advanceTimersByTimeAsync(400)
+
+    // Resolve handle_post with 200 (slow but successful HMAC verification).
+    resolveHandlePost(200)
+
+    // Let remaining microtasks and promises settle.
+    await handlerPromise
+
+    expect(queueAdd).toHaveBeenCalledWith(
+      "coexistWhatsappBuffer",
+      expect.objectContaining({ type: "coexistWhatsappBuffer" }),
+    )
+  })
+
+  it("(b) no unhandled rejection when handle_post rejects after the timeout", async () => {
+    // Use a deferred promise so we can reject AFTER the 300 ms guard fires.
+    let rejectHandlePost!: (err: Error) => void
+    const deferredHandlePost = new Promise<number>((_, rej) => {
+      rejectHandlePost = rej
+    })
+    // Pre-attach a no-op catch so the deferred itself is never "unhandled" at
+    // creation time (the handler will also attach its own catch).
+    deferredHandlePost.catch(() => undefined)
+    handlePostMock.mockReturnValue(deferredHandlePost)
+
+    const queueAdd = vi.fn().mockResolvedValue(undefined)
+    const queue = { add: queueAdd } as never
+
+    const handlerPromise = webhookHandler({
+      config: baseConfig,
+      req: makePostRequest(coexistBody),
+      queue,
+    })
+
+    // Advance past the 300 ms guard; handle_post is still pending.
+    await vi.advanceTimersByTimeAsync(400)
+
+    // Now reject handle_post — simulating a late network failure.
+    rejectHandlePost(new Error("network error"))
+
+    // Handler should surface a controlled SdkException, not an unhandled
+    // process-level rejection.
+    await expect(handlerPromise).rejects.toThrow()
+
+    // Coexist payloads must NOT be enqueued (HMAC not verified).
+    expect(queueAdd).not.toHaveBeenCalledWith(
+      "coexistWhatsappBuffer",
+      expect.anything(),
+    )
   })
 })

@@ -257,12 +257,21 @@ type HistoryMetadata = {
 const reduceMetadata = (
   current: HistoryMetadata | null,
   next: HistoryMetadata,
-): HistoryMetadata =>
-  current === null ||
-  next.progress > current.progress ||
-  next.chunkOrder > current.chunkOrder
-    ? next
-    : current
+): HistoryMetadata => {
+  if (current === null) {
+    return next
+  }
+  if (next.progress > current.progress) {
+    return next
+  }
+  if (
+    next.progress === current.progress &&
+    next.chunkOrder > current.chunkOrder
+  ) {
+    return next
+  }
+  return current
+}
 
 type ExtractResult = {
   entries: ContactWithMessage[]
@@ -668,43 +677,54 @@ const applyPostBatchPatches = async (input: {
     }
   }
 
-  for (const patch of edits) {
-    const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
-    if (!contactInboxId) {
-      continue
-    }
-    await db
-      .update(messageModel)
-      .set({
-        ...(patch.text === null ? {} : { text: patch.text }),
-        contentAttributes: mergeJsonb({ edited: true }),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(messageModel.contactInboxId, contactInboxId),
-          eq(messageModel.sourceId, patch.sourceId),
-        ),
-      )
-  }
+  // Batch edit + revoke UPDATEs into a single transaction to avoid N+M
+  // round-trip overhead. Each statement still targets its specific
+  // (contactInboxId, sourceId) row; the transaction shares one connection.
+  const hasPatchUpdates =
+    edits.some((e) => contactInboxIdByWaId.has(e.contactWaId)) ||
+    revokes.some((r) => contactInboxIdByWaId.has(r.contactWaId))
 
-  for (const patch of revokes) {
-    const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
-    if (!contactInboxId) {
-      continue
-    }
-    await db
-      .update(messageModel)
-      .set({
-        contentAttributes: mergeJsonb({ revoked: true }),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(messageModel.contactInboxId, contactInboxId),
-          eq(messageModel.sourceId, patch.sourceId),
-        ),
-      )
+  if (hasPatchUpdates) {
+    await db.transaction(async (tx) => {
+      for (const patch of edits) {
+        const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
+        if (!contactInboxId) {
+          continue
+        }
+        await tx
+          .update(messageModel)
+          .set({
+            ...(patch.text === null ? {} : { text: patch.text }),
+            contentAttributes: mergeJsonb({ edited: true }),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(messageModel.contactInboxId, contactInboxId),
+              eq(messageModel.sourceId, patch.sourceId),
+            ),
+          )
+      }
+
+      for (const patch of revokes) {
+        const contactInboxId = contactInboxIdByWaId.get(patch.contactWaId)
+        if (!contactInboxId) {
+          continue
+        }
+        await tx
+          .update(messageModel)
+          .set({
+            contentAttributes: mergeJsonb({ revoked: true }),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(messageModel.contactInboxId, contactInboxId),
+              eq(messageModel.sourceId, patch.sourceId),
+            ),
+          )
+      }
+    })
   }
 
   return { insertedAttachmentIds }
@@ -897,6 +917,7 @@ export const coexistWhatsappFlush = async (
             isNull(whatsappCoexistStagingModel.processedAt),
           ),
         )
+        .orderBy(whatsappCoexistStagingModel.id)
         .limit(BATCH_SIZE)
 
       if (stagedRows.length === 0) {
@@ -1098,7 +1119,25 @@ export const coexistWhatsappFlush = async (
     }
 
     if (exhausted) {
-      if (failed > 0 && (importedMessages > 0 || skipped > 0)) {
+      // Tail re-check: rows can be staged between the loop's last empty query
+      // and now. If we finalized the run as succeeded, those late rows would be
+      // orphaned — a buffer-triggered flush finds no live run to claim. Instead
+      // keep the run alive and let the existing continuation drain them
+      // (coalesced: one continuation, not one job per late webhook).
+      const [tailRow] = await db
+        .select({ id: whatsappCoexistStagingModel.id })
+        .from(whatsappCoexistStagingModel)
+        .where(
+          and(
+            eq(whatsappCoexistStagingModel.phoneNumberId, phoneNumberId),
+            isNull(whatsappCoexistStagingModel.processedAt),
+          ),
+        )
+        .limit(1)
+
+      if (tailRow) {
+        continueLater = true
+      } else if (failed > 0 && (importedMessages > 0 || skipped > 0)) {
         finalStatus = "partial"
       } else if (failed > 0) {
         finalStatus = "failed"
@@ -1107,9 +1146,10 @@ export const coexistWhatsappFlush = async (
       }
     }
 
-    // continueLater and exhausted are mutually exclusive: continueLater is
-    // only set by the time-budget break at the top of the loop, never on the
-    // empty/decline/final-page paths.
+    // continueLater is set either by the time-budget break at the top of the
+    // loop, or by the tail re-check above when late rows were staged after the
+    // drain. In both cases finalStatus stays null, so the run is not finalized
+    // and a continuation is enqueued to keep draining.
     if (continueLater) {
       try {
         await integrationQueue.add(

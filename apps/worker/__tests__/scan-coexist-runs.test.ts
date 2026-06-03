@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 // Hoist mock function references
 // ---------------------------------------------------------------------------
 
-const { mockExecute, mockFindFirst, mockEqFn, mockQueueAdd } = vi.hoisted(
-  () => ({
+const { mockExecute, mockFindFirst, mockFindMany, mockEqFn, mockQueueAdd } =
+  vi.hoisted(() => ({
     mockExecute: vi.fn(),
     mockFindFirst: vi.fn(),
+    mockFindMany: vi.fn(),
     mockEqFn: vi.fn((col: unknown, val: unknown) => ({ __eq: [col, val] })),
     mockQueueAdd: vi.fn(),
-  }),
-)
+  }))
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -21,7 +21,10 @@ vi.mock("@chatbotx.io/database/client", () => ({
   db: {
     execute: mockExecute,
     query: {
-      integrationWhatsappModel: { findFirst: mockFindFirst },
+      integrationWhatsappModel: {
+        findFirst: mockFindFirst,
+        findMany: mockFindMany,
+      },
     },
   },
   eq: mockEqFn,
@@ -114,7 +117,9 @@ describe("scanCoexistRuns", () => {
     mockCapUpdate()
     mockPickRows([waRun])
     mockRunUpdate()
-    mockFindFirst.mockResolvedValue({ phoneNumberId: "phone-123" })
+    mockFindMany.mockResolvedValue([
+      { id: "int-wa-1", phoneNumberId: "phone-123" },
+    ])
     mockQueueAdd.mockResolvedValue(undefined)
 
     await scanCoexistRuns()
@@ -143,7 +148,9 @@ describe("scanCoexistRuns", () => {
     mockCapUpdate()
     mockPickRows([staleRun])
     mockRunUpdate()
-    mockFindFirst.mockResolvedValue({ phoneNumberId: "phone-stale" })
+    mockFindMany.mockResolvedValue([
+      { id: staleRun.integrationId, phoneNumberId: "phone-stale" },
+    ])
     mockQueueAdd.mockResolvedValue(undefined)
 
     await scanCoexistRuns()
@@ -196,13 +203,16 @@ describe("scanCoexistRuns", () => {
     mockCapUpdate()
     mockPickRows([waRun, msRun])
     mockRunUpdate()
-    mockFindFirst.mockResolvedValue({ phoneNumberId: "phone-wa" })
+    mockFindMany.mockResolvedValue([
+      { id: "int-wa-1", phoneNumberId: "phone-wa" },
+    ])
     mockQueueAdd.mockResolvedValue(undefined)
 
     await scanCoexistRuns()
 
-    // findFirst called exactly once (only for WhatsApp run)
-    expect(mockFindFirst).toHaveBeenCalledTimes(1)
+    // findMany called exactly once (batch for WhatsApp runs only), findFirst never called
+    expect(mockFindMany).toHaveBeenCalledTimes(1)
+    expect(mockFindFirst).not.toHaveBeenCalled()
     expect(mockQueueAdd).toHaveBeenCalledTimes(2)
 
     // WhatsApp job has phoneNumberId in data
@@ -231,8 +241,8 @@ describe("scanCoexistRuns", () => {
   it("(e.2) WhatsApp run with missing phoneNumberId is marked failed, not enqueued", async () => {
     mockCapUpdate()
     mockPickRows([waRun])
-    // No phoneNumberId on integration
-    mockFindFirst.mockResolvedValue({ phoneNumberId: null })
+    // Integration exists but phoneNumberId is null
+    mockFindMany.mockResolvedValue([{ id: "int-wa-1", phoneNumberId: null }])
     // The per-run failure UPDATE
     mockExecute.mockResolvedValue({ rows: [] })
 
@@ -246,7 +256,8 @@ describe("scanCoexistRuns", () => {
   it("(e.3) WhatsApp run with missing integration is marked failed, not enqueued", async () => {
     mockCapUpdate()
     mockPickRows([waRun])
-    mockFindFirst.mockResolvedValue(null)
+    // findMany returns empty — integration not found
+    mockFindMany.mockResolvedValue([])
     mockExecute.mockResolvedValue({ rows: [] })
 
     await scanCoexistRuns()
@@ -262,6 +273,7 @@ describe("scanCoexistRuns", () => {
 
     expect(mockQueueAdd).not.toHaveBeenCalled()
     expect(mockFindFirst).not.toHaveBeenCalled()
+    expect(mockFindMany).not.toHaveBeenCalled()
   })
 
   it("enqueue error is caught per-run and does not abort remaining runs", async () => {
@@ -274,5 +286,60 @@ describe("scanCoexistRuns", () => {
     await expect(scanCoexistRuns()).resolves.not.toThrow()
     // Second run still attempted
     expect(mockQueueAdd).toHaveBeenCalledTimes(2)
+  })
+
+  it("(H6) multiple whatsapp runs execute ONE findMany batch, not N findFirst calls", async () => {
+    const waRun2 = {
+      id: "run-wa-2",
+      attempts: 1,
+      channel: "whatsapp" as const,
+      integrationId: "int-wa-2",
+      workspaceId: "ws-1",
+    }
+    mockCapUpdate()
+    mockPickRows([waRun, waRun2])
+    mockRunUpdate()
+    // findMany returns both integrations in a single call
+    mockFindMany.mockResolvedValue([
+      { id: "int-wa-1", phoneNumberId: "phone-111" },
+      { id: "int-wa-2", phoneNumberId: "phone-222" },
+    ])
+    mockQueueAdd.mockResolvedValue(undefined)
+
+    await scanCoexistRuns()
+
+    // findMany called exactly ONCE (batch), findFirst never called
+    expect(mockFindMany).toHaveBeenCalledTimes(1)
+    expect(mockFindFirst).not.toHaveBeenCalled()
+
+    // Both runs enqueued with correct phoneNumberIds
+    expect(mockQueueAdd).toHaveBeenCalledTimes(2)
+    const calls = mockQueueAdd.mock.calls.map(([, payload]) => payload.data)
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          runId: "run-wa-1",
+          phoneNumberId: "phone-111",
+        }),
+        expect.objectContaining({
+          runId: "run-wa-2",
+          phoneNumberId: "phone-222",
+        }),
+      ]),
+    )
+  })
+
+  it("(H6.2) whatsapp run whose integration is absent in findMany batch is marked failed", async () => {
+    mockCapUpdate()
+    mockPickRows([waRun])
+    // findMany returns empty — no matching integration
+    mockFindMany.mockResolvedValue([])
+    mockExecute.mockResolvedValue({ rows: [] })
+
+    await scanCoexistRuns()
+
+    expect(mockQueueAdd).not.toHaveBeenCalled()
+    // cap + pick + failure update = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3)
   })
 })

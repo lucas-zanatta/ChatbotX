@@ -11,10 +11,14 @@ const {
   mockFindOrFail,
   mockListConversations,
   mockListMessages,
-  mockBulkImport,
+  mockBulkImportHistorical,
+  mockBulkImportMessages,
+  mockBulkImportContacts,
+  mockCreateIdFactory,
   mockSelect,
   mockUpdate,
   mockQueueAdd,
+  mockConcurrencyForUsage,
 } = vi.hoisted(() => ({
   mockFindFirstMessenger: vi.fn(),
   mockFindFirstWorkspace: vi.fn(),
@@ -22,10 +26,14 @@ const {
   mockFindOrFail: vi.fn(),
   mockListConversations: vi.fn(),
   mockListMessages: vi.fn(),
-  mockBulkImport: vi.fn(),
+  mockBulkImportHistorical: vi.fn(),
+  mockBulkImportMessages: vi.fn(),
+  mockBulkImportContacts: vi.fn(),
+  mockCreateIdFactory: vi.fn(),
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
   mockQueueAdd: vi.fn(),
+  mockConcurrencyForUsage: vi.fn(() => 5),
 }))
 
 // ---------------------------------------------------------------------------
@@ -45,6 +53,7 @@ vi.mock("@chatbotx.io/database/client", () => ({
   },
   and: vi.fn(),
   eq: vi.fn(),
+  inArray: vi.fn(),
   isNull: vi.fn(),
   lt: vi.fn(),
   ne: vi.fn(),
@@ -64,8 +73,13 @@ vi.mock("@chatbotx.io/worker-config", () => ({
     coexistWhatsappBuffer: "coexistWhatsappBuffer",
     coexistWhatsappFlush: "coexistWhatsappFlush",
     coexistMessengerSync: "coexistMessengerSync",
+    updateContactAvatar: "updateContactAvatar",
+    coexistAttachmentDownload: "coexistAttachmentDownload",
   },
-  integrationQueue: { add: mockQueueAdd },
+  integrationQueue: {
+    add: mockQueueAdd,
+    addBulk: vi.fn().mockResolvedValue(undefined),
+  },
 }))
 
 vi.mock("@chatbotx.io/database/schema", () => ({
@@ -73,6 +87,13 @@ vi.mock("@chatbotx.io/database/schema", () => ({
   integrationWhatsappModel: {},
   integrationMessengerModel: {},
   inboxModel: {},
+  contactInboxModel: {
+    id: "id",
+    sourceId: "sourceId",
+    contactId: "contactId",
+    inboxId: "inboxId",
+  },
+  conversationModel: { id: "id", contactId: "contactId" },
   coexistSyncRunModel: {
     id: "id",
     lastSyncedAt: "lastSyncedAt",
@@ -83,6 +104,11 @@ vi.mock("@chatbotx.io/database/schema", () => ({
     failedCount: "failedCount",
     currentScan: "currentScan",
     currentError: "currentError",
+    messengerSyncPhase: "messengerSyncPhase",
+    lastHeartbeatAt: "lastHeartbeatAt",
+    currentStep: "currentStep",
+    startedAt: "startedAt",
+    status: "status",
   },
 }))
 
@@ -92,11 +118,20 @@ vi.mock("@chatbotx.io/integration-messenger/apis/sync", () => ({
 }))
 
 vi.mock("@chatbotx.io/integration-messenger/apis/usage", () => ({
-  concurrencyForUsage: vi.fn(() => 5),
+  concurrencyForUsage: mockConcurrencyForUsage,
 }))
 
 vi.mock("../src/integration/handlers/coexist/bulk-historical-import", () => ({
-  bulkImportHistorical: mockBulkImport,
+  bulkImportHistorical: mockBulkImportHistorical,
+  bulkImportMessages: mockBulkImportMessages,
+  bulkImportContacts: mockBulkImportContacts,
+  createHistoricalIdFactory: mockCreateIdFactory,
+}))
+
+// Break the pino import chain that comes through @chatbotx.io/business →
+// @chatbotx.io/redis → @chatbotx.io/logger → pino.
+vi.mock("@chatbotx.io/business", () => ({
+  extractContactInfo: vi.fn(() => ({})),
 }))
 
 // ---------------------------------------------------------------------------
@@ -140,6 +175,7 @@ const customerParticipant = (id = "user-999") => ({
 
 const makeConversation = (id: string, userId = "user-999") => ({
   id,
+  updated_time: RECENT_TS,
   participants: {
     data: [{ id: PAGE_ID, name: "My Page" }, customerParticipant(userId)],
   },
@@ -167,32 +203,69 @@ const defaultRunRow = () => ({
   failedCount: 0,
   currentScan: 0,
   currentError: null as string | null,
+  messengerSyncPhase: "messages" as string | null,
 })
 
-const emptyBulkResult = (overrides: Partial<Record<string, unknown>> = {}) => ({
-  importedContacts: 0,
+const emptyBulkMessagesResult = () => ({
   importedMessages: 0,
-  skippedContacts: 0,
   skippedMessages: 0,
-  failedMessages: 0,
-  contactInboxIds: new Map<string, string>(),
-  ...overrides,
+  insertedAttachmentIds: [],
 })
+
+const emptyBulkContactsResult = () => ({
+  importedContacts: 0,
+  skippedContacts: 0,
+  contactInboxIds: new Map<
+    string,
+    { contactInboxId: string; contactId: string; conversationId: string }
+  >(),
+})
+
+// Default contact link returned by the mocked JOIN query when tests provide a
+// conversation with "user-999" participant.
+const defaultContactLink = {
+  sourceId: "user-999",
+  contactInboxId: "ci-1",
+  contactId: "contact-1",
+  conversationId: "conv-inbox-1",
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Chainable select stub. Returns the given runRow on `.limit(1)`. */
-const wireSelectChain = (runRow: ReturnType<typeof defaultRunRow> | null) => {
+/**
+ * Chainable select stub. The chain:
+ *  - `.from().leftJoin().where()` → resolves to `contactLinks` (JOIN path)
+ *  - `.from().where().limit(1)` → resolves to `[runRow]` (run row path)
+ *
+ * Both paths reuse the same chain so `mockSelect.mockReturnValue(chain)` works
+ * for all `db.select()` callsites in a single test.
+ */
+const wireSelectChain = (
+  runRow: ReturnType<typeof defaultRunRow> | null,
+  contactLinks: Array<{
+    sourceId: string
+    contactInboxId: string
+    contactId: string
+    conversationId: string
+  }> = [],
+) => {
+  const limitFn = vi.fn().mockResolvedValue(runRow ? [runRow] : [])
+  // A thenable that resolves to contactLinks AND has .limit() for run-row queries.
+  const whereResult = Object.assign(Promise.resolve(contactLinks), {
+    limit: limitFn,
+  })
+
   const chain = {
     from: vi.fn(),
+    leftJoin: vi.fn(),
     where: vi.fn(),
-    limit: vi.fn(),
+    limit: vi.fn().mockResolvedValue(runRow ? [runRow] : []),
   }
   chain.from.mockReturnValue(chain)
-  chain.where.mockReturnValue(chain)
-  chain.limit.mockResolvedValue(runRow ? [runRow] : [])
+  chain.leftJoin.mockReturnValue(chain)
+  chain.where.mockReturnValue(whereResult)
   mockSelect.mockReturnValue(chain)
   return chain
 }
@@ -233,9 +306,19 @@ const wireUpdateChain = (
 describe("coexistMessengerSync", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    wireSelectChain(defaultRunRow())
+    // vitest 4: clearAllMocks does NOT drain mockResolvedValueOnce queues, so a
+    // prior test's queued Graph responses would leak into this one (shifting
+    // listMessages/listConversations call counts). Reset them explicitly; each
+    // test re-wires its own Once responses in its body.
+    mockListConversations.mockReset()
+    mockListMessages.mockReset()
+    mockBulkImportMessages.mockReset()
+    mockConcurrencyForUsage.mockReturnValue(5)
+    wireSelectChain(defaultRunRow(), [defaultContactLink])
     wireUpdateChain()
-    mockBulkImport.mockResolvedValue(emptyBulkResult())
+    mockBulkImportMessages.mockResolvedValue(emptyBulkMessagesResult())
+    mockBulkImportContacts.mockResolvedValue(emptyBulkContactsResult())
+    mockCreateIdFactory.mockReturnValue(() => "id-factory-result")
     mockQueueAdd.mockResolvedValue(undefined)
     mockFindFirstWorkspace.mockResolvedValue({ targetCountry: "VN" })
     // Default: first run for this integration (no prior CoexistSyncRun).
@@ -248,7 +331,7 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).not.toHaveBeenCalled()
-    expect(mockBulkImport).not.toHaveBeenCalled()
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
   it("is a no-op when workspaceId mismatches the row", async () => {
@@ -260,7 +343,7 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).not.toHaveBeenCalled()
-    expect(mockBulkImport).not.toHaveBeenCalled()
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
   it("is a no-op when coexistEnabled === false", async () => {
@@ -272,7 +355,7 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).not.toHaveBeenCalled()
-    expect(mockBulkImport).not.toHaveBeenCalled()
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
   it("is a no-op when access token is missing", async () => {
@@ -294,10 +377,10 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).not.toHaveBeenCalled()
-    expect(mockBulkImport).not.toHaveBeenCalled()
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
-  it("fetches one page of conversations and invokes bulkImportHistorical with the assembled batch", async () => {
+  it("fetches one page of conversations and invokes bulkImportMessages with assembled messages", async () => {
     mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
     mockFindOrFail.mockResolvedValue(fakeInbox)
 
@@ -309,35 +392,36 @@ describe("coexistMessengerSync", () => {
       data: [makeMessage("msg-xyz", "user-999")],
       after: undefined,
     })
-    mockBulkImport.mockResolvedValueOnce(
-      emptyBulkResult({ importedMessages: 1 }),
-    )
+    mockBulkImportMessages.mockResolvedValueOnce({
+      importedMessages: 1,
+      skippedMessages: 0,
+      insertedAttachmentIds: [],
+    })
 
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).toHaveBeenCalledOnce()
     expect(mockListMessages).toHaveBeenCalledOnce()
-    expect(mockBulkImport).toHaveBeenCalledOnce()
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
+    expect(mockBulkImportMessages).toHaveBeenCalledOnce()
+
+    const [bulkArgs] = mockBulkImportMessages.mock.calls[0] as [
       {
-        inbox: typeof fakeInbox
         workspaceId: string
         runId: string
-        batch: Array<{
-          contact: { sourceId: string }
-          messages: Array<{ sourceId: string }>
-        }>
+        contactInboxId: string
+        contactId: string
+        conversationId: string
+        messages: Array<{ sourceId: string }>
       },
     ]
-    expect(bulkArgs.inbox).toBe(fakeInbox)
     expect(bulkArgs.workspaceId).toBe(workspaceId)
     expect(bulkArgs.runId).toBe(runId)
-    expect(bulkArgs.batch).toHaveLength(1)
-    expect(bulkArgs.batch[0]?.contact.sourceId).toBe("user-999")
-    expect(bulkArgs.batch[0]?.messages[0]?.sourceId).toBe("msg-xyz")
+    expect(bulkArgs.contactInboxId).toBe("ci-1")
+    expect(bulkArgs.messages).toHaveLength(1)
+    expect(bulkArgs.messages[0]?.sourceId).toBe("msg-xyz")
   })
 
-  it("paginates messages within a conversation under one bulk import call", async () => {
+  it("paginates messages within a conversation — flushes bulkImportMessages per message page", async () => {
     mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
     mockFindOrFail.mockResolvedValue(fakeInbox)
 
@@ -345,6 +429,10 @@ describe("coexistMessengerSync", () => {
       data: [makeConversation("conv-1", "user-1")],
       after: undefined,
     })
+    // Provide the contact link for user-1
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: "user-1" },
+    ])
 
     mockListMessages
       .mockResolvedValueOnce({
@@ -363,16 +451,20 @@ describe("coexistMessengerSync", () => {
       2,
       expect.objectContaining({ after: "msg-cursor-2" }),
     )
-    expect(mockBulkImport).toHaveBeenCalledOnce()
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
-      { batch: Array<{ messages: unknown[] }> },
-    ]
-    expect(bulkArgs.batch[0]?.messages).toHaveLength(2)
+    // After M3 fix: bulkImportMessages is called once per message page
+    expect(mockBulkImportMessages).toHaveBeenCalledTimes(2)
+    const calls = mockBulkImportMessages.mock.calls as [
+      { messages: unknown[] },
+    ][]
+    expect(calls[0]?.[0]?.messages).toHaveLength(1)
+    expect(calls[1]?.[0]?.messages).toHaveLength(1)
   })
 
   it("skips conversations that contain only the Page PSID", async () => {
     mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
     mockFindOrFail.mockResolvedValue(fakeInbox)
+    // No contact links since there are no valid participants
+    wireSelectChain(defaultRunRow(), [])
 
     mockListConversations.mockResolvedValueOnce({
       data: [
@@ -387,10 +479,8 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListMessages).not.toHaveBeenCalled()
-    // Bulk import is still called with an empty batch (page-level commit point).
-    expect(mockBulkImport).toHaveBeenCalledOnce()
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [{ batch: unknown[] }]
-    expect(bulkArgs.batch).toHaveLength(0)
+    // No contact → bulkImportMessages never called for this conversation.
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
   it("never uses the Page PSID as a contact sourceId", async () => {
@@ -398,6 +488,10 @@ describe("coexistMessengerSync", () => {
     mockFindOrFail.mockResolvedValue(fakeInbox)
 
     const customerId = "user-customer-789"
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: customerId },
+    ])
+
     mockListConversations.mockResolvedValueOnce({
       data: [makeConversation("conv-2", customerId)],
       after: undefined,
@@ -409,12 +503,12 @@ describe("coexistMessengerSync", () => {
 
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
-      { batch: Array<{ contact: { sourceId: string } }> },
+    expect(mockBulkImportMessages).toHaveBeenCalledOnce()
+    const [bulkArgs] = mockBulkImportMessages.mock.calls[0] as [
+      { contactInboxId: string },
     ]
-    for (const entry of bulkArgs.batch) {
-      expect(entry.contact.sourceId).not.toBe(PAGE_ID)
-    }
+    // The contactInboxId should be for the non-Page participant.
+    expect(bulkArgs.contactInboxId).toBe("ci-1")
   })
 
   it("skips messages without a text body", async () => {
@@ -425,6 +519,9 @@ describe("coexistMessengerSync", () => {
       data: [makeConversation("conv-3", "user-3")],
       after: undefined,
     })
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: "user-3" },
+    ])
     mockListMessages.mockResolvedValueOnce({
       data: [
         {
@@ -438,10 +535,12 @@ describe("coexistMessengerSync", () => {
 
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [
-      { batch: Array<{ messages: unknown[] }> },
+    // bulkImportMessages is called but with no messages (empty body filtered).
+    expect(mockBulkImportMessages).toHaveBeenCalledOnce()
+    const [bulkArgs] = mockBulkImportMessages.mock.calls[0] as [
+      { messages: unknown[] },
     ]
-    expect(bulkArgs.batch[0]?.messages ?? []).toHaveLength(0)
+    expect(bulkArgs.messages).toHaveLength(0)
   })
 
   it("persists lastSyncedAt watermark (oldest CONVERSATION.updated_time processed) after the page", async () => {
@@ -457,6 +556,16 @@ describe("coexistMessengerSync", () => {
     const olderConvTs = new Date(
       Date.now() - 5 * 24 * 60 * 60 * 1000,
     ).toISOString()
+
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: "user-1" },
+      {
+        sourceId: "user-2",
+        contactInboxId: "ci-2",
+        contactId: "contact-2",
+        conversationId: "conv-inbox-2",
+      },
+    ])
 
     mockListConversations.mockResolvedValueOnce({
       data: [
@@ -512,7 +621,7 @@ describe("coexistMessengerSync", () => {
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
     expect(mockListConversations).not.toHaveBeenCalled()
-    expect(mockBulkImport).not.toHaveBeenCalled()
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
   })
 
   it("skips conversations whose updated_time is newer than the within-run frontier", async () => {
@@ -522,7 +631,14 @@ describe("coexistMessengerSync", () => {
     // Frontier: anything strictly newer than this was processed in a prior
     // chunk of THIS run and must be skipped.
     const frontier = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    wireSelectChain({ ...defaultRunRow(), lastSyncedAt: frontier })
+    wireSelectChain({ ...defaultRunRow(), lastSyncedAt: frontier }, [
+      {
+        sourceId: "user-2",
+        contactInboxId: "ci-2",
+        contactId: "contact-2",
+        conversationId: "conv-inbox-2",
+      },
+    ])
 
     const newerConvTs = new Date(frontier.getTime() + 60 * 1000).toISOString()
     const olderConvTs = new Date(frontier.getTime() - 60 * 1000).toISOString()
@@ -601,6 +717,10 @@ describe("coexistMessengerSync", () => {
       priorLastSyncedAt.getTime() - 60 * 1000,
     ).toISOString()
 
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: "user-1" },
+    ])
+
     mockListConversations.mockResolvedValueOnce({
       data: [
         {
@@ -628,6 +748,10 @@ describe("coexistMessengerSync", () => {
   it("conversation fetch failure counts as one failed contact (no N-message inflation)", async () => {
     mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
     mockFindOrFail.mockResolvedValue(fakeInbox)
+    // Provide a link so the conv is processed (not skipped for missing link).
+    wireSelectChain(defaultRunRow(), [
+      { ...defaultContactLink, sourceId: "user-broken" },
+    ])
 
     mockListConversations.mockResolvedValueOnce({
       data: [makeConversation("conv-broken", "user-broken")],
@@ -639,18 +763,121 @@ describe("coexistMessengerSync", () => {
 
     await coexistMessengerSync({ runId, integrationId, workspaceId })
 
-    // Bulk import called with an empty batch (the failed conv was filtered).
-    const [bulkArgs] = mockBulkImport.mock.calls[0] as [{ batch: unknown[] }]
-    expect(bulkArgs.batch).toHaveLength(0)
+    // bulkImportMessages was not called since the conv failed before reaching it.
+    expect(mockBulkImportMessages).not.toHaveBeenCalled()
 
-    // failedCount in the final update set should be 1 — not 100.
-    const closeCall = mockUpdate.mock.results
+    // failedCount in the per-page update set should be 1 — not 100.
+    const allSetPayloads = mockUpdate.mock.results
       .flatMap((r) => {
         const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
         return value?.set?.mock.calls ?? []
       })
       .map((args) => args[0] as Record<string, unknown>)
-      .find((payload) => payload && payload.currentStep === "done")
-    expect(closeCall?.failedCount).toBe(1)
+
+    // Find the per-page update (phase=messages page N processed) that carries
+    // the failedCount increment — the "done" finalisation update does not
+    // include failedCount.
+    const pageUpdateWithFailure = allSetPayloads.find(
+      (payload) =>
+        payload &&
+        typeof payload.currentStep === "string" &&
+        (payload.currentStep as string).includes("phase=messages") &&
+        (payload.currentStep as string).includes("processed"),
+    )
+    expect(pageUpdateWithFailure).toBeDefined()
+    // The sql`` tag mock returns { strings, values }. The increment literal is
+    // the second interpolation: sql`${model.failedCount} + ${pageFailed}`
+    // → values = [model.failedCount, pageFailed]. Extract the numeric arg.
+    const sqlObj = pageUpdateWithFailure?.failedCount as
+      | { values: unknown[] }
+      | undefined
+    expect(sqlObj?.values[1]).toBe(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // H1 — respectPause BUC sleep cap
+  // ---------------------------------------------------------------------------
+
+  it("H1 — caps BUC pause at 300 s even when estimatedTimeToRegainAccess = 3600", async () => {
+    mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+
+    // The first call to concurrencyForUsage returns 0 (budget exhausted), then
+    // subsequent calls return 5 so the handler continues normally.
+    mockConcurrencyForUsage.mockReturnValueOnce(0).mockReturnValue(5)
+
+    // listConversations returns a bucUsage with an absurdly large regain time
+    // and an empty data set so the walk finishes immediately after the pause.
+    mockListConversations.mockResolvedValueOnce({
+      data: [],
+      after: undefined,
+      bucUsage: { estimatedTimeToRegainAccess: 3600 },
+    })
+
+    // Spy on global.setTimeout to capture the sleep delay without actually
+    // blocking the test.
+    const delays: number[] = []
+    const origSetTimeout = global.setTimeout
+    vi.spyOn(global, "setTimeout").mockImplementation(
+      (fn: TimerHandler, delay?: number, ...args: unknown[]) => {
+        if (delay !== undefined) {
+          delays.push(delay)
+        }
+        if (typeof fn === "function") {
+          fn(...(args as []))
+        }
+        return origSetTimeout(fn, 0, ...args)
+      },
+    )
+
+    await coexistMessengerSync({ runId, integrationId, workspaceId })
+
+    vi.restoreAllMocks()
+
+    // The pause triggered by applyBucThrottle must be capped at 300 000 ms.
+    const pauseDelay = delays.find((d) => d > 0)
+    expect(pauseDelay).toBeDefined()
+    expect(pauseDelay).toBeLessThanOrEqual(300_000)
+  })
+
+  // ---------------------------------------------------------------------------
+  // M3 — per-page message flushing
+  // ---------------------------------------------------------------------------
+
+  it("M3 — bulkImportMessages is called once per message page, not once after all pages", async () => {
+    mockFindFirstMessenger.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+
+    mockListConversations.mockResolvedValueOnce({
+      data: [makeConversation("conv-paginated", "user-999")],
+      after: undefined,
+    })
+
+    // Three pages of messages for the single conversation.
+    mockListMessages
+      .mockResolvedValueOnce({
+        data: [makeMessage("msg-1", "user-999")],
+        after: "cursor-page-2",
+      })
+      .mockResolvedValueOnce({
+        data: [makeMessage("msg-2", "user-999")],
+        after: "cursor-page-3",
+      })
+      .mockResolvedValueOnce({
+        data: [makeMessage("msg-3", "user-999")],
+        after: undefined,
+      })
+
+    await coexistMessengerSync({ runId, integrationId, workspaceId })
+
+    expect(mockListMessages).toHaveBeenCalledTimes(3)
+    // Each page must trigger a separate bulkImportMessages flush.
+    expect(mockBulkImportMessages).toHaveBeenCalledTimes(3)
+    const calls = mockBulkImportMessages.mock.calls as [
+      { messages: Array<{ sourceId: string }> },
+    ][]
+    expect(calls[0]?.[0]?.messages[0]?.sourceId).toBe("msg-1")
+    expect(calls[1]?.[0]?.messages[0]?.sourceId).toBe("msg-2")
+    expect(calls[2]?.[0]?.messages[0]?.sourceId).toBe("msg-3")
   })
 })

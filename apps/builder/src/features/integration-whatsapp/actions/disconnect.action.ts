@@ -15,9 +15,9 @@ import {
   workspaceIdAndIdRequestParams,
 } from "@/features/common/schemas"
 import { integrations } from "@/integration"
-import { authActionClient } from "@/lib/safe-action"
+import { workspaceActionClient } from "@/lib/safe-action"
 
-export const disconnectWhatsappAction = authActionClient
+export const disconnectWhatsappAction = workspaceActionClient
   .bindArgsSchemas(workspaceIdAndIdRequestParams)
   .action(
     async ({

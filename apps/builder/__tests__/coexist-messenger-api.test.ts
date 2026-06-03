@@ -34,12 +34,14 @@ vi.mock("@chatbotx.io/database/client", () => ({
   and: vi.fn((...args: unknown[]) => ({ and: args })),
 }))
 
-// ---- mock: schema stubs ---------------------------------------------------
-vi.mock("@chatbotx.io/database/schema", () => ({
-  integrationMessengerModel: { id: "id", workspaceId: "workspaceId" },
-  coexistSyncRunModel: {},
-  workspaceMemberModel: { workspaceId: "workspaceId", userId: "userId" },
-}))
+// ---- mock: schema ---------------------------------------------------------
+// Use the real schema module: the db client is mocked separately, and
+// transitively-imported packages (e.g. @chatbotx.io/business) need the real
+// drizzle tables for createSelectSchema. The suite never asserts on model
+// internals — they are only passed to the mocked db.
+vi.mock("@chatbotx.io/database/schema", async (importOriginal) =>
+  importOriginal<typeof import("@chatbotx.io/database/schema")>(),
+)
 
 // ---- mock: worker queue (kept for completeness; should NOT be called on enable) ---
 const mockQueueAdd = vi.fn<

@@ -7,7 +7,9 @@ import {
   decodeHistoricalId,
 } from "../src/integration/handlers/coexist/bulk-historical-import"
 
-const EPOCH_MS = new Date("2026-03-31").getTime()
+// Must match COEXIST_EPOCH_MS in bulk-historical-import.ts (the uuniq epoch,
+// so historical IDs decode back to real wall-clock createdAt).
+const EPOCH_MS = new Date("2004-02-01").getTime()
 const RUN_ID = "12345"
 
 describe("createHistoricalIdFactory", () => {

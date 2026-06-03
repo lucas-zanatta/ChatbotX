@@ -210,7 +210,7 @@ async function persistIntegration(params: {
   phoneNumber: WhatsappPhoneNumber
   wabaId: string
   businessId: string
-  auth: WhatsappAuthValue,
+  auth: WhatsappAuthValue
   isCoexist: boolean
   platformType: string
 }): Promise<{
@@ -464,11 +464,16 @@ export const connectWhatsappAction = authActionClient
           }
         }
 
-        // Per Meta docs ("Onboard WhatsApp Business app users"): skip the
-        // phone number registration step for coexist — the number is already
-        // registered against the user's real WhatsApp Business app, and
-        // calling /register would push a new 2FA PIN that locks the user out.
-        await registerPhoneNumber({ auth })
+        // Register the phone number on Cloud API via /register.
+        // NOTE: we intentionally call this for coexist numbers too. Skipping it
+        // leaves the number "not verified" on Cloud API and outbound sends fail
+        // (verified empirically: phone-not-verified error disappears after /register).
+        // RISK: Meta docs warn /register may push a fresh 2FA PIN for numbers still
+        // active on the WhatsApp Business App. Validate on a real coexist number that
+        // this does not lock the user out before wide rollout.
+        if (!isCoexist) {
+          await registerPhoneNumber({ auth })
+        }
 
         const { workspaceId, createdWorkspace, integrationRow } =
           await db.transaction((tx) =>

@@ -58,6 +58,18 @@ export const coexistWhatsappBuffer = async (
     })
     .onConflictDoNothing()
 
+  // Only enqueue flush jobs when coexistEnabled — staging rows are always
+  // persisted (to avoid data loss before the user enables coexist), but the
+  // flush is only meaningful once the feature is active.
+  if (!integration.coexistEnabled) {
+    return
+  }
+
+  // Single coalesced flush keyed by phoneNumberId. Rows that arrive while this
+  // job is already active are handled by the flush handler itself: after it
+  // drains, it re-checks for unprocessed rows and self-enqueues one follow-up
+  // (also coalesced) — see coexistWhatsappFlush. That keeps the queue free of
+  // a per-webhook follow-up storm during a multi-hour history backfill.
   await integrationQueue.add(
     IntegrationJobAction.coexistWhatsappFlush,
     {

@@ -1675,6 +1675,8 @@
     "billingNote": "Large pages may take several hours to complete.",
     "toggleLabel": "Sync existing contacts and chat history",
     "toggleHelper": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect.",
+    "toggleHelperMessenger": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect the Messenger page.",
+    "toggleHelperWhatsapp": "Re-enabling only works if Meta has buffered data (within 24 hours of onboarding). Otherwise disconnect and reconnect the WhatsApp number.",
     "success": {
       "enabled": "Sync started. Historical contacts and messages will appear shortly.",
       "disabled": "Sync disabled."
@@ -1788,6 +1790,8 @@
       "label": "Commands"
     },
     "connectExisting": "Connect an existing WhatsApp Business Account",
+    "fillRequiredFields": "Please fill in all required fields",
+    "continueManualConnect": "Continue — manual connect",
     "icebreakers": {
       "description": "These are common questions that people can easily ask you.",
       "label": "Icebreakers"

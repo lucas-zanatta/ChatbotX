@@ -9,10 +9,12 @@ const {
   mockFindOrFail,
   mockSelect,
   mockUpdate,
+  mockTransaction,
   mockAndFn,
   mockEqFn,
   mockIsNullFn,
   mockInArrayFn,
+  mockOrderByFn,
   mockBulkImport,
   mockQueueAdd,
 } = vi.hoisted(() => ({
@@ -20,12 +22,40 @@ const {
   mockFindOrFail: vi.fn(),
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
+  // db.transaction executes the callback with a tx object that has its own
+  // update mock — calls on tx.update do NOT appear in mockUpdate.mock.calls.
+  mockTransaction: vi.fn(
+    (
+      fn: (tx: {
+        update: ReturnType<typeof vi.fn>
+        insert: ReturnType<typeof vi.fn>
+      }) => Promise<unknown>,
+    ) => {
+      const txUpdate = vi.fn().mockImplementation(() => {
+        const chain = { set: vi.fn(), where: vi.fn() }
+        chain.set.mockReturnValue(chain)
+        chain.where.mockResolvedValue(undefined)
+        return chain
+      })
+      const txInsert = vi.fn().mockImplementation(() => {
+        const chain = {
+          values: vi.fn(),
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+          returning: vi.fn().mockResolvedValue([]),
+        }
+        chain.values.mockReturnValue(chain)
+        return chain
+      })
+      return fn({ update: txUpdate, insert: txInsert })
+    },
+  ),
   mockAndFn: vi.fn((...args: unknown[]) => ({ __and: args })),
   mockEqFn: vi.fn((col: unknown, val: unknown) => ({ __eq: [col, val] })),
   mockIsNullFn: vi.fn((col: unknown) => ({ __isNull: col })),
   mockInArrayFn: vi.fn((col: unknown, vals: unknown) => ({
     __inArray: [col, vals],
   })),
+  mockOrderByFn: vi.fn((col: unknown) => ({ __orderBy: col })),
   mockBulkImport: vi.fn(),
   mockQueueAdd: vi.fn(),
 }))
@@ -38,6 +68,7 @@ vi.mock("@chatbotx.io/database/client", () => ({
   db: {
     update: mockUpdate,
     select: mockSelect,
+    transaction: mockTransaction,
     query: {
       integrationWhatsappModel: { findFirst: mockFindFirst },
       integrationMessengerModel: { findFirst: vi.fn() },
@@ -47,6 +78,7 @@ vi.mock("@chatbotx.io/database/client", () => ({
   eq: mockEqFn,
   isNull: mockIsNullFn,
   inArray: mockInArrayFn,
+  orderBy: mockOrderByFn,
   lt: vi.fn(),
   ne: vi.fn(),
   or: vi.fn(),
@@ -207,15 +239,22 @@ const wireSelect = (
   const stagedChain = {
     from: vi.fn(),
     where: vi.fn(),
+    orderBy: vi.fn(),
     limit: vi.fn(),
   }
   stagedChain.from.mockReturnValue(stagedChain)
   stagedChain.where.mockReturnValue(stagedChain)
+  stagedChain.orderBy.mockReturnValue(stagedChain)
   stagedChain.limit.mockResolvedValueOnce(stagedRows).mockResolvedValue([])
 
   // First call goes to runRowChain (uses .select({field selection})).
   // Second+ calls go to stagedChain (uses .select() with no arg).
   mockSelect.mockReturnValueOnce(runRowChain).mockReturnValue(stagedChain)
+
+  // Expose for assertions in tests
+  ;(
+    wireSelect as unknown as { lastStagedChain: typeof stagedChain }
+  ).lastStagedChain = stagedChain
 }
 
 /**
@@ -251,6 +290,10 @@ const wireUpdateChain = (
 describe("coexistWhatsappFlush", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // vitest 4: clearAllMocks does NOT drain the mockReturnValueOnce queue, so
+    // a prior test's wireSelect() returns would leak into this one. Reset the
+    // select mock explicitly; every select-using test re-wires via wireSelect().
+    mockSelect.mockReset()
     wireUpdateChain()
     mockBulkImport.mockResolvedValue(emptyBulkResult())
     mockQueueAdd.mockResolvedValue(undefined)
@@ -793,5 +836,244 @@ describe("coexistWhatsappFlush", () => {
 
     expect(closePayload?.failedCount).toBe(0)
     expect(closePayload?.importedMessageCount).toBe(1)
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // H3 — staging SELECT must include ORDER BY id (stable pagination)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it("H3: staging SELECT applies orderBy on the staging id column for stable pagination", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+    wireSelect(defaultRunRow(), [])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    // The stagedChain.orderBy spy must have been called at least once.
+    const stagedChain = (
+      wireSelect as unknown as {
+        lastStagedChain: { orderBy: ReturnType<typeof vi.fn> }
+      }
+    ).lastStagedChain
+    expect(stagedChain.orderBy).toHaveBeenCalled()
+    // The argument must be the staging model id column sentinel "id"
+    // (the schema mock exposes whatsappCoexistStagingModel.id === "id").
+    expect(stagedChain.orderBy).toHaveBeenCalledWith("id")
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // H5 — edit/revoke UPDATE loop must be bounded (not N+K round trips)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it("H5: K edits + K revokes issue a bounded number of db.update calls (not 2K)", async () => {
+    const K = 3
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+
+    const contactWaIds = Array.from({ length: K }, (_, i) => `6012345670${i}`)
+
+    const editsAndRevokes = Array.from({ length: K }, (_, i) => ({
+      id: `row-patch-${i}`,
+      phoneNumberId,
+      processedAt: null,
+      payload: {
+        messages: [
+          // edit: type="edit" with original_message_id
+          {
+            id: `edit-msg-${i}`,
+            from: contactWaIds[i],
+            type: "edit",
+            edit: {
+              original_message_id: `orig-${i}`,
+              message: { type: "text", text: { body: `edited-${i}` } },
+            },
+          },
+          // revoke: type="revoke" with original_message_id
+          {
+            id: `revoke-msg-${i}`,
+            from: contactWaIds[i],
+            type: "revoke",
+            revoke: { original_message_id: `orig-revoke-${i}` },
+          },
+        ],
+      },
+    }))
+
+    // Wire selects in order:
+    //   1. runRow select (first call, select({...}))
+    //   2. stagedRows select (second call, returns editsAndRevokes then [])
+    //   3. resolveContactInboxIds select — returns K contact inbox rows
+    //   4. resolveMessageRows select — returns empty (no attachment patches)
+    const runRowChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      orderBy: vi.fn(),
+      limit: vi.fn(),
+    }
+    runRowChain.from.mockReturnValue(runRowChain)
+    runRowChain.where.mockReturnValue(runRowChain)
+    runRowChain.orderBy.mockReturnValue(runRowChain)
+    runRowChain.limit.mockResolvedValue([defaultRunRow()])
+
+    const stagedChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      orderBy: vi.fn(),
+      limit: vi.fn(),
+    }
+    stagedChain.from.mockReturnValue(stagedChain)
+    stagedChain.where.mockReturnValue(stagedChain)
+    stagedChain.orderBy.mockReturnValue(stagedChain)
+    stagedChain.limit
+      .mockResolvedValueOnce(editsAndRevokes)
+      .mockResolvedValue([])
+
+    // contactInboxRows: one row per contactWaId
+    const contactInboxRows = contactWaIds.map((waId, i) => ({
+      id: `ci-${i}`,
+      sourceId: waId,
+    }))
+    const contactInboxChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      orderBy: vi.fn(),
+    }
+    contactInboxChain.from.mockReturnValue(contactInboxChain)
+    contactInboxChain.where.mockResolvedValue(contactInboxRows)
+    contactInboxChain.orderBy.mockReturnValue(contactInboxChain)
+
+    // resolveMessageRows: return empty (no edit-with-media)
+    const messageRowsChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      orderBy: vi.fn(),
+    }
+    messageRowsChain.from.mockReturnValue(messageRowsChain)
+    messageRowsChain.where.mockResolvedValue([])
+    messageRowsChain.orderBy.mockReturnValue(messageRowsChain)
+
+    mockSelect
+      .mockReturnValueOnce(runRowChain) // 1. run row
+      .mockReturnValueOnce(stagedChain) // 2. staged rows
+      .mockReturnValueOnce(contactInboxChain) // 3. resolveContactInboxIds
+      .mockReturnValueOnce(messageRowsChain) // 4. resolveMessageRows (edits-with-media)
+      .mockReturnValue(stagedChain) // 5+ (empty, terminates loop)
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    // Count db.update calls that target the message model (edits + revokes).
+    // The messageModel mock object is identifiable by its keys.
+    // Before the fix: each edit fires one db.update(messageModel) and each
+    // revoke fires one db.update(messageModel) → K + K = 6 calls for K=3.
+    // After the fix (batched): ≤ 2 calls for all edits + all revokes combined.
+    const messageModelUpdates = mockUpdate.mock.calls.filter(
+      (args) =>
+        args[0] !== null &&
+        typeof args[0] === "object" &&
+        "contactInboxId" in (args[0] as Record<string, unknown>),
+    )
+    expect(messageModelUpdates.length).toBeLessThanOrEqual(2)
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // M1 — reduceMetadata must not allow progress to regress
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it("M1: reduceMetadata keeps higher progress even when a later chunk has lower progress", async () => {
+    mockFindFirst.mockResolvedValue(fakeIntegration)
+    mockFindOrFail.mockResolvedValue(fakeInbox)
+
+    // Two staged rows: first has chunkOrder=5, progress=80;
+    // second has chunkOrder=6, progress=10 (regressed).
+    const highProgressRow = {
+      id: "row-high",
+      phoneNumberId,
+      processedAt: null,
+      payload: {
+        history: [{ metadata: { phase: 1, chunk_order: 5, progress: 80 } }],
+      },
+    }
+    const lowProgressRow = {
+      id: "row-low",
+      phoneNumberId,
+      processedAt: null,
+      payload: {
+        history: [{ metadata: { phase: 1, chunk_order: 6, progress: 10 } }],
+      },
+    }
+    wireSelect(defaultRunRow(), [highProgressRow, lowProgressRow])
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    const setPayloads = mockUpdate.mock.results
+      .flatMap((r) => {
+        const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
+        return value?.set?.mock.calls ?? []
+      })
+      .map((args) => args[0] as Record<string, unknown>)
+
+    // syncProgress must be 80 (from the earlier, higher-progress row),
+    // NOT 10 (from the later chunk with regressed progress).
+    const metaPayload = setPayloads.find((p) => p.syncProgress !== undefined)
+    expect(metaPayload?.syncProgress).toBe(80)
+    expect(metaPayload?.lastChunkOrder).toBe(5)
+  })
+
+  it("M2: keeps the run alive and enqueues a continuation when a row is staged after the drain", async () => {
+    // Wire selects manually: resume-row read, then the staged query returns a
+    // batch, then empty (loop exits → exhausted), then a late row on the tail
+    // re-check. The run must NOT finalize; a continuation must be enqueued.
+    const runRowChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn(),
+    }
+    runRowChain.from.mockReturnValue(runRowChain)
+    runRowChain.where.mockReturnValue(runRowChain)
+    runRowChain.limit.mockResolvedValue([defaultRunRow()])
+
+    // The batch query is the only staged select that calls .orderBy(); the tail
+    // re-check calls .where().limit() directly. Route them through separate
+    // chains so the assertion does not depend on global select-call ordering.
+    const batchChain = { limit: vi.fn() }
+    batchChain.limit
+      .mockResolvedValueOnce([makeStagedRow("row-1")]) // batch 1
+      .mockResolvedValue([]) // subsequent batches → loop exits (exhausted)
+
+    const stagedChain = {
+      from: vi.fn(),
+      where: vi.fn(),
+      orderBy: vi.fn(),
+      limit: vi.fn(),
+    }
+    stagedChain.from.mockReturnValue(stagedChain)
+    stagedChain.where.mockReturnValue(stagedChain)
+    stagedChain.orderBy.mockReturnValue(batchChain) // batch path
+    stagedChain.limit.mockResolvedValue([{ id: "late-row" }]) // tail re-check
+    mockSelect.mockReturnValueOnce(runRowChain).mockReturnValue(stagedChain)
+
+    mockBulkImport.mockResolvedValue(emptyBulkResult({ importedMessages: 1 }))
+
+    await coexistWhatsappFlush({ runId, phoneNumberId })
+
+    // A continuation flush was enqueued (run kept alive to drain the late row).
+    const enqueuedJobIds = mockQueueAdd.mock.calls.map(
+      (args) => (args[2] as Record<string, unknown> | undefined)?.jobId,
+    )
+    expect(
+      enqueuedJobIds.some(
+        (id) =>
+          typeof id === "string" && id.startsWith(`coexist-run-${runId}-`),
+      ),
+    ).toBe(true)
+
+    // The run was NOT finalized as succeeded (no terminal status write).
+    const finalizeStatuses = mockUpdate.mock.results
+      .flatMap((r) => {
+        const value = r.value as { set?: ReturnType<typeof vi.fn> } | undefined
+        return value?.set?.mock.calls ?? []
+      })
+      .map((args) => (args[0] as Record<string, unknown>).status)
+    expect(finalizeStatuses).not.toContain("succeeded")
   })
 })

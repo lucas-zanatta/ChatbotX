@@ -56,13 +56,35 @@ export async function scanCoexistRuns(): Promise<void> {
 
   log.info({ count: picked.rows.length }, "scanCoexistRuns: picked runs")
 
+  // Collect distinct WhatsApp integration IDs from the batch and fetch them
+  // all in a single query — avoids N sequential DB round-trips (H6 fix).
+  const whatsappIntegIds = [
+    ...new Set(
+      picked.rows
+        .filter((r) => r.channel === "whatsapp")
+        .map((r) => r.integrationId),
+    ),
+  ]
+
+  const whatsappIntegMap = new Map<
+    string,
+    { id: string; phoneNumberId: string | null }
+  >()
+
+  if (whatsappIntegIds.length > 0) {
+    const integrations = await db.query.integrationWhatsappModel.findMany({
+      where: { id: { in: whatsappIntegIds } },
+      columns: { id: true, phoneNumberId: true },
+    })
+    for (const integ of integrations) {
+      whatsappIntegMap.set(integ.id, integ)
+    }
+  }
+
   for (const run of picked.rows) {
     try {
       if (run.channel === "whatsapp") {
-        const integ = await db.query.integrationWhatsappModel.findFirst({
-          where: { id: run.integrationId },
-          columns: { phoneNumberId: true },
-        })
+        const integ = whatsappIntegMap.get(run.integrationId)
 
         if (!integ?.phoneNumberId) {
           await db.execute(sql`

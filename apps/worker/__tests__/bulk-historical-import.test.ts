@@ -13,6 +13,7 @@ const {
   mockTxUpdate,
   mockTxDelete,
   mockTxExecute,
+  mockDbUpdate,
   mockEmitContactCreated,
   mockEmit,
   mockCreateId,
@@ -23,6 +24,7 @@ const {
   mockTxUpdate: vi.fn(),
   mockTxDelete: vi.fn(),
   mockTxExecute: vi.fn(),
+  mockDbUpdate: vi.fn(),
   mockEmitContactCreated: vi.fn(() => Promise.resolve()),
   mockEmit: vi.fn(() => Promise.resolve()),
   mockCreateId: vi.fn(),
@@ -37,8 +39,17 @@ vi.mock("@chatbotx.io/database/client", () => {
     execute: mockTxExecute,
   }
   mockTransaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(tx))
+  // db.update() is used best-effort outside transactions (lastActivityAt bump).
+  // Return a chainable stub so it never throws.
+  mockDbUpdate.mockImplementation(() => {
+    const chain = { set: vi.fn(), where: vi.fn() }
+    chain.set.mockReturnValue(chain)
+    chain.where.mockResolvedValue(undefined)
+    return chain
+  })
   return {
-    db: { transaction: mockTransaction },
+    db: { transaction: mockTransaction, update: mockDbUpdate },
+    eq: vi.fn((col: unknown, val: unknown) => ({ __eq: [col, val] })),
     inArray: vi.fn((col: unknown, vals: unknown) => ({
       __inArray: [col, vals],
     })),
@@ -55,6 +66,7 @@ vi.mock("@chatbotx.io/database/client", () => {
 })
 
 vi.mock("@chatbotx.io/database/schema", () => ({
+  attachmentModel: { id: "att_id" },
   contactInboxModel: {
     id: "ci_id",
     sourceId: "ci_sourceId",
@@ -97,18 +109,27 @@ import { bulkImportHistorical } from "../src/integration/handlers/coexist/bulk-h
 // ---------------------------------------------------------------------------
 
 type SelectStubConfig = {
-  /** Rows returned by .where() (terminal in production code for SELECTs without limit/orderBy). */
+  /** Rows returned by .where() for SELECTs without .limit(), or by .limit() otherwise. */
   rows?: unknown[]
+  /** Set to true when production code chains .limit(n) after .where(). */
+  hasLimit?: boolean
 }
 
-/** Stub a single tx.select(...).from(...).where(...) chain returning `rows`. */
+/** Stub a single tx.select(...).from(...).where(...)[.limit()] chain returning `rows`. */
 const enqueueSelect = (config: SelectStubConfig = {}) => {
   const chain = {
     from: vi.fn(),
     where: vi.fn(),
+    limit: vi.fn(),
   }
   chain.from.mockReturnValue(chain)
-  chain.where.mockResolvedValue(config.rows ?? [])
+  if (config.hasLimit) {
+    // .where() returns the chain for further chaining; .limit() resolves
+    chain.where.mockReturnValue(chain)
+    chain.limit.mockResolvedValue(config.rows ?? [])
+  } else {
+    chain.where.mockResolvedValue(config.rows ?? [])
+  }
   mockTxSelect.mockReturnValueOnce(chain)
   return chain
 }
@@ -119,23 +140,19 @@ type InsertStubConfig = {
 
 /**
  * Stub tx.insert(...).values(...) which may be terminal, or chain
- * .onConflictDoNothing().returning() / .returning().
+ * .onConflictDoNothing().returning() / .onConflictDoUpdate() / .returning().
  */
 const enqueueInsert = (config: InsertStubConfig = {}) => {
   const chain = {
     values: vi.fn(),
     onConflictDoNothing: vi.fn(),
+    onConflictDoUpdate: vi.fn(),
     returning: vi.fn(),
   }
   chain.values.mockReturnValue(chain)
   chain.onConflictDoNothing.mockReturnValue(chain)
+  chain.onConflictDoUpdate.mockResolvedValue(undefined)
   chain.returning.mockResolvedValue(config.returningRows ?? [])
-  // Without .returning(), .onConflictDoNothing() should be awaitable too.
-  // We also make .values() awaitable in case the call has no further chain.
-  // Vitest mock functions returning `chain` are also a thenable? No.
-  // The production code always uses .returning() after onConflictDoNothing,
-  // and uses .returning() after .values() for the Contact insert, so this
-  // is sufficient.
   mockTxInsert.mockReturnValueOnce(chain)
   return chain
 }
@@ -158,7 +175,7 @@ const enqueueInsertNoReturning = () => {
 }
 
 /** Stub tx.update(...).set(...).where(...) — awaitable at .where(). */
-const enqueueUpdate = () => {
+const _enqueueUpdate = () => {
   const chain = { set: vi.fn(), where: vi.fn() }
   chain.set.mockReturnValue(chain)
   chain.where.mockResolvedValue(undefined)
@@ -201,6 +218,70 @@ const msg = (sourceId: string, overrides: Record<string, unknown> = {}) => ({
 })
 
 // ---------------------------------------------------------------------------
+// Helpers — stub a "new contacts" happy path inside bulkImportContacts tx.
+// Sequence (when trulyNew > 0, no race):
+//   1. SELECT existing ContactInbox rows          → enqueueSelect({ rows: [] })
+//   2. tx.execute WorkspaceUsage FOR UPDATE       → mockTxExecute
+//   3. INSERT Contact (terminal, no .returning()) → enqueueInsert()
+//   4. INSERT ContactInbox .returning()           → enqueueInsert({ returningRows })
+//   5. INSERT Conversation .onConflictDoNothing() → enqueueInsertNoReturning()
+//   6. SELECT workspace owner .where(eq).limit(1) → enqueueSelect({ hasLimit:true })
+//   7. INSERT userQuota .onConflictDoUpdate()     → enqueueInsert()
+//   8. SELECT conversations for new contacts      → enqueueSelect({ rows })
+// ---------------------------------------------------------------------------
+
+type NewContactStub = {
+  sourceId: string
+  contactId: string
+  contactInboxId: string
+  conversationId: string
+  ownerId?: string
+  contactsCount?: number
+  maxContacts?: number
+}
+
+const stubNewContactsTransaction = (contacts: NewContactStub[]) => {
+  // 1. SELECT existing ContactInbox → none
+  enqueueSelect({ rows: [] })
+  // 2. WorkspaceUsage FOR UPDATE
+  const first = contacts[0]
+  mockTxExecute.mockResolvedValueOnce({
+    rows: [
+      {
+        contactsCount: first?.contactsCount ?? 0,
+        maxContacts: first?.maxContacts ?? 100,
+      },
+    ],
+  })
+  // 3. INSERT Contact (terminal)
+  enqueueInsert({ returningRows: contacts.map((c) => ({ id: c.contactId })) })
+  // 4. INSERT ContactInbox .returning()
+  enqueueInsert({
+    returningRows: contacts.map((c) => ({
+      id: c.contactInboxId,
+      sourceId: c.sourceId,
+      contactId: c.contactId,
+    })),
+  })
+  // 5. INSERT Conversation .onConflictDoNothing()
+  enqueueInsertNoReturning()
+  // 6. SELECT workspace owner .where(eq).limit(1)
+  enqueueSelect({
+    hasLimit: true,
+    rows: [{ ownerId: first?.ownerId ?? "owner-1" }],
+  })
+  // 7. INSERT userQuota .onConflictDoUpdate()
+  enqueueInsert()
+  // 8. SELECT conversations for new contacts
+  enqueueSelect({
+    rows: contacts.map((c) => ({
+      id: c.conversationId,
+      contactId: c.contactId,
+    })),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -218,6 +299,13 @@ describe("bulkImportHistorical", () => {
       execute: mockTxExecute,
     }
     mockTransaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(tx))
+    // Re-wire db.update default after clearAllMocks.
+    mockDbUpdate.mockImplementation(() => {
+      const chain = { set: vi.fn(), where: vi.fn() }
+      chain.set.mockReturnValue(chain)
+      chain.where.mockResolvedValue(undefined)
+      return chain
+    })
   })
 
   it("empty batch returns zero counts without opening a transaction", async () => {
@@ -242,26 +330,16 @@ describe("bulkImportHistorical", () => {
   })
 
   it("inserts new contact + messages when no existing ContactInbox matches", async () => {
-    // 1. existing ContactInbox SELECT → none
-    enqueueSelect({ rows: [] })
-    // 2. WorkspaceUsage SELECT FOR UPDATE (via tx.execute)
-    mockTxExecute.mockResolvedValueOnce({
-      rows: [{ contactsCount: 5, maxContacts: 100 }],
-    })
-    // 3. INSERT Contact → returning (one row)
-    enqueueInsert({ returningRows: [{ id: "id-1" }] })
-    // 4. INSERT ContactInbox → onConflictDoNothing.returning
-    enqueueInsert({
-      returningRows: [{ id: "ci-1", sourceId: "src-1", contactId: "id-1" }],
-    })
-    // 5. INSERT Conversation → onConflictDoNothing (terminal, no .returning())
-    enqueueInsertNoReturning()
-    // 6. UPDATE WorkspaceUsage
-    enqueueUpdate()
-    // 7. SELECT conversations for new contact ids
-    enqueueSelect({ rows: [{ id: "conv-1", contactId: "id-1" }] })
-    // 8. INSERT Message → onConflictDoNothing.returning
-    enqueueInsert({ returningRows: [{ id: "m-1" }] })
+    stubNewContactsTransaction([
+      {
+        sourceId: "src-1",
+        contactId: "id-1",
+        contactInboxId: "ci-1",
+        conversationId: "conv-1",
+      },
+    ])
+    // bulkImportMessages transaction: INSERT Message .onConflictDoNothing().returning()
+    enqueueInsert({ returningRows: [{ id: "m-1", sourceId: "m-src-1" }] })
 
     const result = await bulkImportHistorical({
       inbox,
@@ -278,19 +356,16 @@ describe("bulkImportHistorical", () => {
   })
 
   it("counts duplicates as skippedMessages when message INSERT returns fewer rows than input", async () => {
-    enqueueSelect({ rows: [] })
-    mockTxExecute.mockResolvedValueOnce({
-      rows: [{ contactsCount: 0, maxContacts: 100 }],
-    })
-    enqueueInsert({ returningRows: [{ id: "id-1" }] })
-    enqueueInsert({
-      returningRows: [{ id: "ci-1", sourceId: "src-1", contactId: "id-1" }],
-    })
-    enqueueInsertNoReturning()
-    enqueueUpdate()
-    enqueueSelect({ rows: [{ id: "conv-1", contactId: "id-1" }] })
+    stubNewContactsTransaction([
+      {
+        sourceId: "src-1",
+        contactId: "id-1",
+        contactInboxId: "ci-1",
+        conversationId: "conv-1",
+      },
+    ])
     // 3 messages in, only 1 inserted → 2 duplicates
-    enqueueInsert({ returningRows: [{ id: "m-1" }] })
+    enqueueInsert({ returningRows: [{ id: "m-1", sourceId: "m-1" }] })
 
     const result = await bulkImportHistorical({
       inbox,
@@ -309,19 +384,21 @@ describe("bulkImportHistorical", () => {
   })
 
   it("rejects contacts past workspace cap (skippedContacts + failedMessages, no Contact INSERT)", async () => {
-    enqueueSelect({ rows: [] })
     // cap = 2, used = 1 → only 1 slot
-    mockTxExecute.mockResolvedValueOnce({
-      rows: [{ contactsCount: 1, maxContacts: 2 }],
-    })
-    enqueueInsert({ returningRows: [{ id: "id-1" }] })
-    enqueueInsert({
-      returningRows: [{ id: "ci-1", sourceId: "src-1", contactId: "id-1" }],
-    })
-    enqueueInsertNoReturning()
-    enqueueUpdate()
-    enqueueSelect({ rows: [{ id: "conv-1", contactId: "id-1" }] })
-    enqueueInsert({ returningRows: [{ id: "m-acc-1" }] })
+    // First contact: src-1 → accepted
+    stubNewContactsTransaction([
+      {
+        sourceId: "src-1",
+        contactId: "id-1",
+        contactInboxId: "ci-1",
+        conversationId: "conv-1",
+        contactsCount: 1,
+        maxContacts: 2,
+      },
+    ])
+    // bulkImportMessages for accepted contact
+    enqueueInsert({ returningRows: [{ id: "m-acc-1", sourceId: "m-acc-1" }] })
+    // src-2 is rejected (no stub needed for its messages — failedMessages path)
 
     const result = await bulkImportHistorical({
       inbox,
@@ -394,21 +471,19 @@ describe("bulkImportHistorical", () => {
   })
 
   it("dedups batch entries that share the same sourceId (merges messages)", async () => {
-    enqueueSelect({ rows: [] })
-    mockTxExecute.mockResolvedValueOnce({
-      rows: [{ contactsCount: 0, maxContacts: 100 }],
-    })
-    enqueueInsert({ returningRows: [{ id: "id-1" }] })
+    stubNewContactsTransaction([
+      {
+        sourceId: "src-shared",
+        contactId: "id-1",
+        contactInboxId: "ci-1",
+        conversationId: "conv-1",
+      },
+    ])
     enqueueInsert({
       returningRows: [
-        { id: "ci-1", sourceId: "src-shared", contactId: "id-1" },
+        { id: "m-1", sourceId: "m-a" },
+        { id: "m-2", sourceId: "m-b" },
       ],
-    })
-    enqueueInsertNoReturning()
-    enqueueUpdate()
-    enqueueSelect({ rows: [{ id: "conv-1", contactId: "id-1" }] })
-    enqueueInsert({
-      returningRows: [{ id: "m-1" }, { id: "m-2" }],
     })
 
     const result = await bulkImportHistorical({
@@ -424,5 +499,213 @@ describe("bulkImportHistorical", () => {
     expect(result.importedContacts).toBe(1)
     expect(result.importedMessages).toBe(2)
     expect(result.contactInboxIds.size).toBe(1)
+  })
+
+  // -------------------------------------------------------------------------
+  // H7 — racedSourceIds O(n²) → O(n) via Set
+  // -------------------------------------------------------------------------
+
+  it("H7: racedSourceIds lookup produces correct results with many contacts (Set semantics)", async () => {
+    // Build a scenario where ALL inserted ContactInbox rows "lose the race"
+    // (the production code considers sourceIds not in insertedSourceIds as
+    // raced). We do this by making insertedInboxes return an EMPTY array for
+    // ContactInbox INSERT — so every sourceId is in racedSourceIds — then
+    // stub the winner re-SELECT to return the real rows.
+    //
+    // With N = 50 contacts this exercises the O(n) path without being slow.
+    const N = 50
+    const contacts = Array.from({ length: N }, (_, i) => ({
+      sourceId: `src-${i}`,
+      contactId: `cid-${i}`,
+      contactInboxId: `ci-${i}`,
+      conversationId: `conv-${i}`,
+    }))
+
+    // 1. SELECT existing ContactInbox → none (all are new)
+    enqueueSelect({ rows: [] })
+    // 2. WorkspaceUsage FOR UPDATE
+    mockTxExecute.mockResolvedValueOnce({
+      rows: [{ contactsCount: 0, maxContacts: 1000 }],
+    })
+    // 3. INSERT Contact (terminal)
+    enqueueInsert({ returningRows: contacts.map((c) => ({ id: c.contactId })) })
+    // 4. INSERT ContactInbox — returns EMPTY → ALL sourceIds go to racedSourceIds
+    enqueueInsert({ returningRows: [] })
+    // 5. Race-winner re-SELECT returns all contacts as winners
+    enqueueSelect({
+      rows: contacts.map((c) => ({
+        id: c.contactInboxId,
+        sourceId: c.sourceId,
+        contactId: c.contactId,
+      })),
+    })
+    // 6. DELETE orphan contacts (racedSourceIds.length > 0)
+    _enqueueDelete()
+    // 7. INSERT Conversation — skipped because all raced (conversationsToInsert = [])
+    //    (trulyNew = 0, so no workspace owner SELECT or userQuota INSERT)
+    // 8. SELECT conversations for accepted contacts (via inArray on acceptedContactIds)
+    enqueueSelect({
+      rows: contacts.map((c) => ({
+        id: c.conversationId,
+        contactId: c.contactId,
+      })),
+    })
+
+    // Each contact needs a bulkImportMessages transaction: message INSERT
+    for (let i = 0; i < N; i++) {
+      enqueueInsert({ returningRows: [{ id: `m-${i}`, sourceId: `msg-${i}` }] })
+    }
+
+    const batch = contacts.map((c) => ({
+      contact: contact(c.sourceId),
+      messages: [msg(`msg-${contacts.indexOf(c)}`)],
+    }))
+
+    const result = await bulkImportHistorical({
+      inbox,
+      workspaceId,
+      runId: "12345",
+      batch,
+    })
+
+    // trulyNew = 0 (all raced), skippedContacts = 0, importedMessages = N
+    expect(result.importedContacts).toBe(0)
+    expect(result.skippedContacts).toBe(0)
+    // All contacts resolved via race winners → all messages imported
+    expect(result.importedMessages).toBe(N)
+    expect(result.contactInboxIds.size).toBe(N)
+    // All N contactInboxIds should be correctly mapped
+    for (const c of contacts) {
+      expect(result.contactInboxIds.get(c.sourceId)).toBe(c.contactInboxId)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // H4 — bulkImportHistorical parallelizes per-contact bulkImportMessages
+  // -------------------------------------------------------------------------
+
+  it("H4: bulkImportMessages calls for multiple contacts run in parallel (p-limit concurrency)", async () => {
+    // Set up 4 existing contacts so bulkImportContacts needs no new inserts —
+    // we want to test the parallelism of the message-import loop only.
+    const contacts = [
+      {
+        sourceId: "src-a",
+        contactId: "cid-a",
+        contactInboxId: "ci-a",
+        conversationId: "conv-a",
+      },
+      {
+        sourceId: "src-b",
+        contactId: "cid-b",
+        contactInboxId: "ci-b",
+        conversationId: "conv-b",
+      },
+      {
+        sourceId: "src-c",
+        contactId: "cid-c",
+        contactInboxId: "ci-c",
+        conversationId: "conv-c",
+      },
+      {
+        sourceId: "src-d",
+        contactId: "cid-d",
+        contactInboxId: "ci-d",
+        conversationId: "conv-d",
+      },
+    ]
+
+    // bulkImportContacts: all existing → no cap check needed
+    enqueueSelect({
+      rows: contacts.map((c) => ({
+        id: c.contactInboxId,
+        sourceId: c.sourceId,
+        contactId: c.contactId,
+      })),
+    })
+    // Conversation lookup for existing contacts
+    enqueueSelect({
+      rows: contacts.map((c) => ({
+        id: c.conversationId,
+        contactId: c.contactId,
+      })),
+    })
+
+    // Track concurrency of db.transaction calls for the message-import phase.
+    // Each bulkImportMessages call opens one db.transaction. We use deferred
+    // promises so all 4 start before any resolves — then we flush them.
+    let inFlight = 0
+    let maxInFlight = 0
+    const resolvers: Array<() => void> = []
+
+    // The first mockTransaction call is for bulkImportContacts — let it
+    // execute synchronously so the setup phase completes before we start
+    // tracking concurrency.
+    let contactsTransactionDone = false
+
+    mockTransaction.mockImplementation((cb: (tx: unknown) => unknown) => {
+      const tx = {
+        select: mockTxSelect,
+        insert: mockTxInsert,
+        update: mockTxUpdate,
+        delete: mockTxDelete,
+        execute: mockTxExecute,
+      }
+      if (!contactsTransactionDone) {
+        // First call = bulkImportContacts → run inline
+        contactsTransactionDone = true
+        return cb(tx)
+      }
+      // Subsequent calls = bulkImportMessages → defer
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      return new Promise<void>((resolve) => {
+        resolvers.push(async () => {
+          // Consume the message INSERT stub
+          const chain = {
+            values: vi.fn(),
+            onConflictDoNothing: vi.fn(),
+            returning: vi.fn(),
+          }
+          chain.values.mockReturnValue(chain)
+          chain.onConflictDoNothing.mockReturnValue(chain)
+          chain.returning.mockResolvedValue([
+            { id: "m-inserted", sourceId: "msg-x" },
+          ])
+          mockTxInsert.mockReturnValueOnce(chain)
+          await cb(tx)
+          inFlight--
+          resolve()
+        })
+      })
+    })
+
+    const batch = contacts.map((c) => ({
+      contact: contact(c.sourceId),
+      messages: [msg(`msg-${c.sourceId}`)],
+    }))
+
+    const importPromise = bulkImportHistorical({
+      inbox,
+      workspaceId,
+      runId: "12345",
+      batch,
+    })
+
+    // Yield microtasks so the parallel transactions can start
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // With p-limit(≥2), at least 2 message transactions should be in-flight.
+    // With the old sequential loop, maxInFlight would be 0 at this point (none started
+    // yet because the first hasn't resolved). After our fix it should be ≥ 2.
+    expect(maxInFlight).toBeGreaterThanOrEqual(2)
+
+    // Flush all deferred transactions
+    for (const res of resolvers) {
+      await res()
+    }
+    await importPromise
+
+    expect(resolvers).toHaveLength(4)
   })
 })

@@ -109,13 +109,19 @@ export const webhookHandler = async (
         // Body was not JSON — ignore and continue.
       }
 
-      let hmacVerified = false
+      // Start handle_post immediately; attach a no-op catch so any rejection
+      // that arrives after we've already resolved the race is silently absorbed
+      // (we re-check the outcome below via the full await).
+      const handlePostPromise = middleware.handle_post(props.req)
+      handlePostPromise.catch(() => {
+        /* absorbed — re-checked below */
+      })
 
       const result = await new Promise<
         | { type: "message"; data: OnMessageArgs }
         | { type: "status"; data: OnStatusArgs }
         | null
-      >((resolve, reject) => {
+      >((resolve) => {
         middleware.on.message = (args: OnMessageArgs) => {
           resolve({ type: "message", data: args })
         }
@@ -125,23 +131,22 @@ export const webhookHandler = async (
         middleware.on.status = (args: OnStatusArgs) => {
           resolve({ type: "status", data: args })
         }
-        middleware
-          .handle_post(props.req)
-          .then((rs) => {
-            if (rs === 200) {
-              hmacVerified = true
-            } else {
-              reject(new SdkException("Failed to handle webhook"))
-            }
-          })
-          .catch(reject)
 
+        // 300 ms guard: resolve with null so callers aren't blocked forever.
         setTimeout(() => {
           resolve(null)
         }, 300)
       })
 
-      if (hmacVerified && coexistPayloads.length > 0) {
+      // Always await handle_post to completion so hmacVerified reflects the
+      // actual HMAC outcome — even if the middleware callbacks fired first or
+      // the 300 ms guard already resolved the inner promise above.
+      const handlePostStatus = await handlePostPromise
+      if (handlePostStatus !== 200) {
+        throw new SdkException("Failed to handle webhook")
+      }
+
+      if (coexistPayloads.length > 0) {
         for (const { phoneNumberId, value } of coexistPayloads) {
           await props.queue?.add("coexistWhatsappBuffer", {
             type: "coexistWhatsappBuffer",
