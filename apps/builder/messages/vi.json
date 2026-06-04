@@ -1318,9 +1318,6 @@
     "to": {
       "label": "To"
     },
-    "topicId": {
-      "label": "Topic ID"
-    },
     "smtpChannel": {
       "label": "Kênh SMTP"
     },
