@@ -2,11 +2,7 @@
 
 import { contactService, tagSyncService } from "@chatbotx.io/business"
 import { and, db, eq, findOrFail, inArray } from "@chatbotx.io/database/client"
-import {
-  contactModel,
-  contactsToTagsModel,
-  tagModel,
-} from "@chatbotx.io/database/schema"
+import { contactsToTagsModel, tagModel } from "@chatbotx.io/database/schema"
 import { emitTagApplied, emitTagRemoved } from "@chatbotx.io/events"
 import { createId } from "@chatbotx.io/utils"
 import {
@@ -146,7 +142,10 @@ export const attachContactTag = async ({
   tagId: string
 }) => {
   await contactService.findByIdOrFail({ workspaceId, id: contactId })
-  await findOrFail({ table: tagModel, where: { id: tagId, workspaceId, deletedAt: { isNull: true as const } } })
+  await findOrFail({
+    table: tagModel,
+    where: { id: tagId, workspaceId, deletedAt: { isNull: true as const } },
+  })
 
   const inserted = await db
     .insert(contactsToTagsModel)
@@ -181,7 +180,10 @@ export const detachContactTag = async ({
   tagId: string
 }) => {
   await contactService.findByIdOrFail({ workspaceId, id: contactId })
-  await findOrFail({ table: tagModel, where: { id: tagId, workspaceId, deletedAt: { isNull: true as const } } })
+  await findOrFail({
+    table: tagModel,
+    where: { id: tagId, workspaceId, deletedAt: { isNull: true as const } },
+  })
 
   await db
     .delete(contactsToTagsModel)
@@ -215,7 +217,11 @@ export const attachContactTags = async ({
   await contactService.findByIdOrFail({ workspaceId, id: contactId })
 
   const tags = await db.query.tagModel.findMany({
-    where: { workspaceId, id: { in: tagIds }, deletedAt: { isNull: true as const } },
+    where: {
+      workspaceId,
+      id: { in: tagIds },
+      deletedAt: { isNull: true as const },
+    },
     columns: { id: true },
   })
 

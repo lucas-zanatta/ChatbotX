@@ -12,8 +12,8 @@ import {
 import { integrationZaloModel } from "@chatbotx.io/database/schema"
 import type { ZaloAuthValue } from "@chatbotx.io/integration-zalo"
 import { redirect } from "next/navigation"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { integrations } from "@/integration"
+import { revalidateCacheTags } from "@/lib/cache-helper"
 
 export async function connectZaloHandler({
   zaloSettings,

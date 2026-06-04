@@ -3,8 +3,8 @@ import { and, db, eq, inArray, isNotNull } from "@chatbotx.io/database/client"
 import { channelTypes } from "@chatbotx.io/database/partials"
 import {
   contactInboxModel,
-  contactToTagChannelModel,
   contactsToTagsModel,
+  contactToTagChannelModel,
   tagChannelModel,
   tagModel,
 } from "@chatbotx.io/database/schema"
@@ -475,7 +475,12 @@ async function syncTagDelete(props: {
   // available for the API calls.
   const channels = await db.query.tagChannelModel.findMany({
     where: { tagId, workspaceId },
-    columns: { id: true, channelType: true, integrationId: true, externalLabelId: true },
+    columns: {
+      id: true,
+      channelType: true,
+      integrationId: true,
+      externalLabelId: true,
+    },
   })
 
   for (const channel of channels) {
@@ -504,7 +509,10 @@ async function syncTagDelete(props: {
   await db
     .delete(tagChannelModel)
     .where(
-      and(eq(tagChannelModel.tagId, tagId), eq(tagChannelModel.workspaceId, workspaceId)),
+      and(
+        eq(tagChannelModel.tagId, tagId),
+        eq(tagChannelModel.workspaceId, workspaceId),
+      ),
     )
 
   await db

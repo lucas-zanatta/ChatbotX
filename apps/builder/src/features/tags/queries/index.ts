@@ -70,7 +70,12 @@ export const findTag = async (input: FindTagRequest) => {
 
   if (isNumericId(input.key)) {
     const byId = await db.query.tagModel.findFirst({
-      where: { id: input.key, folderId: folderWhere, workspaceId, deletedAt: { isNull: true as const } },
+      where: {
+        id: input.key,
+        folderId: folderWhere,
+        workspaceId,
+        deletedAt: { isNull: true as const },
+      },
     })
     if (byId) {
       return byId
@@ -78,6 +83,11 @@ export const findTag = async (input: FindTagRequest) => {
   }
 
   return await db.query.tagModel.findFirst({
-    where: { name: input.key, folderId: folderWhere, workspaceId, deletedAt: { isNull: true as const } },
+    where: {
+      name: input.key,
+      folderId: folderWhere,
+      workspaceId,
+      deletedAt: { isNull: true as const },
+    },
   })
 }

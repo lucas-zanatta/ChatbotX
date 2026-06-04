@@ -77,7 +77,8 @@ const { deleteTags, deleteTag } = await import(
 const WS = "ws-1"
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const makeIds = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1))
+const makeIds = (n: number) =>
+  Array.from({ length: n }, (_, i) => String(i + 1))
 
 beforeEach(() => {
   dbUpdate.mockClear()
