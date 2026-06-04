@@ -101,12 +101,19 @@ export const aiContextService = {
     }
 
     const normalizedParts: Array<
-      { type: "text"; text: string } | { type: "image"; image: string }
+      | { type: "text"; text: string }
+      | {
+          type: "image"
+          image: string | Buffer | ArrayBuffer | URL
+        }
     > = []
 
     for (const part of message.content) {
       if (part.type === "text") {
-        normalizedParts.push({ type: "text", text: part.text })
+        normalizedParts.push({
+          type: "text",
+          text: part.text,
+        })
         continue
       }
 
@@ -114,24 +121,22 @@ export const aiContextService = {
         continue
       }
 
-      const raw = part.image
-      let imageStr: string
+      const image =
+        part.image instanceof Uint8Array && !(part.image instanceof Buffer)
+          ? Buffer.from(part.image)
+          : part.image
 
-      if (typeof raw === "string") {
-        imageStr = raw
-      } else if (raw instanceof URL) {
-        imageStr = raw.toString()
-      } else if (raw instanceof Buffer) {
-        imageStr = `data:image/png;base64,${raw.toString("base64")}`
-      } else if (raw instanceof Uint8Array) {
-        imageStr = `data:image/png;base64,${Buffer.from(raw).toString("base64")}`
-      } else if (raw instanceof ArrayBuffer) {
-        imageStr = `data:image/png;base64,${Buffer.from(raw).toString("base64")}`
-      } else {
-        continue
+      if (
+        typeof image === "string" ||
+        image instanceof Buffer ||
+        image instanceof ArrayBuffer ||
+        image instanceof URL
+      ) {
+        normalizedParts.push({
+          type: "image",
+          image,
+        })
       }
-
-      normalizedParts.push({ type: "image", image: imageStr })
     }
 
     if (normalizedParts.length === 0) {

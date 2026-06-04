@@ -16,11 +16,7 @@
     "worker:default": "dotenv -e ../../.env -- tsx --watch src/default/worker.ts",
     "worker:events": "dotenv -e ../../.env -- tsx --watch src/events/worker.ts",
     "worker:integration": "dotenv -e ../../.env -- tsx --watch src/integration/worker.ts",
-    "worker:sequence-consumer": "dotenv -e ../../.env -- tsx --watch src/sequence-scheduler/worker-consumer.ts",
-    "worker:sequence-producer": "dotenv -e ../../.env -- tsx --watch src/sequence-scheduler/worker-producer.ts",
-    "worker:sequence-scheduler": "dotenv -e ../../.env -- tsx --watch src/sequence-scheduler/worker.ts",
-    "worker:trigger": "dotenv -e ../../.env -- tsx --watch src/trigger/worker.ts",
-    "worker:webhook": "dotenv -e ../../.env -- tsx --watch src/webhook/worker.ts"
+    "worker:trigger": "dotenv -e ../../.env -- tsx --watch src/trigger/worker.ts"
   },
   "keywords": [],
   "license": "ISC",
@@ -40,7 +36,6 @@
     "@chatbotx.io/events": "workspace:*",
     "@chatbotx.io/filesystem": "workspace:*",
     "@chatbotx.io/flow-config": "workspace:*",
-    "@chatbotx.io/imports": "workspace:*",
     "@chatbotx.io/integration-chatbotx": "workspace:*",
     "@chatbotx.io/integration-google-sheets": "workspace:*",
     "@chatbotx.io/integration-instagram": "workspace:*",
@@ -73,7 +68,6 @@
     "ioredis": "5.10.1",
     "jszip": "^3.10.1",
     "ky": "^2.0.2",
-    "libphonenumber-js": "^1.12.42",
     "mailparser": "^3.9.8",
     "mammoth": "^1.12.0",
     "mime-types": "^3.0.2",
