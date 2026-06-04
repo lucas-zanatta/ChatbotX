@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
-import { db } from "@chatbotx.io/database/client"
+import { and, db, desc, eq, gt, or, sql } from "@chatbotx.io/database/client"
 import { aiMessageRoles, senderTypes } from "@chatbotx.io/database/partials"
+import { messageModel } from "@chatbotx.io/database/schema"
 import { AIJobAction, aiAgentQueue } from "@chatbotx.io/worker-config"
 import type { ModelMessage } from "ai"
 import { MAX_CONVERSATION_HISTORY, MAX_SUMMARY_LENGTH } from "../../constants"
@@ -69,6 +70,50 @@ function isSameContextMessage(
   )
 }
 
+async function getLatestConversationMessages(
+  conversationId: string,
+): Promise<DBConversationMessage[]> {
+  const lastMessages = await db.query.messageModel.findMany({
+    where: { conversationId },
+    orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+    limit: MAX_CONVERSATION_HISTORY,
+  })
+
+  return [...lastMessages].reverse()
+}
+
+async function getConversationMessagesAfterMarker(
+  conversationId: string,
+  markerMessageId: string,
+): Promise<DBConversationMessage[]> {
+  const markerCreatedAt = sql`(SELECT "createdAt" FROM ${messageModel} WHERE ${messageModel.id} = ${markerMessageId} AND ${messageModel.conversationId} = ${conversationId})`
+
+  const rows = await db
+    .select({
+      id: messageModel.id,
+      text: messageModel.text,
+      senderType: messageModel.senderType,
+      createdAt: messageModel.createdAt,
+    })
+    .from(messageModel)
+    .where(
+      and(
+        eq(messageModel.conversationId, conversationId),
+        or(
+          sql`${messageModel.createdAt} > ${markerCreatedAt}`,
+          and(
+            sql`${messageModel.createdAt} = ${markerCreatedAt}`,
+            gt(messageModel.id, markerMessageId),
+          ),
+        ),
+      ),
+    )
+    .orderBy(desc(messageModel.createdAt), desc(messageModel.id))
+    .limit(MAX_CONVERSATION_HISTORY)
+
+  return [...rows].reverse()
+}
+
 export const aiContextService = {
   /**
    * Normalize any message format to AIMessage for context storage
@@ -101,19 +146,12 @@ export const aiContextService = {
     }
 
     const normalizedParts: Array<
-      | { type: "text"; text: string }
-      | {
-          type: "image"
-          image: string | Buffer | ArrayBuffer | URL
-        }
+      { type: "text"; text: string } | { type: "image"; image: string }
     > = []
 
     for (const part of message.content) {
       if (part.type === "text") {
-        normalizedParts.push({
-          type: "text",
-          text: part.text,
-        })
+        normalizedParts.push({ type: "text", text: part.text })
         continue
       }
 
@@ -121,22 +159,24 @@ export const aiContextService = {
         continue
       }
 
-      const image =
-        part.image instanceof Uint8Array && !(part.image instanceof Buffer)
-          ? Buffer.from(part.image)
-          : part.image
+      const raw = part.image
+      let imageStr: string
 
-      if (
-        typeof image === "string" ||
-        image instanceof Buffer ||
-        image instanceof ArrayBuffer ||
-        image instanceof URL
-      ) {
-        normalizedParts.push({
-          type: "image",
-          image,
-        })
+      if (typeof raw === "string") {
+        imageStr = raw
+      } else if (raw instanceof URL) {
+        imageStr = raw.toString()
+      } else if (raw instanceof Buffer) {
+        imageStr = `data:image/png;base64,${raw.toString("base64")}`
+      } else if (raw instanceof Uint8Array) {
+        imageStr = `data:image/png;base64,${Buffer.from(raw).toString("base64")}`
+      } else if (raw instanceof ArrayBuffer) {
+        imageStr = `data:image/png;base64,${Buffer.from(raw).toString("base64")}`
+      } else {
+        continue
       }
+
+      normalizedParts.push({ type: "image", image: imageStr })
     }
 
     if (normalizedParts.length === 0) {
@@ -225,13 +265,33 @@ export const aiContextService = {
         let context = await aiContextStore.get(conversationId)
 
         if (!context) {
-          const lastMessages = await db.query.messageModel.findMany({
-            where: { conversationId },
-            orderBy: (table, { desc }) => [desc(table.createdAt)],
-            limit: MAX_CONVERSATION_HISTORY,
+          const conversation = await db.query.conversationModel.findFirst({
+            where: {
+              id: conversationId,
+              workspaceId,
+            },
+            columns: {
+              aiContextLastMessageId: true,
+            },
           })
 
-          const dbMessages = [...lastMessages].reverse()
+          let dbMessages: DBConversationMessage[] = []
+
+          if (conversation?.aiContextLastMessageId) {
+            const messagesAfterMarker =
+              await getConversationMessagesAfterMarker(
+                conversationId,
+                conversation.aiContextLastMessageId,
+              )
+
+            dbMessages =
+              messagesAfterMarker.length > 0
+                ? messagesAfterMarker
+                : await getLatestConversationMessages(conversationId)
+          } else {
+            dbMessages = await getLatestConversationMessages(conversationId)
+          }
+
           const aiHistory = this.mapDbMessagesToContext(dbMessages)
           const modelMessages = this.mapContextToModelMessages(aiHistory)
 
@@ -264,19 +324,20 @@ export const aiContextService = {
   },
 
   /**
-   * Append new messages to history and update cache
+   * Append new messages to history and update cache.
+   * Returns the updated AIContext, or null if context was not cached or no new messages were added.
    */
   async appendHistory(props: {
     conversationId: string
     newMessages: ContextInputMessage[]
-  }): Promise<void> {
+  }): Promise<AIContext | null> {
     const { conversationId, newMessages } = props
 
-    await aiContextStore
+    return await aiContextStore
       .runExclusive(conversationId, async () => {
         const context = await aiContextStore.get(conversationId)
         if (!context) {
-          return
+          return null
         }
 
         const currentHistory = [...context.history]
@@ -302,7 +363,7 @@ export const aiContextService = {
         }
 
         if (!hasNewHistory) {
-          return
+          return await aiContextStore.get(conversationId)
         }
 
         const shouldSummarize = currentHistory.length > MAX_CONVERSATION_HISTORY
@@ -329,12 +390,15 @@ export const aiContextService = {
             },
           )
         }
+
+        return await aiContextStore.get(conversationId)
       })
       .catch((err) => {
         logger.error(
           { err, conversationId },
           "[ai-context-service] Failed to append history",
         )
+        return null
       })
   },
 }
