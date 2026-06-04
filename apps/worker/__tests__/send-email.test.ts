@@ -15,6 +15,12 @@ const runAction = vi.fn().mockResolvedValue(undefined)
 
 vi.mock("@chatbotx.io/business", () => ({
   buildContext: vi.fn().mockResolvedValue({ ctx: true }),
+  buildUnsubscribeUrl: vi
+    .fn()
+    .mockResolvedValue("https://app.test/unsubscribe?token=unsub"),
+  contactService: {
+    findBy: vi.fn().mockResolvedValue({ emailOptIn: true }),
+  },
   inboxService: { find: vi.fn().mockResolvedValue(undefined) },
   integrationSmtpService: {
     find: vi.fn().mockResolvedValue({
@@ -28,9 +34,10 @@ vi.mock("@chatbotx.io/business", () => ({
       },
     }),
   },
-  resolvePlatformUrls: vi
+  resolvePlatformSettings: vi
     .fn()
     .mockResolvedValue({ appUrl: "https://app.test" }),
+  signEmailClickUrl: vi.fn().mockResolvedValue("signed-token"),
   workspaceService: {
     findById: vi.fn().mockResolvedValue({ id: "ws-1", name: "WS" }),
   },

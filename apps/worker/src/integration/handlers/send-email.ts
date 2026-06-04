@@ -6,6 +6,7 @@ import {
   inboxService,
   integrationSmtpService,
   resolvePlatformSettings,
+  signEmailClickUrl,
   workspaceService,
 } from "@chatbotx.io/business"
 import type { InboxWithIntegrations } from "@chatbotx.io/database/types"
@@ -86,7 +87,11 @@ async function resolveElements({
           : undefined
 
         if (url && token) {
-          url = `${appUrl}/email-topic/click?r=${token}&url=${encodeURIComponent(url)}`
+          // Seal the destination into an authenticated token so the click
+          // route cannot be abused as an open redirect (the raw URL is never
+          // trusted from the query string). base64url is URL-safe.
+          const signedUrl = await signEmailClickUrl(url)
+          url = `${appUrl}/email-topic/click?r=${token}&u=${signedUrl}`
         }
 
         resolved.push({ type: "button", url, label: el.label })
