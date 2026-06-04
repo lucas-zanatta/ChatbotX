@@ -54,21 +54,45 @@ const buildActionHandler =
     await executeDynamicCommand(tool, params, config)
   }
 
+type ActionEntry = { tool: DynamicTool; name: string }
+type GroupEntry = {
+  actions: Record<string, ActionEntry>
+  subgroups: Record<string, Record<string, ActionEntry>>
+}
+
+const registerActionsOnCli = (
+  groupCli: Argv,
+  actions: Record<string, ActionEntry>,
+  config: { apiKey: string; apiUrl: string },
+): void => {
+  for (const [actionName, { tool, name }] of Object.entries(actions)) {
+    const commandStr = buildActionCommandString(actionName, tool)
+    groupCli.command(
+      commandStr,
+      name,
+      (actionCli: Argv) => registerActionArgs(actionCli, tool),
+      async (argv) =>
+        buildActionHandler(tool, config)(argv as Record<string, unknown>),
+    )
+  }
+}
+
 const registerGroupCommand = (
   cli: ReturnType<typeof yargs>,
   groupName: string,
-  actions: Record<string, { tool: DynamicTool; name: string }>,
+  group: GroupEntry,
   config: { apiKey: string; apiUrl: string },
 ): void => {
   cli.command(groupName, `${groupName} commands`, (groupCli: Argv) => {
-    for (const [actionName, { tool, name }] of Object.entries(actions)) {
-      const commandStr = buildActionCommandString(actionName, tool)
+    registerActionsOnCli(groupCli, group.actions, config)
+    for (const [subgroupName, actions] of Object.entries(group.subgroups)) {
       groupCli.command(
-        commandStr,
-        name,
-        (actionCli: Argv) => registerActionArgs(actionCli, tool),
-        async (argv) =>
-          buildActionHandler(tool, config)(argv as Record<string, unknown>),
+        subgroupName,
+        `${subgroupName} commands`,
+        (subgroupCli: Argv) => {
+          registerActionsOnCli(subgroupCli, actions, config)
+          return subgroupCli.demandCommand(1, "You need at least one action")
+        },
       )
     }
     return groupCli.demandCommand(1, "You need at least one action")
@@ -109,22 +133,30 @@ const registerConfigCommand = (cli: ReturnType<typeof yargs>): void => {
 const toolsToCommands = (
   tools: DynamicTool[],
   _config: { apiKey: string; apiUrl: string },
-): Record<string, Record<string, { tool: DynamicTool; name: string }>> => {
-  const grouped: Record<
-    string,
-    Record<string, { tool: DynamicTool; name: string }>
-  > = {}
+): Record<string, GroupEntry> => {
+  const grouped: Record<string, GroupEntry> = {}
 
   for (const tool of tools) {
-    const colonIndex = tool.commandName.indexOf(":")
-    const group = tool.commandName.slice(0, colonIndex)
-    const action = tool.commandName.slice(colonIndex + 1)
+    const parts = tool.commandName.split(":")
+    const group = parts[0]
 
     if (!grouped[group]) {
-      grouped[group] = {}
+      grouped[group] = { actions: {}, subgroups: {} }
     }
 
-    grouped[group][action] = { tool, name: tool.description }
+    if (parts.length === 3) {
+      const [, subgroup, action] = parts
+      if (!grouped[group].subgroups[subgroup]) {
+        grouped[group].subgroups[subgroup] = {}
+      }
+      grouped[group].subgroups[subgroup][action] = {
+        tool,
+        name: tool.description,
+      }
+    } else {
+      const action = parts.slice(1).join(":")
+      grouped[group].actions[action] = { tool, name: tool.description }
+    }
   }
 
   return grouped
