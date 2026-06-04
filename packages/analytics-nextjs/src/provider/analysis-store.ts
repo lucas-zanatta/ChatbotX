@@ -23,15 +23,22 @@ import type {
   GetMessagesStatsResponseSchema,
   GetUniqueConversationsByAdminResponse,
   HumanAgentStats,
+  ListFlowNodeContactsResponse,
   MessagesByAdminStats,
   MessagesBySenderStats,
+  RefLinkTimeseriesRow,
   UniqueConversationsByAdminStats,
 } from "@chatbotx.io/analytics"
 import { endOfToday, startOfToday, subDays } from "date-fns"
 import ky, { HTTPError } from "ky"
 import { createStore } from "zustand/vanilla"
 
+const REFLINK_CONTACTS_PER_PAGE = 10
+
+export type AnalysisDashboardType = "dashboard" | "reflinks"
+
 export type AnalysisState = {
+  type: AnalysisDashboardType
   loading: boolean
   errors: Map<string, string>
 
@@ -63,6 +70,12 @@ export type AnalysisState = {
   botMessagesWithResponse: BotMessageStats[]
   botMessagesNoResponse: BotMessageStats[]
   humanAgentStats: HumanAgentStats[]
+
+  // reflink stats
+  refLinkStats: RefLinkTimeseriesRow[]
+  reflinkContacts: ListFlowNodeContactsResponse["data"]
+  reflinkContactsPage: number
+  reflinkContactsPageCount: number
 }
 
 export type AnalysisActions = {
@@ -94,12 +107,17 @@ export type AnalysisActions = {
   getBotMessagesWithResponse: () => Promise<void>
   getBotMessagesNoResponse: () => Promise<void>
   getHumanAgentStats: () => Promise<void>
+
+  getRefLinkStats: () => Promise<void>
+  getReflinkContacts: () => Promise<void>
+  setReflinkContactsPage: (page: number) => Promise<void>
 }
 
 export type AnalysisStore = AnalysisState & AnalysisActions
 
 export const createAnalysisStore = (props: Partial<AnalysisState>) =>
   createStore<AnalysisStore>((set, get) => ({
+    type: "dashboard",
     loading: false,
     errors: new Map<string, string>(),
 
@@ -134,6 +152,12 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     botMessagesNoResponse: [],
     humanAgentStats: [],
 
+    // Default reflink stats
+    refLinkStats: [],
+    reflinkContacts: [],
+    reflinkContactsPage: 1,
+    reflinkContactsPageCount: 0,
+
     initialize: async () => {
       const { loadAnalysisData } = get()
       await loadAnalysisData()
@@ -154,6 +178,16 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
     },
 
     loadAnalysisData: async () => {
+      const { type } = get()
+
+      if (type === "reflinks") {
+        const { getRefLinkStats, getReflinkContacts } = get()
+        set({ loading: true, errors: new Map<string, string>() })
+        await Promise.all([getRefLinkStats(), getReflinkContacts()])
+        set({ loading: false })
+        return
+      }
+
       const {
         getContactCounts,
         getNewContactCounts,
@@ -683,5 +717,55 @@ export const createAnalysisStore = (props: Partial<AnalysisState>) =>
       } catch (error: unknown) {
         get().handleError("getHumanAgentStats", error)
       }
+    },
+
+    getRefLinkStats: async () => {
+      const { defaultSearchParams, from, to } = get()
+
+      try {
+        const { data: refLinkStats } = await ky
+          .get("/api/analytics/ref-links-stats", {
+            searchParams: {
+              ...defaultSearchParams,
+              startDate: from.toISOString(),
+              endDate: to.toISOString(),
+            },
+          })
+          .json<{ data: RefLinkTimeseriesRow[] }>()
+
+        set({ refLinkStats })
+      } catch (error: unknown) {
+        get().handleError("getRefLinkStats", error)
+      }
+    },
+
+    getReflinkContacts: async () => {
+      const { defaultSearchParams, reflinkContactsPage } = get()
+
+      try {
+        const result = await ky
+          .get("/api/analytics/ref-links-contacts", {
+            searchParams: {
+              ...defaultSearchParams,
+              page: reflinkContactsPage,
+              perPage: REFLINK_CONTACTS_PER_PAGE,
+            },
+          })
+          .json<ListFlowNodeContactsResponse>()
+
+        set({
+          reflinkContacts: result.data,
+          reflinkContactsPageCount: result.pageCount,
+        })
+      } catch (error: unknown) {
+        get().handleError("getReflinkContacts", error)
+      }
+    },
+
+    setReflinkContactsPage: async (page: number) => {
+      set({ reflinkContactsPage: page })
+
+      const { getReflinkContacts } = get()
+      await getReflinkContacts()
     },
   }))
