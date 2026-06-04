@@ -20,6 +20,9 @@ CREATE TABLE "TagChannel" (
 ALTER TABLE "IntegrationMessenger" ADD COLUMN "syncTagEnabledAt" timestamp(6) with time zone;--> statement-breakpoint
 ALTER TABLE "IntegrationZalo" ADD COLUMN "syncTagEnabledAt" timestamp(6) with time zone;--> statement-breakpoint
 ALTER TABLE "Tag" DROP COLUMN "syncToMessenger";--> statement-breakpoint
+ALTER TABLE "Tag" ADD COLUMN "deletedAt" timestamp(6) with time zone;--> statement-breakpoint
+DROP INDEX IF EXISTS "Tag_workspaceId_name_key";--> statement-breakpoint
+CREATE UNIQUE INDEX "Tag_workspaceId_name_key" ON "Tag" USING btree ("workspaceId" ASC NULLS LAST, "name" ASC NULLS LAST) WHERE "deletedAt" IS NULL;--> statement-breakpoint
 CREATE INDEX "ContactToTagChannel_contactInboxId_idx" ON "ContactToTagChannel" ("contactInboxId");--> statement-breakpoint
 CREATE INDEX "ContactToTagChannel_tagId_idx" ON "ContactToTagChannel" ("tagId");--> statement-breakpoint
 CREATE UNIQUE INDEX "TagChannel_tag_integration_key" ON "TagChannel" ("tagId","channelType","integrationId");--> statement-breakpoint
