@@ -3,13 +3,13 @@
 import { tagSyncService } from "@chatbotx.io/business"
 import { and, db, eq, inArray, isNull } from "@chatbotx.io/database/client"
 import { tagModel } from "@chatbotx.io/database/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import {
   type BulkUpdateIdsRequest,
   bulkUpdateIdsRequest,
   type WorkspaceIdRequestParams,
   workspaceIdrequestParams,
 } from "@/features/common/schemas"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 const TAG_CHUNK_SIZE = 200
@@ -55,7 +55,7 @@ export const deleteTags = async ({
     }
   }
 
-  await revalidateCacheTags(`workspaces:${workspaceId}#tags`)
+  await invalidateCacheByTags([`workspaces:${workspaceId}#tags`])
 }
 
 export const deleteTag = async ({
@@ -81,5 +81,5 @@ export const deleteTag = async ({
     await tagSyncService.enqueueDelete({ workspaceId, tagId: updated[0].id })
   }
 
-  await revalidateCacheTags(`workspaces:${workspaceId}#tags`)
+  await invalidateCacheByTags([`workspaces:${workspaceId}#tags`])
 }

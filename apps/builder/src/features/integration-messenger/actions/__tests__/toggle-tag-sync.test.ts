@@ -2,17 +2,17 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 // ---------------------------------------------------------------------------
-// Mock next/cache (revalidateTag used internally by cache-helper)
+// Mock next/cache
 // ---------------------------------------------------------------------------
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }))
 
 // ---------------------------------------------------------------------------
-// Mock @/lib/cache-helper — intercept revalidateCacheTags calls
+// Mock @chatbotx.io/redis — intercept invalidateCacheByTags calls
 // ---------------------------------------------------------------------------
-vi.mock("@/lib/cache-helper", () => ({
-  revalidateCacheTags: vi.fn(),
+vi.mock("@chatbotx.io/redis", () => ({
+  invalidateCacheByTags: vi.fn(),
 }))
 
 // ---------------------------------------------------------------------------
@@ -99,14 +99,16 @@ vi.mock("@/lib/log", () => ({
 const { toggleMessengerTagSyncAction } = await import(
   "../toggle-tag-sync.action"
 )
-const { revalidateCacheTags } = await import("@/lib/cache-helper")
+const { invalidateCacheByTags } = await import("@chatbotx.io/redis")
 const { db, findOrFail } = await import("@chatbotx.io/database/client")
 const { getCurrentUserId } = await import("@/lib/auth/utils")
 const { getAllWorkspaceMembers } = await import(
   "@/features/workspace-members/queries"
 )
 
-const revalidateCacheTagsMock = revalidateCacheTags as ReturnType<typeof vi.fn>
+const invalidateCacheByTagsMock = invalidateCacheByTags as ReturnType<
+  typeof vi.fn
+>
 const dbUpdate = db.update as ReturnType<typeof vi.fn>
 const findOrFailMock = findOrFail as ReturnType<typeof vi.fn>
 const getCurrentUserIdMock = getCurrentUserId as ReturnType<typeof vi.fn>
@@ -185,16 +187,16 @@ describe("toggleMessengerTagSyncAction", () => {
       expect(whereArg).toHaveLength(2)
     })
 
-    test("calls revalidateCacheTags with the workspace-scoped messenger key", async () => {
+    test("calls invalidateCacheByTags with the workspace-scoped messenger key", async () => {
       returningResult.current = [{ syncTagEnabledAt: new Date() }]
       dbUpdateBuilder.returning.mockResolvedValue(returningResult.current)
 
       await invokeAction(true)
 
-      expect(revalidateCacheTagsMock).toHaveBeenCalledTimes(1)
-      expect(revalidateCacheTagsMock).toHaveBeenCalledWith(
+      expect(invalidateCacheByTagsMock).toHaveBeenCalledTimes(1)
+      expect(invalidateCacheByTagsMock).toHaveBeenCalledWith([
         `workspaces:${WORKSPACE_ID}#messengers`,
-      )
+      ])
     })
   })
 
@@ -213,15 +215,15 @@ describe("toggleMessengerTagSyncAction", () => {
       expect(setArg.syncTagEnabledAt).toBeNull()
     })
 
-    test("calls revalidateCacheTags with the workspace-scoped messenger key", async () => {
+    test("calls invalidateCacheByTags with the workspace-scoped messenger key", async () => {
       returningResult.current = [{ syncTagEnabledAt: null }]
       dbUpdateBuilder.returning.mockResolvedValue(returningResult.current)
 
       await invokeAction(false)
 
-      expect(revalidateCacheTagsMock).toHaveBeenCalledWith(
+      expect(invalidateCacheByTagsMock).toHaveBeenCalledWith([
         `workspaces:${WORKSPACE_ID}#messengers`,
-      )
+      ])
     })
 
     test("scopes the WHERE clause by both workspaceId and integrationId", async () => {
@@ -249,15 +251,15 @@ describe("toggleMessengerTagSyncAction", () => {
       expect(result?.data?.syncTagEnabledAt).toBeNull()
     })
 
-    test("still calls revalidateCacheTags even when no row was updated", async () => {
+    test("still calls invalidateCacheByTags even when no row was updated", async () => {
       returningResult.current = []
       dbUpdateBuilder.returning.mockResolvedValue([])
 
       await invokeAction(false)
 
-      expect(revalidateCacheTagsMock).toHaveBeenCalledWith(
+      expect(invalidateCacheByTagsMock).toHaveBeenCalledWith([
         `workspaces:${WORKSPACE_ID}#messengers`,
-      )
+      ])
     })
   })
 })

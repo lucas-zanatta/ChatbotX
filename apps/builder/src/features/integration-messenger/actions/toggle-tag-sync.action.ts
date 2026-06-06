@@ -2,9 +2,9 @@
 
 import { and, db, eq } from "@chatbotx.io/database/client"
 import { integrationMessengerModel } from "@chatbotx.io/database/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { z } from "zod"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 export const toggleMessengerTagSyncAction = workspaceActionClient
@@ -29,7 +29,7 @@ export const toggleMessengerTagSyncAction = workspaceActionClient
         syncTagEnabledAt: integrationMessengerModel.syncTagEnabledAt,
       })
 
-    await revalidateCacheTags(`workspaces:${workspaceId}#messengers`)
+    await invalidateCacheByTags([`workspaces:${workspaceId}#messengers`])
 
     return {
       syncTagEnabledAt: updated[0]?.syncTagEnabledAt ?? null,

@@ -11,9 +11,9 @@ import {
 } from "@chatbotx.io/database/partials"
 import { integrationZaloModel } from "@chatbotx.io/database/schema"
 import type { ZaloAuthValue } from "@chatbotx.io/integration-zalo"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { redirect } from "next/navigation"
 import { integrations } from "@/integration"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 
 export async function connectZaloHandler({
   zaloSettings,
@@ -79,7 +79,7 @@ export async function connectZaloHandler({
     throw error
   }
 
-  await revalidateCacheTags(`workspaces:${workspaceId}#zalos`)
+  await invalidateCacheByTags([`workspaces:${workspaceId}#zalos`])
 
   // Import any tags already on the OA into local tags + mappings.
   if (connectedIntegrationId) {

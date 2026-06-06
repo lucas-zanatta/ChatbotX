@@ -10,6 +10,7 @@ const queryResult: { findFirstReturn: unknown; findManyReturn: unknown[] } = {
 }
 
 const insertReturning: { current: unknown[] } = { current: [] }
+const updateReturning: { current: unknown[] } = { current: [] }
 
 // The insert builder is a plain object; implementations are re-applied in
 // beforeEach so they survive restoreMocks:true wiping vi.fn implementations.
@@ -25,6 +26,22 @@ function wireInsertBuilder() {
   )
 }
 wireInsertBuilder()
+
+// Soft-delete path: db.update(tagModel).set({deletedAt}).where(...).returning()
+const updateBuilder = {
+  set: vi.fn(),
+  where: vi.fn(),
+  returning: vi.fn(),
+}
+
+function wireUpdateBuilder() {
+  updateBuilder.set.mockImplementation(() => updateBuilder)
+  updateBuilder.where.mockImplementation(() => updateBuilder)
+  updateBuilder.returning.mockImplementation(() =>
+    Promise.resolve(updateReturning.current),
+  )
+}
+wireUpdateBuilder()
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -45,13 +62,20 @@ vi.mock("@chatbotx.io/database/client", () => ({
         findFirst: vi.fn(() => Promise.resolve(queryResult.findFirstReturn)),
         findMany: vi.fn(() => Promise.resolve(queryResult.findManyReturn)),
       },
+      // better-auth (imported transitively via safe-action) resolves trusted
+      // origins from custom domains in the background.
+      customDomainModel: {
+        findMany: vi.fn(() => Promise.resolve([])),
+      },
     },
     insert: vi.fn(() => insertBuilder),
+    update: vi.fn(() => updateBuilder),
   },
   findOrFail: vi.fn(),
   and: (...args: unknown[]) => args,
   eq: (...args: unknown[]) => args,
   inArray: (...args: unknown[]) => args,
+  isNull: (...args: unknown[]) => args,
 }))
 
 // The real tagModel is needed for createSelectSchema(tagModel, …) in
@@ -75,8 +99,8 @@ vi.mock("@chatbotx.io/utils", async (importOriginal) => {
   }
 })
 
-vi.mock("@/lib/cache-helper", () => ({
-  revalidateCacheTags: vi.fn(),
+vi.mock("@chatbotx.io/redis", () => ({
+  invalidateCacheByTags: vi.fn(),
 }))
 
 vi.mock("@/features/folders/actions/utils", () => ({
@@ -88,9 +112,9 @@ vi.mock("@/features/folders/actions/utils", () => ({
 const { createTag } = await import("../create-tag-action")
 const { deleteTags, deleteTag } = await import("../delete-tag-action")
 
-const { db, findOrFail } = await import("@chatbotx.io/database/client")
+const { db } = await import("@chatbotx.io/database/client")
 const { tagSyncService } = await import("@chatbotx.io/business")
-const { revalidateCacheTags } = await import("@/lib/cache-helper")
+const { invalidateCacheByTags } = await import("@chatbotx.io/redis")
 const { ensureFolderIsExists } = await import(
   "@/features/folders/actions/utils"
 )
@@ -98,11 +122,12 @@ const { returnValidationErrors } = await import("next-safe-action")
 
 const enqueueCreate = tagSyncService.enqueueCreate as ReturnType<typeof vi.fn>
 const enqueueDelete = tagSyncService.enqueueDelete as ReturnType<typeof vi.fn>
-const revalidateCacheTagsFn = revalidateCacheTags as ReturnType<typeof vi.fn>
+const invalidateCacheByTagsFn = invalidateCacheByTags as ReturnType<
+  typeof vi.fn
+>
 const ensureFolderIsExistsFn = ensureFolderIsExists as ReturnType<typeof vi.fn>
 const returnValidationErrorsFn =
   returnValidationErrors as unknown as ReturnType<typeof vi.fn>
-const findOrFailFn = findOrFail as ReturnType<typeof vi.fn>
 
 // ── Reset helper ──────────────────────────────────────────────────────────────
 
@@ -111,9 +136,14 @@ const WS = "ws-test-1"
 function resetAll() {
   // Re-apply insert chain implementations: restoreMocks:true wipes vi.fn() impls.
   wireInsertBuilder()
+  wireUpdateBuilder()
   // Re-apply db.insert impl
   vi.mocked(db.insert).mockImplementation(
     () => insertBuilder as unknown as ReturnType<typeof db.insert>,
+  )
+  // Re-apply db.update impl (soft-delete path)
+  vi.mocked(db.update).mockImplementation(
+    () => updateBuilder as unknown as ReturnType<typeof db.update>,
   )
   // Re-apply query implementations that read from shared state
   vi.mocked(db.query.tagModel.findFirst).mockImplementation(
@@ -133,6 +163,7 @@ function resetAll() {
   queryResult.findFirstReturn = undefined
   queryResult.findManyReturn = []
   insertReturning.current = []
+  updateReturning.current = []
 }
 
 // ── createTag tests ───────────────────────────────────────────────────────────
@@ -233,17 +264,19 @@ describe("deleteTags", () => {
   beforeEach(resetAll)
 
   test("does NOT call enqueueDelete when no ids match any tag", async () => {
-    queryResult.findManyReturn = []
+    updateReturning.current = [] // soft-delete UPDATE matched no rows
 
     await deleteTags({ workspaceId: WS, ids: ["ghost-1", "ghost-2"] })
 
     expect(enqueueDelete).not.toHaveBeenCalled()
-    expect(revalidateCacheTagsFn).toHaveBeenCalledTimes(1)
-    expect(revalidateCacheTagsFn).toHaveBeenCalledWith(`workspaces:${WS}#tags`)
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledTimes(1)
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledWith([
+      `workspaces:${WS}#tags`,
+    ])
   })
 
   test("calls enqueueDelete only for found tags on partial ID match", async () => {
-    queryResult.findManyReturn = [{ id: "tag-1" }]
+    updateReturning.current = [{ id: "tag-1" }]
 
     await deleteTags({ workspaceId: WS, ids: ["tag-1", "non-existent"] })
 
@@ -255,7 +288,7 @@ describe("deleteTags", () => {
   })
 
   test("calls enqueueDelete once per tag when all ids match", async () => {
-    queryResult.findManyReturn = [
+    updateReturning.current = [
       { id: "tag-a" },
       { id: "tag-b" },
       { id: "tag-c" },
@@ -278,60 +311,65 @@ describe("deleteTags", () => {
     })
   })
 
-  test("always calls revalidateCacheTags regardless of how many tags found", async () => {
-    queryResult.findManyReturn = [{ id: "tag-x" }]
+  test("always calls invalidateCacheByTags regardless of how many tags found", async () => {
+    updateReturning.current = [{ id: "tag-x" }]
 
     await deleteTags({ workspaceId: WS, ids: ["tag-x"] })
 
-    expect(revalidateCacheTagsFn).toHaveBeenCalledWith(`workspaces:${WS}#tags`)
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledWith([
+      `workspaces:${WS}#tags`,
+    ])
   })
 
-  test("queries DB with workspaceId scoped to the provided workspace", async () => {
-    queryResult.findManyReturn = []
+  test("soft-deletes with workspaceId scoped to the provided workspace", async () => {
+    updateReturning.current = []
 
     await deleteTags({ workspaceId: WS, ids: ["id-1", "id-2"] })
 
-    expect(vi.mocked(db.query.tagModel.findMany)).toHaveBeenCalledTimes(1)
-    const callArg = vi.mocked(db.query.tagModel.findMany).mock
-      .calls[0]?.[0] as Record<string, unknown>
-    expect(callArg?.where).toMatchObject({ workspaceId: WS })
+    // where(and(eq(tagModel.workspaceId, WS), inArray(...), isNull(...)))
+    // eq/and mocks return their args, so the first member is [col, WS].
+    expect(vi.mocked(db.update)).toHaveBeenCalledTimes(1)
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ deletedAt: expect.any(Date) }),
+    )
+    const whereArg = updateBuilder.where.mock.calls[0]?.[0] as unknown[][]
+    expect(whereArg?.[0]?.[1]).toBe(WS)
   })
 })
 
-// ── deleteTag (single, findOrFail path) ───────────────────────────────────────
+// ── deleteTag (single, soft-delete path) ──────────────────────────────────────
 
 describe("deleteTag", () => {
   beforeEach(resetAll)
 
-  test("findOrFail → enqueueDelete → revalidateCacheTags on success", async () => {
-    const tag = { id: "single-tag-id", workspaceId: WS, name: "Single" }
-    findOrFailFn.mockResolvedValueOnce(tag)
+  test("soft-delete → enqueueDelete → invalidateCacheByTags on success", async () => {
+    updateReturning.current = [{ id: "single-tag-id" }]
 
     await deleteTag({ workspaceId: WS, id: "single-tag-id" })
 
-    expect(findOrFailFn).toHaveBeenCalledTimes(1)
-    expect(findOrFailFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { workspaceId: WS, id: "single-tag-id" },
-      }),
+    expect(vi.mocked(db.update)).toHaveBeenCalledTimes(1)
+    expect(updateBuilder.set).toHaveBeenCalledWith(
+      expect.objectContaining({ deletedAt: expect.any(Date) }),
     )
     expect(enqueueDelete).toHaveBeenCalledTimes(1)
     expect(enqueueDelete).toHaveBeenCalledWith({
       workspaceId: WS,
       tagId: "single-tag-id",
     })
-    expect(revalidateCacheTagsFn).toHaveBeenCalledTimes(1)
-    expect(revalidateCacheTagsFn).toHaveBeenCalledWith(`workspaces:${WS}#tags`)
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledTimes(1)
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledWith([
+      `workspaces:${WS}#tags`,
+    ])
   })
 
-  test("propagates error from findOrFail; no enqueueDelete or revalidate called", async () => {
-    findOrFailFn.mockRejectedValueOnce(new Error("Tag not found"))
+  test("no matching tag → no enqueueDelete, still revalidates, does not throw", async () => {
+    updateReturning.current = [] // tag absent or already soft-deleted
 
     await expect(
       deleteTag({ workspaceId: WS, id: "no-such-tag" }),
-    ).rejects.toThrow("Tag not found")
+    ).resolves.toBeUndefined()
 
     expect(enqueueDelete).not.toHaveBeenCalled()
-    expect(revalidateCacheTagsFn).not.toHaveBeenCalled()
+    expect(invalidateCacheByTagsFn).toHaveBeenCalledTimes(1)
   })
 })

@@ -4,6 +4,7 @@ import { tagSyncService } from "@chatbotx.io/business"
 import { and, db, eq, inArray } from "@chatbotx.io/database/client"
 import { contactsToTagsModel } from "@chatbotx.io/database/schema"
 import { emitTagRemoved } from "@chatbotx.io/events"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import {
   type WorkspaceIdRequestParams,
   workspaceIdrequestParams,
@@ -112,4 +113,10 @@ export const removeContactTags = async ({
       }
     }
   }
+
+  await invalidateCacheByTags([
+    `workspaces:${workspaceId}#contacts`,
+    `workspaces:${workspaceId}#conversations`,
+    `workspaces:${workspaceId}#tags`,
+  ])
 }

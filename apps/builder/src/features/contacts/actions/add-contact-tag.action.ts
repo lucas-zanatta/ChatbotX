@@ -4,6 +4,7 @@ import { contactService, tagSyncService } from "@chatbotx.io/business"
 import { and, db, eq, findOrFail, inArray } from "@chatbotx.io/database/client"
 import { contactsToTagsModel, tagModel } from "@chatbotx.io/database/schema"
 import { emitTagApplied, emitTagRemoved } from "@chatbotx.io/events"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { createId } from "@chatbotx.io/utils"
 import {
   type WorkspaceIdRequestParams,
@@ -130,6 +131,12 @@ export const addContactTags = async ({
       })
     }
   }
+
+  await invalidateCacheByTags([
+    `workspaces:${workspaceId}#contacts`,
+    `workspaces:${workspaceId}#conversations`,
+    `workspaces:${workspaceId}#tags`,
+  ])
 }
 
 export const attachContactTag = async ({

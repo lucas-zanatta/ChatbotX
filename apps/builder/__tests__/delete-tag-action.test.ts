@@ -9,7 +9,7 @@ const updateReturning = vi.fn()
 
 // ── business / cache spies ────────────────────────────────────────────────────
 const enqueueDelete = vi.fn()
-const revalidateCacheTags = vi.fn()
+const invalidateCacheByTags = vi.fn()
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 vi.mock("@chatbotx.io/database/client", () => ({
@@ -51,8 +51,8 @@ vi.mock("@chatbotx.io/business", () => ({
   },
 }))
 
-vi.mock("@/lib/cache-helper", () => ({
-  revalidateCacheTags: (...args: unknown[]) => revalidateCacheTags(...args),
+vi.mock("@chatbotx.io/redis", () => ({
+  invalidateCacheByTags: (...args: unknown[]) => invalidateCacheByTags(...args),
 }))
 
 vi.mock("@/lib/safe-action", () => ({
@@ -86,7 +86,7 @@ beforeEach(() => {
   updateWhere.mockClear()
   updateReturning.mockReset()
   enqueueDelete.mockClear()
-  revalidateCacheTags.mockClear()
+  invalidateCacheByTags.mockClear()
   updateReturning.mockResolvedValue([])
 })
 
@@ -124,11 +124,13 @@ describe("deleteTags", () => {
     expect(enqueueDelete).not.toHaveBeenCalled()
   })
 
-  test("calls revalidateCacheTags exactly once after all chunks", async () => {
+  test("calls invalidateCacheByTags exactly once after all chunks", async () => {
     updateReturning.mockResolvedValue([])
     await deleteTags({ workspaceId: WS, ids: makeIds(201) })
-    expect(revalidateCacheTags).toHaveBeenCalledTimes(1)
-    expect(revalidateCacheTags).toHaveBeenCalledWith(`workspaces:${WS}#tags`)
+    expect(invalidateCacheByTags).toHaveBeenCalledTimes(1)
+    expect(invalidateCacheByTags).toHaveBeenCalledWith([
+      `workspaces:${WS}#tags`,
+    ])
   })
 
   test("set includes deletedAt", async () => {
@@ -155,10 +157,12 @@ describe("deleteTag", () => {
     expect(enqueueDelete).not.toHaveBeenCalled()
   })
 
-  test("always calls revalidateCacheTags regardless of row existence", async () => {
+  test("always calls invalidateCacheByTags regardless of row existence", async () => {
     updateReturning.mockResolvedValue([])
     await deleteTag({ workspaceId: WS, id: "t1" })
-    expect(revalidateCacheTags).toHaveBeenCalledWith(`workspaces:${WS}#tags`)
+    expect(invalidateCacheByTags).toHaveBeenCalledWith([
+      `workspaces:${WS}#tags`,
+    ])
   })
 
   test("set includes deletedAt", async () => {

@@ -116,6 +116,15 @@ const enqueueDetach = vi.fn(async () => undefined)
 
 vi.mock("@chatbotx.io/business", () => ({
   tagSyncService: { enqueueAttach, enqueueDetach },
+  // update-contact-tag.action.ts resolves the contact via contactService.
+  contactService: {
+    findByIdOrFail: vi.fn(() => {
+      if (state.findOrFailError) {
+        return Promise.reject(state.findOrFailError)
+      }
+      return Promise.resolve(state.findOrFailResult ?? {})
+    }),
+  },
   // safe-action.ts also imports isPlatformAdmin
   isPlatformAdmin: vi.fn(async () => false),
 }))
@@ -147,10 +156,10 @@ vi.mock("@chatbotx.io/utils", () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock: @/lib/cache-helper
+// Mock: @chatbotx.io/redis — invalidateCacheByTags
 // ---------------------------------------------------------------------------
-const revalidateCacheTags = vi.fn()
-vi.mock("@/lib/cache-helper", () => ({ revalidateCacheTags }))
+const invalidateCacheByTags = vi.fn()
+vi.mock("@chatbotx.io/redis", () => ({ invalidateCacheByTags }))
 
 // ---------------------------------------------------------------------------
 // Mock: @/lib/safe-action — stub workspaceActionClient to avoid auth chains
@@ -301,7 +310,7 @@ describe("addContactTags", () => {
 
     expect(enqueueAttach).not.toHaveBeenCalled()
     expect(emitTagApplied).not.toHaveBeenCalled()
-    expect(revalidateCacheTags).toHaveBeenCalledOnce()
+    expect(invalidateCacheByTags).toHaveBeenCalledOnce()
   })
 
   // ── onConflictDoNothing returns empty RETURNING (all pre-existing) ───────
@@ -397,7 +406,7 @@ describe("addContactTags", () => {
     })
 
     expect(contactFindMany).toHaveBeenCalledTimes(2)
-    expect(revalidateCacheTags).toHaveBeenCalledOnce()
+    expect(invalidateCacheByTags).toHaveBeenCalledOnce()
   })
 
   // ── partial mix: some pairs new, some existing ───────────────────────────
@@ -429,9 +438,9 @@ describe("addContactTags", () => {
     })
   })
 
-  // ── revalidateCacheTags called with correct tags ──────────────────────────
+  // ── invalidateCacheByTags called with correct tags ──────────────────────────
 
-  test("calls revalidateCacheTags with correct workspace cache keys", async () => {
+  test("calls invalidateCacheByTags with correct workspace cache keys", async () => {
     state.txTagFindMany = [{ id: "tag-1" }]
     state.contactFindMany = [{ id: "c-1" }]
     mockInsertBuilder.returning.mockResolvedValue([])
@@ -441,7 +450,7 @@ describe("addContactTags", () => {
       parsedInput: { ids: ["c-1"], tags: ["tag-a"] },
     })
 
-    expect(revalidateCacheTags).toHaveBeenCalledWith([
+    expect(invalidateCacheByTags).toHaveBeenCalledWith([
       "workspaces:ws-42#contacts",
       "workspaces:ws-42#conversations",
       "workspaces:ws-42#tags",
@@ -514,7 +523,7 @@ describe("removeContactTags", () => {
     const { db } = await import("@chatbotx.io/database/client")
     expect(db.delete).not.toHaveBeenCalled()
     expect(enqueueDetach).not.toHaveBeenCalled()
-    expect(revalidateCacheTags).toHaveBeenCalledOnce()
+    expect(invalidateCacheByTags).toHaveBeenCalledOnce()
   })
 
   // ── Happy path: per-contact delete + enqueueDetach per contact×tag ────────
@@ -579,9 +588,9 @@ describe("removeContactTags", () => {
     })
   })
 
-  // ── revalidateCacheTags called ─────────────────────────────────────────
+  // ── invalidateCacheByTags called ─────────────────────────────────────────
 
-  test("calls revalidateCacheTags with correct workspace cache keys", async () => {
+  test("calls invalidateCacheByTags with correct workspace cache keys", async () => {
     state.tagFindMany = [{ id: "tag-1" }]
     state.contactFindMany = [{ id: "c-1" }]
 
@@ -590,7 +599,7 @@ describe("removeContactTags", () => {
       parsedInput: { ids: ["c-1"], tags: ["tag-a"] },
     })
 
-    expect(revalidateCacheTags).toHaveBeenCalledWith([
+    expect(invalidateCacheByTags).toHaveBeenCalledWith([
       "workspaces:ws-99#contacts",
       "workspaces:ws-99#conversations",
       "workspaces:ws-99#tags",
@@ -800,9 +809,9 @@ describe("updateContactTags", () => {
     expect(result).toEqual(resolvedTags)
   })
 
-  // ── revalidateCacheTags called ────────────────────────────────────────────
+  // ── invalidateCacheByTags called ────────────────────────────────────────────
 
-  test("calls revalidateCacheTags with correct workspace cache keys", async () => {
+  test("calls invalidateCacheByTags with correct workspace cache keys", async () => {
     state.findOrFailResult = { id: "c-1" }
     state.txContactToTagsFindMany = []
     state.txTagFindMany = []
@@ -812,7 +821,7 @@ describe("updateContactTags", () => {
       parsedInput: { contactId: "c-1", tags: [] },
     })
 
-    expect(revalidateCacheTags).toHaveBeenCalledWith([
+    expect(invalidateCacheByTags).toHaveBeenCalledWith([
       "workspaces:ws-7#contacts",
       "workspaces:ws-7#conversations",
       "workspaces:ws-7#tags",

@@ -2,9 +2,9 @@
 
 import { and, db, eq } from "@chatbotx.io/database/client"
 import { integrationZaloModel } from "@chatbotx.io/database/schema"
+import { invalidateCacheByTags } from "@chatbotx.io/redis"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { z } from "zod"
-import { revalidateCacheTags } from "@/lib/cache-helper"
 import { workspaceActionClient } from "@/lib/safe-action"
 
 export const toggleZaloTagSyncAction = workspaceActionClient
@@ -26,5 +26,5 @@ export const toggleZaloTagSyncAction = workspaceActionClient
         ),
       )
 
-    await revalidateCacheTags(`workspaces:${workspaceId}#zalos`)
+    await invalidateCacheByTags([`workspaces:${workspaceId}#zalos`])
   })

@@ -101,10 +101,16 @@ vi.mock("@chatbotx.io/database/client", () => ({
   },
   and: (...args: unknown[]) => args,
   eq: (...args: unknown[]) => args,
+  inArray: (...args: unknown[]) => args,
+  isNotNull: (...args: unknown[]) => args,
 }))
 
 vi.mock("@chatbotx.io/database/schema", () => ({
-  tagModel: { id: "id", workspaceId: "workspaceId" },
+  tagModel: { id: "id", workspaceId: "workspaceId", deletedAt: "deletedAt" },
+  contactsToTagsModel: {
+    contactId: "contactId",
+    tagId: "tagId",
+  },
   tagChannelModel: {
     id: "id",
     tagId: "tagId",
