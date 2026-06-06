@@ -22,12 +22,7 @@ import JSZip from "jszip"
 import { simpleParser } from "mailparser"
 import { extractRawText } from "mammoth"
 import { lookup } from "mime-types"
-// Import the parser entry directly instead of the package root. The package's
-// index.js runs `require.resolve('./lib/markdown-render-page.js')` at module
-// load; under tsdown's `alwaysBundle`, that relative path is baked into dist/
-// and throws MODULE_NOT_FOUND at runtime. lib/pdf-parse.js is the default
-// in-process parser and only needs pdf.js, which bundles cleanly.
-import pdfParse from "pdf-parse-new/lib/pdf-parse.js"
+import pdfParse from "pdf-parse-new"
 import removeMd from "remove-markdown"
 import { read, utils } from "xlsx"
 import { logger } from "../../lib/logger"
