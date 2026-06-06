@@ -112,7 +112,7 @@ const isUniqueMessagePkViolation = (err: unknown): boolean => {
   // name like "17_17_Message_pkey", so match by suffix rather than equality.
   let current: unknown = err
   for (let depth = 0; depth < 5 && current; depth++) {
-    if (typeof current !== "object" || current === null) {
+    if (typeof current !== "object") {
       return false
     }
     const e = current as {
