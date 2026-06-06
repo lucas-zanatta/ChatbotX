@@ -13,8 +13,8 @@ export const AIGenerateTextViewer = (props: AIGenerateTextViewerProps) => {
   const { data } = props
   const t = useTranslations()
 
-  const successState = data.states.find((s) => s.stateType === "success")
-  const errorState = data.states.find((s) => s.stateType === "error")
+  const successState = data.states?.find((s) => s.stateType === "success")
+  const errorState = data.states?.find((s) => s.stateType === "error")
 
   return (
     <div className="flex flex-col gap-4 py-4">

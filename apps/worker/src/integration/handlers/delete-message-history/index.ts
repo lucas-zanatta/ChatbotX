@@ -3,10 +3,11 @@ import { db, eq, sql } from "@chatbotx.io/database/client"
 import { conversationModel, messageModel } from "@chatbotx.io/database/schema"
 import type { AIDeleteMessageHistorySchema } from "@chatbotx.io/flow-config"
 import type { ExecuteStepProps } from "../flow"
+import type { ExecuteStepResult } from "../step"
 
 export async function handleAIDeleteMessageHistory({
   conversation,
-}: ExecuteStepProps<AIDeleteMessageHistorySchema>) {
+}: ExecuteStepProps<AIDeleteMessageHistorySchema>): Promise<ExecuteStepResult> {
   await db
     .update(conversationModel)
     .set({
@@ -20,4 +21,6 @@ export async function handleAIDeleteMessageHistory({
     .where(eq(conversationModel.id, conversation.id))
 
   await aiContextStore.delete(conversation.id)
+
+  return { status: "success", result: null }
 }

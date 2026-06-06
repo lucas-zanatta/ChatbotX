@@ -1,5 +1,12 @@
 import { createId, zodBigintAsString } from "@chatbotx.io/utils"
 import { z } from "zod"
+
+import {
+  errorStateDefaultFn,
+  errorStateSchema,
+  successStateDefaultFn,
+  successStateSchema,
+} from "../states"
 import { stepTypes } from "./step-action"
 
 export const aiSpeechToTextSchema = z.object({
@@ -9,6 +16,7 @@ export const aiSpeechToTextSchema = z.object({
   model: z.string().trim().min(1),
   inputFieldId: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
+  states: z.tuple([successStateSchema, errorStateSchema]),
 })
 export type AISpeechToTextSchema = z.infer<typeof aiSpeechToTextSchema>
 
@@ -21,5 +29,6 @@ export const AISpeechToTextDefaultFn = (
   model: "whisper-1",
   inputFieldId: "",
   outputFieldId: "",
+  states: [successStateDefaultFn(), errorStateDefaultFn()],
   ...props,
 })

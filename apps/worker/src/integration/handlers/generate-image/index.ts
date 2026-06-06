@@ -14,6 +14,7 @@ import {
   IMAGE_DEFAULT_MIME_TYPE,
 } from "@chatbotx.io/flow-config"
 import { generateImage } from "ai"
+import { normalizeError } from "universal-error-normalizer"
 import { logger } from "../../../lib/logger"
 import {
   getIntegrationContext,
@@ -21,6 +22,7 @@ import {
 } from "../../utils/contact"
 import { sendMessageWithRender } from "../../utils/message"
 import type { ExecuteStepProps } from "../flow"
+import type { ExecuteStepResult } from "../step"
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif"])
@@ -30,7 +32,7 @@ export async function handleAIGenerateImage({
   contactInbox: baseContactInbox,
   metadata,
   step,
-}: ExecuteStepProps<AIGenerateImageSchema>) {
+}: ExecuteStepProps<AIGenerateImageSchema>): Promise<ExecuteStepResult> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), aiTimeouts.aiTotal)
 
@@ -41,7 +43,11 @@ export async function handleAIGenerateImage({
     })
 
     if (!aiConfig) {
-      return
+      return {
+        status: "error",
+        errorMessage: "AI integration not found",
+        result: null,
+      }
     }
 
     const ctx = await getIntegrationContext({
@@ -58,7 +64,11 @@ export async function handleAIGenerateImage({
         },
         "[ai-generate-image] Integration context not found, skipping",
       )
-      return
+      return {
+        status: "error",
+        errorMessage: "Integration context not found",
+        result: null,
+      }
     }
 
     const model = createAIImageModelInstance({
@@ -155,7 +165,10 @@ export async function handleAIGenerateImage({
         workspaceId: conversation.workspaceId,
       })
     }
-  } catch (error) {
+
+    return { status: "success", result: null }
+  } catch (err) {
+    const error = normalizeError(err)
     logger.error(
       {
         err: error,
@@ -164,10 +177,7 @@ export async function handleAIGenerateImage({
       },
       "[ai-generate-image] Step failed",
     )
-
-    await sendMessageWithRender(conversation.id, "Error generating image")
-
-    throw error
+    return { status: "error", errorMessage: error.message, result: null }
   } finally {
     clearTimeout(timeoutId)
   }

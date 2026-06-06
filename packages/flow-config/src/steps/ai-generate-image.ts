@@ -1,6 +1,12 @@
 import { createId, zodBigintAsString } from "@chatbotx.io/utils"
 import { z } from "zod"
 
+import {
+  errorStateDefaultFn,
+  errorStateSchema,
+  successStateDefaultFn,
+  successStateSchema,
+} from "../states"
 import { stepTypes } from "./step-action"
 
 export const aiGenerateImageQuality = z.enum(["auto", "hd", "md", "ld"])
@@ -41,6 +47,7 @@ export const aiGenerateImageSchema = z.object({
   quality: aiGenerateImageQuality,
   size: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
+  states: z.tuple([successStateSchema, errorStateSchema]),
 })
 
 export type AIGenerateImageSchema = z.infer<typeof aiGenerateImageSchema>
@@ -75,5 +82,6 @@ export const aiGenerateImageDefaultFn = (
     outputFieldId: "",
     ...props,
     stepType: stepTypes.enum.aiGenerateImage,
+    states: [successStateDefaultFn(), errorStateDefaultFn()],
   }
 }
