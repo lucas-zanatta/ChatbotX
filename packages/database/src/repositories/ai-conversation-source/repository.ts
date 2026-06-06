@@ -122,6 +122,7 @@ export class ConversationSourceRepository {
 
   findDocumentAttachments(params: {
     conversationId: string
+    limit: number
     supportedMimeTypes: string[]
     workspaceId: string
   }): Promise<AttachmentModel[]> {
@@ -136,6 +137,7 @@ export class ConversationSourceRepository {
         ),
       )
       .orderBy(desc(attachmentModel.createdAt))
+      .limit(params.limit)
   }
 
   async deleteOlderByConversation(params: {

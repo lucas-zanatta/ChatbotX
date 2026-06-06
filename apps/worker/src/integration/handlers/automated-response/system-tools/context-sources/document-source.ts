@@ -34,6 +34,7 @@ const SUPPORTED_DOCUMENT_MIME_TYPES_LIST = [
   ...DOCX_MIME_TYPES,
 ] as string[]
 const DEFAULT_TOP_K = 5
+const DOCUMENT_ATTACHMENT_LOOKUP_LIMIT = 50
 const STALE_PROCESSING_THRESHOLD_MS = 5 * 60 * 1000
 const PROCESS_SOURCE_JOB_ID_PREFIX = AIJobAction.processConversationSource
 
@@ -85,6 +86,7 @@ async function resolveDocumentSource(
     workspaceId: input.workspaceId,
     conversationId: input.conversationId,
     supportedMimeTypes: SUPPORTED_DOCUMENT_MIME_TYPES_LIST,
+    limit: DOCUMENT_ATTACHMENT_LOOKUP_LIMIT,
   })
 
   if (attachments.length === 0) {

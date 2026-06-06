@@ -1,6 +1,9 @@
 import { systemFunctionNames, toolPrefixes } from "@chatbotx.io/ai"
+import { z } from "zod"
 
 export const MAX_WEB_SEARCH_AUTHORIZED_DOMAINS = 20
+
+const authorizedWebSearchDomainSchema = z.hostname()
 
 export const webSearchToolValue = `${toolPrefixes.enum.sys}:${systemFunctionNames.webSearch}`
 
@@ -20,7 +23,10 @@ export function normalizeWebSearchDomains(
   for (const domain of domains ?? []) {
     const normalizedDomain = domain.value.trim().toLowerCase()
 
-    if (normalizedDomain) {
+    if (
+      normalizedDomain &&
+      authorizedWebSearchDomainSchema.safeParse(normalizedDomain).success
+    ) {
       normalizedDomains.add(normalizedDomain)
     }
   }

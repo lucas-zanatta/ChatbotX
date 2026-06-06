@@ -20,6 +20,7 @@ import {
 
 const FALLBACK_FETCH_TIMEOUT_MS = 10_000
 const FALLBACK_MAX_RESPONSE_BYTES = 500_000
+const FALLBACK_MAX_REDIRECTS = 3
 
 function extractReadableText(html: string, url: string): string {
   try {
@@ -62,9 +63,37 @@ function formatToolOutput(props: {
   return output.join("\n")
 }
 
-async function fetchUrlText(url: string): Promise<string> {
+async function fetchSafe(
+  url: string,
+  signal: AbortSignal,
+  redirectsLeft = FALLBACK_MAX_REDIRECTS,
+): Promise<Response> {
   assertPublicUrl(url, "URL context")
 
+  const response = await fetch(url, {
+    signal,
+    redirect: "manual",
+    headers: {
+      "User-Agent": "ChatbotX-URLContext/1.0",
+      Accept: "text/html,text/plain;q=0.9",
+    },
+  })
+
+  if (response.status >= 300 && response.status < 400) {
+    if (redirectsLeft <= 0) {
+      throw new Error("Too many redirects")
+    }
+    const location = response.headers.get("location")
+    if (!location) {
+      throw new Error("Redirect with no Location header")
+    }
+    return fetchSafe(new URL(location, url).href, signal, redirectsLeft - 1)
+  }
+
+  return response
+}
+
+async function fetchUrlText(url: string): Promise<string> {
   const controller = new AbortController()
   const timeoutId = setTimeout(
     () => controller.abort(),
@@ -72,13 +101,7 @@ async function fetchUrlText(url: string): Promise<string> {
   )
 
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "ChatbotX-URLContext/1.0",
-        Accept: "text/html,text/plain;q=0.9",
-      },
-    })
+    const response = await fetchSafe(url, controller.signal)
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
