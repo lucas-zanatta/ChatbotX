@@ -21,7 +21,10 @@ export default defineConfig({
     skipNodeModulesBundle: false,
     // https://github.com/egoist/tsdown/issues/619
     alwaysBundle: [/(.*)/],
-    neverBundle: ["react"],
+    // canvas is an optional native dep of jsdom (try/catch require). Bundling it
+    // fails because native binaries can't be inlined; keeping it external lets
+    // jsdom's try-catch fall through and set Canvas = null at runtime.
+    neverBundle: ["react", "canvas"],
   },
   clean: true,
   // target: 'node20',
