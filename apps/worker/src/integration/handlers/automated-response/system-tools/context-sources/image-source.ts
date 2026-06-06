@@ -16,26 +16,6 @@ export function isSupportedImageMimeType(mimeType: string): boolean {
   return SUPPORTED_IMAGE_MIME_TYPES.has(normalizeMimeType(mimeType))
 }
 
-function normalizeHint(value?: string): null | string {
-  const normalized = value?.trim().toLowerCase()
-  if (!normalized) {
-    return null
-  }
-  return normalized
-}
-
-function matchesHint(attachment: AttachmentModel, hint: string): boolean {
-  const haystack = [
-    attachment.name ?? "",
-    attachment.originPath ?? "",
-    attachment.sourceId ?? "",
-  ]
-    .join(" ")
-    .toLowerCase()
-
-  return haystack.includes(hint)
-}
-
 export async function resolveImageAttachment(
   input: ResolveConversationSourceInput,
 ): Promise<AttachmentModel | null> {
@@ -53,17 +33,9 @@ export async function resolveImageAttachment(
     return null
   }
 
-  const hint = normalizeHint(input.sourceHint)
   const triggerMessageAttachment = input.messageId
     ? attachments.find((attachment) => attachment.messageId === input.messageId)
     : null
 
-  return (
-    (hint
-      ? attachments.find((attachment) => matchesHint(attachment, hint))
-      : null) ??
-    triggerMessageAttachment ??
-    attachments[0] ??
-    null
-  )
+  return triggerMessageAttachment ?? attachments[0] ?? null
 }

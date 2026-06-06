@@ -112,7 +112,7 @@ async function resolveDocumentSource(
   })
 
   if (!source) {
-    source = await sourceRepo.createOrIgnore({
+    const newSource = await sourceRepo.createOrIgnore({
       id: createId(),
       workspaceId: input.workspaceId,
       conversationId: input.conversationId,
@@ -124,6 +124,28 @@ async function resolveDocumentSource(
       mimeType: selectedAttachment.mimeType,
       title: selectedAttachment.name,
     })
+
+    if (newSource) {
+      sourceRepo
+        .deleteOlderByConversation({
+          workspaceId: input.workspaceId,
+          conversationId: input.conversationId,
+          sourceType: DOCUMENT_SOURCE_TYPE,
+          exceptSourceKey: sourceKey,
+        })
+        .catch((error: unknown) => {
+          logger.warn(
+            {
+              error: normalizeError(error),
+              workspaceId: input.workspaceId,
+              conversationId: input.conversationId,
+            },
+            "[document-source] failed to delete older document sources",
+          )
+        })
+    }
+
+    source = newSource
   } else if (
     source.status === aiConversationSourceStatuses.enum.error &&
     source.attachmentId

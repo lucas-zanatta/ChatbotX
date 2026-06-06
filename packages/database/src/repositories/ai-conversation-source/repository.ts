@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray, ne } from "drizzle-orm"
 import type { DatabaseClient } from "../../client"
 import type {
   AIConversationSourceStatus,
@@ -136,6 +136,24 @@ export class ConversationSourceRepository {
         ),
       )
       .orderBy(desc(attachmentModel.createdAt))
+  }
+
+  async deleteOlderByConversation(params: {
+    conversationId: string
+    exceptSourceKey: string
+    sourceType: AIConversationSourceType
+    workspaceId: string
+  }): Promise<void> {
+    await this.client
+      .delete(aiConversationSourceModel)
+      .where(
+        and(
+          eq(aiConversationSourceModel.workspaceId, params.workspaceId),
+          eq(aiConversationSourceModel.conversationId, params.conversationId),
+          eq(aiConversationSourceModel.sourceType, params.sourceType),
+          ne(aiConversationSourceModel.sourceKey, params.exceptSourceKey),
+        ),
+      )
   }
 
   findAttachmentsByConversation(params: {

@@ -75,20 +75,18 @@ async function resolveUrlSource(
     return null
   }
 
-  let source: Awaited<ReturnType<typeof sourceRepo.findByKey>>
-
   if (input.sourceHint?.trim()) {
     const url = input.sourceHint.trim()
     const sourceKey = buildUrlSourceKey(url)
 
-    source = await sourceRepo.findByKey({
+    const existingSource = await sourceRepo.findByKey({
       workspaceId: input.workspaceId,
       sourceType: URL_SOURCE_TYPE,
       sourceKey,
     })
 
-    if (!source) {
-      source = await sourceRepo.createOrIgnore({
+    if (!existingSource) {
+      const newSource = await sourceRepo.createOrIgnore({
         id: createId(),
         workspaceId: input.workspaceId,
         conversationId: input.conversationId,
@@ -101,46 +99,72 @@ async function resolveUrlSource(
         title: url,
         metadata: { url },
       })
+
+      if (newSource) {
+        sourceRepo
+          .deleteOlderByConversation({
+            workspaceId: input.workspaceId,
+            conversationId: input.conversationId,
+            sourceType: URL_SOURCE_TYPE,
+            exceptSourceKey: sourceKey,
+          })
+          .catch((error: unknown) => {
+            logger.warn(
+              {
+                error: normalizeError(error),
+                workspaceId: input.workspaceId,
+                conversationId: input.conversationId,
+              },
+              "[url-source] failed to delete older url sources",
+            )
+          })
+      }
     }
-  } else {
-    source = await sourceRepo.findLatestByConversation({
-      workspaceId: input.workspaceId,
-      conversationId: input.conversationId,
-      sourceType: URL_SOURCE_TYPE,
-    })
   }
+
+  const source = await sourceRepo.findLatestByConversation({
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    sourceType: URL_SOURCE_TYPE,
+  })
 
   if (!source) {
     return null
   }
 
-  if (source.status === aiConversationSourceStatuses.enum.error && source.id) {
-    source =
-      (await sourceRepo.update(source.id, {
-        status: aiConversationSourceStatuses.enum.pending,
-        errorMessage: null,
-      })) ?? source
+  if (source.status === aiConversationSourceStatuses.enum.error) {
+    await sourceRepo.update(source.id, {
+      status: aiConversationSourceStatuses.enum.pending,
+      errorMessage: null,
+    })
   }
 
-  if (!source) {
+  const latestSource = await sourceRepo.findLatestByConversation({
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    sourceType: URL_SOURCE_TYPE,
+  })
+
+  if (!latestSource) {
     return null
   }
 
   const isStaleProcessing =
-    source.status === aiConversationSourceStatuses.enum.processing &&
-    Date.now() - source.updatedAt.getTime() > STALE_PROCESSING_THRESHOLD_MS
+    latestSource.status === aiConversationSourceStatuses.enum.processing &&
+    Date.now() - latestSource.updatedAt.getTime() >
+      STALE_PROCESSING_THRESHOLD_MS
 
   if (
-    source.status === aiConversationSourceStatuses.enum.pending ||
-    source.status === aiConversationSourceStatuses.enum.error ||
+    latestSource.status === aiConversationSourceStatuses.enum.pending ||
+    latestSource.status === aiConversationSourceStatuses.enum.error ||
     isStaleProcessing
   ) {
-    enqueueConversationSource(source).catch((error: unknown) => {
+    enqueueConversationSource(latestSource).catch((error: unknown) => {
       const normalizedError = normalizeError(error)
       logger.error(
         {
           error: normalizedError,
-          sourceId: source?.id,
+          sourceId: latestSource.id,
           workspaceId: input.workspaceId,
           conversationId: input.conversationId,
         },
@@ -150,7 +174,7 @@ async function resolveUrlSource(
   }
 
   return {
-    source,
+    source: latestSource,
     attachment: undefined,
   }
 }
