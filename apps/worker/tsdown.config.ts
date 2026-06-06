@@ -21,10 +21,14 @@ export default defineConfig({
     skipNodeModulesBundle: false,
     // https://github.com/egoist/tsdown/issues/619
     alwaysBundle: [/(.*)/],
-    // canvas is an optional native dep of jsdom (try/catch require). Bundling it
-    // fails because native binaries can't be inlined; keeping it external lets
-    // jsdom's try-catch fall through and set Canvas = null at runtime.
-    neverBundle: ["react", "canvas"],
+    // jsdom calls require.resolve('./xhr-sync-worker.js') at module load in
+    // XMLHttpRequest-impl.js — the same top-level require.resolve pattern that
+    // broke pdf-parse-new. There is no clean subpath to import, so jsdom and
+    // its peer @mozilla/readability must stay external and be shipped in
+    // node_modules alongside dist (see Dockerfile).
+    // canvas is jsdom's optional native dep (try/catch require) — also external
+    // so the try-catch gracefully sets Canvas = null at runtime.
+    neverBundle: ["react", "jsdom", "@mozilla/readability", "canvas"],
   },
   clean: true,
   // target: 'node20',

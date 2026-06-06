@@ -26,6 +26,11 @@ RUN pnpm install --frozen-lockfile
 COPY --from=pre /app/out/full/ .
 RUN SKIP_ENV_CHECK=true pnpm turbo run build --filter=worker
 
+# Deploy worker with only the packages that cannot be bundled (jsdom,
+# @mozilla/readability). pnpm deploy resolves the full transitive dep tree
+# and produces a flat node_modules the release stage can COPY directly.
+RUN pnpm --filter worker deploy --prod /app/worker-deploy
+
 FROM base AS release
 RUN apt update && \
   apt install -y tini redis && \
@@ -35,6 +40,8 @@ RUN apt update && \
 COPY apps/worker/docker/rootfs/ /
 
 COPY --from=deps /app/apps/worker/dist /app/apps/worker/dist
+# Runtime node_modules for packages excluded from the bundle (jsdom, readability)
+COPY --from=deps /app/worker-deploy/node_modules /app/node_modules
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
