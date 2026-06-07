@@ -16,7 +16,7 @@ export const aiSpeechToTextSchema = z.object({
   model: z.string().trim().min(1),
   inputFieldId: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
-  states: z.tuple([successStateSchema, errorStateSchema]),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 })
 export type AISpeechToTextSchema = z.infer<typeof aiSpeechToTextSchema>
 
@@ -24,11 +24,11 @@ export const AISpeechToTextDefaultFn = (
   props?: Partial<AISpeechToTextSchema>,
 ): AISpeechToTextSchema => ({
   id: createId(),
-  stepType: stepTypes.enum.aiSpeechToText,
   provider: "openai",
   model: "whisper-1",
   inputFieldId: "",
   outputFieldId: "",
-  states: [successStateDefaultFn(), errorStateDefaultFn()],
   ...props,
+  stepType: stepTypes.enum.aiSpeechToText,
+  states: [successStateDefaultFn(), errorStateDefaultFn()],
 })

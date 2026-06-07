@@ -90,7 +90,6 @@ async function streamToBuffer(
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
     const parser = await pdfParse(buffer)
-
     return parser.text
   } catch (error) {
     logger.warn(error, "PDF parsing failed, falling back to plain text")

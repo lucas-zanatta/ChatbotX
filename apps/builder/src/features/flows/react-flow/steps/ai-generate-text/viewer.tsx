@@ -19,7 +19,12 @@ export const AIGenerateTextViewer = (props: AIGenerateTextViewerProps) => {
   return (
     <div className="flex flex-col gap-4 py-4">
       <div className="flex w-full items-center justify-center gap-2 text-center font-bold">
-        <AIIcon label={data.provider} provider={data.provider} />
+        <AIIcon
+          label={t("fields.flows.aiGenerateText", {
+            aiName: t(`aiProviders.${data.provider}`),
+          })}
+          provider={data.provider}
+        />
       </div>
 
       <div className="flex flex-col items-end gap-2">

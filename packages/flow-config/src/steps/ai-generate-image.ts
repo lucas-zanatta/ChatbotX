@@ -31,7 +31,7 @@ export const IMAGE_DEFAULT_EXTENSION = "png" as const
 export const IMAGE_DEFAULT_MIME_TYPE = "image/png" as const
 
 export const defaultModels = {
-  openai: "dall-e-3",
+  openai: "gpt-image-2",
   gemini: "gemini-3.1-flash-image-preview",
 } as const
 
@@ -47,7 +47,7 @@ export const aiGenerateImageSchema = z.object({
   quality: aiGenerateImageQuality,
   size: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
-  states: z.tuple([successStateSchema, errorStateSchema]),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 })
 
 export type AIGenerateImageSchema = z.infer<typeof aiGenerateImageSchema>

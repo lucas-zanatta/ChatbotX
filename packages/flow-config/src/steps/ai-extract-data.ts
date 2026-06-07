@@ -64,7 +64,9 @@ const extractDataBase = {
   provider: z.enum(["openai", "gemini", "claude"]),
   model: z.string().trim().min(1),
   extractFields: z.array(extractFieldSchema),
-  states: z.tuple([successStateSchema, errorStateSchema, skipStateSchema]),
+  states: z
+    .tuple([successStateSchema, errorStateSchema, skipStateSchema])
+    .optional(),
 }
 
 export const aiExtractDataSchema = z.discriminatedUnion("inputType", [

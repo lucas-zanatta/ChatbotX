@@ -28,7 +28,7 @@ export const aiAnalyzeImageSchema = z.object({
   outputFieldId: z.string().trim().min(1),
   temperature: z.number().min(0).max(2),
   maxOutputTokens: z.number().int().min(250).max(4096),
-  states: z.tuple([successStateSchema, errorStateSchema]),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 })
 
 export type AIAnalyzeImageSchema = z.infer<typeof aiAnalyzeImageSchema>

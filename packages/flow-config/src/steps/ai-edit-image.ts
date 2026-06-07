@@ -49,7 +49,7 @@ export const aiEditImageSchema = z.object({
   size: z.string().trim().min(1),
   quality: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
-  states: z.tuple([successStateSchema, errorStateSchema]),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 })
 
 export type AIEditImageSchema = z.infer<typeof aiEditImageSchema>

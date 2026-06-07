@@ -6,7 +6,9 @@ import {
 import { resolvePlatformSettings } from "@chatbotx.io/business"
 import { getPublicFileUrl } from "@chatbotx.io/business/utils"
 import {
+  type AIGenerateImageQualityType,
   type AIGenerateImageSchema,
+  defaultModels,
   getAIGeneratedImagePath,
   IMAGE_AUTO_VALUE,
   IMAGE_BASE64_ENCODING,
@@ -26,6 +28,49 @@ import type { ExecuteStepResult } from "../step"
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif"])
+const GPT_IMAGE_QUALITY_MAP: Record<
+  AIGenerateImageQualityType,
+  "auto" | "high" | "medium" | "low"
+> = {
+  auto: "auto",
+  hd: "high",
+  md: "medium",
+  ld: "low",
+}
+
+const DALL_E_QUALITY_MAP: Record<
+  AIGenerateImageQualityType,
+  "auto" | "hd" | "standard"
+> = {
+  auto: "auto",
+  hd: "hd",
+  md: "standard",
+  ld: "standard",
+}
+
+function getOpenAIImageQuality(
+  modelId: string,
+  quality: AIGenerateImageQualityType,
+) {
+  return modelId.startsWith("gpt-image") || modelId.startsWith("chatgpt-image")
+    ? GPT_IMAGE_QUALITY_MAP[quality]
+    : DALL_E_QUALITY_MAP[quality]
+}
+
+function resolveImageModelId(provider: string, modelId: string): string {
+  if (
+    provider === aiProviders.enum.openai &&
+    modelId.toLowerCase().startsWith("dall-e")
+  ) {
+    logger.warn(
+      { originalModel: modelId, resolvedModel: defaultModels.openai },
+      "[ai-generate-image] DALL-E model migrated to GPT Image — update flow config to suppress this warning",
+    )
+    return defaultModels.openai
+  }
+
+  return modelId
+}
 
 export async function handleAIGenerateImage({
   conversation,
@@ -71,10 +116,12 @@ export async function handleAIGenerateImage({
       }
     }
 
+    const modelId = resolveImageModelId(step.provider, step.model)
+
     const model = createAIImageModelInstance({
       model: aiConfig,
       provider: step.provider,
-      modelId: step.model,
+      modelId,
     })
 
     const size =
@@ -89,13 +136,11 @@ export async function handleAIGenerateImage({
         ? (step.size as `${number}:${number}`)
         : undefined
 
-    // Forward quality to OpenAI provider options — "hd" costs 2× but produces
-    // sharper results; all other values ("md", "ld", "auto") map to "standard".
     const providerOptions =
       step.provider === aiProviders.enum.openai && step.quality !== "auto"
         ? {
             openai: {
-              quality: step.quality === "hd" ? "hd" : "standard",
+              quality: getOpenAIImageQuality(modelId, step.quality),
             },
           }
         : undefined

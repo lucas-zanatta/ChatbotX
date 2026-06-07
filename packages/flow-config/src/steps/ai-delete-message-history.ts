@@ -7,7 +7,7 @@ import { stepTypes } from "./step-action"
 export const aiDeleteMessageHistorySchema = z.object({
   id: zodBigintAsString(),
   stepType: z.literal(stepTypes.enum.aiDeleteMessageHistory),
-  states: z.tuple([successStateSchema]),
+  states: z.tuple([successStateSchema]).optional(),
 })
 
 export type AIDeleteMessageHistorySchema = z.infer<

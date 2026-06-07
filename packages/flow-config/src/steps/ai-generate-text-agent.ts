@@ -27,7 +27,7 @@ export const aiGenerateTextAgentSchema = z.object({
   message: z.string().trim().min(1),
   outputFieldId: z.string().trim().min(1),
   rememberConversation: z.boolean(),
-  states: z.tuple([successStateSchema, errorStateSchema]),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 })
 
 export type AIGenerateTextAgentSchema = z.infer<
