@@ -4,8 +4,6 @@ import { z } from "zod"
 import {
   errorStateDefaultFn,
   errorStateSchema,
-  skipStateDefaultFn,
-  skipStateSchema,
   successStateDefaultFn,
   successStateSchema,
 } from "../states"
@@ -64,9 +62,7 @@ const extractDataBase = {
   provider: z.enum(["openai", "gemini", "claude"]),
   model: z.string().trim().min(1),
   extractFields: z.array(extractFieldSchema),
-  states: z
-    .tuple([successStateSchema, errorStateSchema, skipStateSchema])
-    .optional(),
+  states: z.tuple([successStateSchema, errorStateSchema]).optional(),
 }
 
 export const aiExtractDataSchema = z.discriminatedUnion("inputType", [
@@ -110,10 +106,6 @@ export const aiExtractDataDefaultFn = (
     extractFields: [],
     ...props,
     stepType: stepTypes.enum.aiExtractData,
-    states: [
-      successStateDefaultFn(),
-      errorStateDefaultFn(),
-      skipStateDefaultFn(),
-    ],
+    states: [successStateDefaultFn(), errorStateDefaultFn()],
   }
 }

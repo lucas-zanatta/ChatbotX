@@ -8,7 +8,6 @@ import { getPublicFileUrl } from "@chatbotx.io/business/utils"
 import {
   type AIGenerateImageQualityType,
   type AIGenerateImageSchema,
-  defaultModels,
   getAIGeneratedImagePath,
   IMAGE_AUTO_VALUE,
   IMAGE_BASE64_ENCODING,
@@ -57,21 +56,6 @@ function getOpenAIImageQuality(
     : DALL_E_QUALITY_MAP[quality]
 }
 
-function resolveImageModelId(provider: string, modelId: string): string {
-  if (
-    provider === aiProviders.enum.openai &&
-    modelId.toLowerCase().startsWith("dall-e")
-  ) {
-    logger.warn(
-      { originalModel: modelId, resolvedModel: defaultModels.openai },
-      "[ai-generate-image] DALL-E model migrated to GPT Image — update flow config to suppress this warning",
-    )
-    return defaultModels.openai
-  }
-
-  return modelId
-}
-
 export async function handleAIGenerateImage({
   conversation,
   contactInbox: baseContactInbox,
@@ -116,7 +100,7 @@ export async function handleAIGenerateImage({
       }
     }
 
-    const modelId = resolveImageModelId(step.provider, step.model)
+    const modelId = step.model
 
     const model = createAIImageModelInstance({
       model: aiConfig,

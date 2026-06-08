@@ -174,8 +174,6 @@ export const openaiImageModels = z.enum([
   "gpt-image-1.5",
   "gpt-image-1",
   "gpt-image-1-mini",
-  "dall-e-3",
-  "dall-e-2",
 ])
 export type OpenAIImageModel = z.infer<typeof openaiImageModels>
 
