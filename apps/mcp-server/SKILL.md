@@ -1,7 +1,7 @@
 ---
 name: chatbotx
 description: ChatbotX is an open-source chat marketing platform for managing contacts, conversations, flows, broadcasts, and sequences across WhatsApp, Messenger, Instagram, TikTok, Telegram, Zalo OA, Email, and Webchat. An alternative to ManyChat, Chatfuel, Wati, Respond, etc...
-version: 0.1.5
+version: 0.1.6
 emoji: 🤖
 homepage: https://github.com/ChatbotXIO/ChatbotX
 metadata:
@@ -187,7 +187,7 @@ chatbotx contacts messages list <identifier>          # [--perPage --cursor]
 chatbotx contacts message get <identifier> <messageId>
 chatbotx contacts message send <identifier>           # [--text --files --flowId --nodeId --inboxId]
 chatbotx contacts flow add <identifier> --flowId <id> # [--inboxId]
-chatbotx contacts auto-replie add <identifier> --keyword <kw>  # [--inboxId]
+chatbotx contacts auto-replies add <identifier> --keyword <kw>  # [--inboxId]
 ```
 
 ### Conversations & Broadcasts

@@ -410,6 +410,7 @@ export const workspaceTokenAuthAPIs = {
       method: "POST",
       path: "/v1/contacts/{identifier}/messages",
       summary: "Send message to contact",
+      successStatus: 204,
       tags: ["Contacts"],
     })
     .input(
@@ -659,14 +660,6 @@ export const workspaceTokenAuthAPIs = {
         identifier: input.identifier,
         workspaceId: context.workspace.id,
       })
-      const contact = await publicFindContact({
-        id: contactId,
-        workspaceId: context.workspace.id,
-      })
-      if (!contact) {
-        throw notFoundException("Contact not found")
-      }
-
       await contactCustomFieldService.clearByContactId({
         workspaceId: context.workspace.id,
         contactId,

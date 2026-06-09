@@ -194,7 +194,7 @@ chatbotx contacts messages list <identifier>         # [--perPage --cursor]
 chatbotx contacts message get <identifier> <messageId>  # Get a message by ID for a contact
 chatbotx contacts message send <identifier>          # [--text --files --flowId --nodeId --inboxId]
 chatbotx contacts flow add <identifier> --flowId <flowId>  # [--inboxId]
-chatbotx contacts auto-replie add <identifier> --keyword <keyword>  # [--inboxId]
+chatbotx contacts auto-replies add <identifier> --keyword <keyword>  # [--inboxId]
 ```
 
 ---
