@@ -166,7 +166,7 @@ const buildMessagePayload = (props: {
   messagingType?: "MESSAGE_TAG" | "RESPONSE"
   personaId?: string
 }): FacebookSendMessageRequest => {
-  const { contact, message, messagingType = "MESSAGE_TAG", personaId } = props
+  const { contact, message, personaId } = props
 
   return {
     recipient: { id: contact.sourceId },
@@ -174,8 +174,8 @@ const buildMessagePayload = (props: {
       ...message,
       metadata: MESSENGER_MESSAGE_METADATA,
     },
-    messaging_type: messagingType,
-    tag: messagingType === "MESSAGE_TAG" ? "ACCOUNT_UPDATE" : undefined,
+    messaging_type: "RESPONSE",
+    // tag: messagingType === "MESSAGE_TAG" ? "ACCOUNT_UPDATE" : undefined,
     persona_id: personaId,
   }
 }
