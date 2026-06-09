@@ -1,21 +1,18 @@
+import { createId } from "@chatbotx.io/utils"
 import { type SQL, sql } from "drizzle-orm"
 import {
   boolean,
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
-import {
-  bigintAsString,
-  sharedColumns,
-  timestampConfig,
-} from "../partials/shared"
+import { bigintAsString, timestampConfig } from "../partials/shared"
 import { contactModel } from "./contact"
 import { contactInboxModel } from "./contact-inbox"
-import { contactsOnSequenceModel } from "./contact-on-sequence"
 import { sequenceModel } from "./sequence"
 import { sequenceStepModel } from "./sequence-step"
 import { workspaceModel } from "./workspace"
@@ -23,7 +20,14 @@ import { workspaceModel } from "./workspace"
 export const sequenceDispatchModel = pgTable(
   "SequenceDispatch",
   {
-    ...sharedColumns,
+    id: bigintAsString()
+      .$defaultFn(() => createId())
+      .notNull(),
+    createdAt: timestamp(timestampConfig).defaultNow().notNull(),
+    updatedAt: timestamp(timestampConfig)
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => sql`CURRENT_TIMESTAMP`),
     runAtMs: bigintAsString().notNull(),
     bucket: integer().notNull().default(0),
     status: text(),
@@ -68,18 +72,17 @@ export const sequenceDispatchModel = pgTable(
         onDelete: "cascade",
         onUpdate: "cascade",
       }),
-    enrollmentId: bigintAsString()
-      .notNull()
-      .references(() => contactsOnSequenceModel.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
+    enrollmentId: bigintAsString().notNull(),
     isRead: boolean().generatedAlwaysAs(
       (): SQL =>
         sql`case when "seenAt" is null then false when "deliveredAt" is null then false else "seenAt" >= "deliveredAt" end`,
     ),
   },
   (table) => [
+    primaryKey({
+      columns: [table.id, table.workspaceId],
+      name: "SequenceDispatch_pkey",
+    }),
     index("SequenceDispatch_status_runAtMs_idx").on(
       table.status,
       table.runAtMs,

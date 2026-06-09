@@ -73,6 +73,11 @@ class ReconcileJob {
       let offset = 0
 
       while (hasMore) {
+        // Global scan across all partitions — intentional for bootstrap reconciliation.
+        // SequenceDispatch is HASH-partitioned on workspaceId; this query has no
+        // workspaceId filter so it touches all 64 partitions. Acceptable because
+        // reconcile runs infrequently (startup + periodic fallback), not on the hot path.
+        // To prune: include workspaceId in the DispatchMessage payload (future improvement).
         const dispatches = await db.query.sequenceDispatchModel.findMany({
           where: {
             status: "pending",
@@ -153,6 +158,10 @@ class ReconcileJob {
           continue
         }
 
+        // Cross-partition scan — intentional. SequenceDispatch is HASH-partitioned on
+        // workspaceId, but the Redis ZSET member is a plain dispatchId string with no
+        // workspaceId, so partition pruning is impossible here. allIds comes from Redis.
+        // Future: encode the member as "workspaceId:dispatchId" to enable per-partition pruning.
         const validDispatches = await db.query.sequenceDispatchModel.findMany({
           where: {
             id: { in: allIds },
