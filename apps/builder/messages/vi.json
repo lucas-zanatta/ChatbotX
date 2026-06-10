@@ -1411,6 +1411,9 @@
         "step2": "Cấp quyền tài khoản và sao chép <strong>access token</strong>, <strong>open ID</strong> và <strong>client secret</strong>.",
         "step3": "Dán thông tin xác thực bên dưới để kết nối."
       }
+    },
+    "drip": {
+      "label": "Drip"
     }
   },
   "flows": {
@@ -1507,7 +1510,8 @@
       "noFlowsAvailable": "Không có flow nào",
       "splitTraffic": "Chia lưu lượng",
       "aiEditImage": "AI Chỉnh sửa hình ảnh",
-      "whatsappFlow": "Luồng WhatsApp"
+      "whatsappFlow": "Luồng WhatsApp",
+      "dripSubscribeSubscriber": "Thêm liên hệ vào Drip"
     },
     "splitTraffic": {
       "balanceHint": "Tổng phần trăm phải bằng 100%.",
@@ -2624,5 +2628,30 @@
     "title": "TikTok",
     "description": "Kết nối tài khoản TikTok để trả lời tin nhắn trực tiếp.",
     "refreshToken": "Làm mới Token"
+  },
+  "drip": {
+    "title": "Drip",
+    "setting": {
+      "label": "Drip",
+      "description": "Tích hợp này cho phép bạn lưu thông tin liên hệ của khách hàng từ bot vào Drip."
+    },
+    "fields": {
+      "apiToken": "API Token",
+      "accountId": "ID tài khoản",
+      "emailField": "Trường email",
+      "phoneField": "Trường số điện thoại (không bắt buộc)",
+      "tags": "Thẻ (không bắt buộc)",
+      "customFields": "Trường tùy chỉnh (không bắt buộc)"
+    },
+    "tags": {
+      "loading": "Đang tải thẻ Drip...",
+      "error": "Không thể tải thẻ Drip.",
+      "empty": "Không tìm thấy thẻ Drip."
+    },
+    "customFields": {
+      "loading": "Đang tải trường tùy chỉnh Drip...",
+      "error": "Không thể tải trường tùy chỉnh Drip.",
+      "empty": "Không tìm thấy trường tùy chỉnh Drip."
+    }
   }
 }

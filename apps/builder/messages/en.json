@@ -1399,6 +1399,9 @@
         "step2": "Authorize your account and copy the <strong>access token</strong>, <strong>open ID</strong>, and <strong>client secret</strong>.",
         "step3": "Paste the credentials below to connect."
       }
+    },
+    "drip": {
+      "label": "Drip"
     }
   },
   "flows": {
@@ -1496,7 +1499,8 @@
       "unsubscribeSequence": "Unsubscribe Sequence",
       "splitTraffic": "Split Traffic",
       "aiEditImage": "AI Edit Image",
-      "whatsappFlow": "WhatsApp Flow"
+      "whatsappFlow": "WhatsApp Flow",
+      "dripSubscribeSubscriber": "Add Contact to Drip"
     },
     "splitTraffic": {
       "balanceHint": "The total sum must equal 100%.",
@@ -2621,5 +2625,30 @@
     "title": "TikTok",
     "description": "Connect your TikTok account to reply to direct messages.",
     "refreshToken": "Refresh Token"
+  },
+  "drip": {
+    "title": "Drip",
+    "setting": {
+      "label": "Drip",
+      "description": "This integration lets you save customers contacts from your bot to Drip."
+    },
+    "fields": {
+      "apiToken": "API Token",
+      "accountId": "Account ID",
+      "emailField": "Email field",
+      "phoneField": "Phone field (optional)",
+      "tags": "Tags (optional)",
+      "customFields": "Custom fields (optional)"
+    },
+    "tags": {
+      "loading": "Loading Drip tags...",
+      "error": "Unable to load Drip tags.",
+      "empty": "No Drip tags found."
+    },
+    "customFields": {
+      "loading": "Loading Drip custom fields...",
+      "error": "Unable to load Drip custom fields.",
+      "empty": "No Drip custom fields found."
+    }
   }
 }
