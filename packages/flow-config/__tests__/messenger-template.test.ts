@@ -4,6 +4,7 @@ import {
   extractMessengerParameterInfos,
   extractMessengerTemplateParams,
   type MessengerTemplateComponent,
+  mergeMessengerFlowButtonsWithExisting,
   messengerTemplateButtonParamSchema,
   sendMessengerTemplateMessageStepDefaultFn,
   sendMessengerTemplateMessageStepSchema,
@@ -566,5 +567,68 @@ describe("sendMessengerTemplateMessageStepSchema — inboxId/integrationMessenge
       sub_type: "quick_reply",
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe("mergeMessengerFlowButtonsWithExisting", () => {
+  test("keeps existing button id and routing config by index while updating label", () => {
+    const result = mergeMessengerFlowButtonsWithExisting(
+      [
+        {
+          id: "new-button",
+          label: "New template label",
+          buttonType: null,
+          beforeStep: null,
+          steps: [],
+        },
+      ],
+      [
+        {
+          id: "connected-button",
+          label: "Old template label",
+          buttonType: "startAnotherNode",
+          beforeStep: {
+            id: "before-step",
+            stepType: "startAnotherNode",
+            nodeId: "target-node",
+            viewOnly: true,
+          },
+          steps: [],
+        },
+      ],
+    )
+
+    expect(result).toEqual([
+      {
+        id: "connected-button",
+        label: "New template label",
+        buttonType: "startAnotherNode",
+        beforeStep: {
+          id: "before-step",
+          stepType: "startAnotherNode",
+          nodeId: "target-node",
+          viewOnly: true,
+        },
+        steps: [],
+      },
+    ])
+  })
+
+  test("uses new template button when there is no existing button at that index", () => {
+    const result = mergeMessengerFlowButtonsWithExisting([
+      {
+        id: "new-button",
+        label: "New template label",
+        buttonType: null,
+        beforeStep: null,
+        steps: [],
+      },
+    ])
+
+    expect(result[0]).toMatchObject({
+      id: "new-button",
+      label: "New template label",
+      buttonType: null,
+    })
   })
 })

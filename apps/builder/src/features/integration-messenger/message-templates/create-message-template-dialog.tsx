@@ -256,7 +256,9 @@ export function CreateMessageTemplateDialog({
           },
           onError: ({ error }) => {
             if (error.serverError) {
-              toast.error(error.serverError)
+              toast.error(error.serverError, {
+                duration: 5000,
+              })
             }
           },
         },
@@ -323,7 +325,7 @@ export function CreateMessageTemplateDialog({
 
         <Form {...form}>
           <form className="space-y-6" onSubmit={handleSubmitWithAction}>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <InputField label={t("fields.name.label")} name="name" required />
               <SelectField
                 label={t("fields.language.label")}

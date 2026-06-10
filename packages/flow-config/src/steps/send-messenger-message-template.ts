@@ -266,3 +266,21 @@ export function extractMessengerFlowButtons(
 
   return buttons
 }
+
+export function mergeMessengerFlowButtonsWithExisting(
+  templateButtons: ButtonStepProps[],
+  existingButtons: ButtonStepProps[] = [],
+): ButtonStepProps[] {
+  return templateButtons.map((templateButton, index) => {
+    const existingButton = existingButtons[index]
+
+    if (!existingButton) {
+      return templateButton
+    }
+
+    return {
+      ...existingButton,
+      label: templateButton.label,
+    }
+  })
+}
