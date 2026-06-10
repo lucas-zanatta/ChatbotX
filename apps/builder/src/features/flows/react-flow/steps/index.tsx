@@ -38,6 +38,7 @@ import { removeContactTagStep } from "./remove-contact-tag"
 import sendAudioStep from "./send-audio"
 import { sendCarouselStep } from "./send-carousel"
 import sendFileStep from "./send-file"
+import { sendFoxCreateContactStep } from "./send-fox-create-contact"
 import sendGifStep from "./send-gif"
 import sendImageStep from "./send-image"
 import sendMessengerTemplateMessageStep from "./send-messenger-template-message"
@@ -100,6 +101,7 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [stepTypes.enum.blockContact]: blockContactStep,
   [stepTypes.enum.markEmailVerified]: markEmailVerifiedStep,
   [stepTypes.enum.mailchimpAddMember]: mailchimpAddMemberStep,
+  [stepTypes.enum.sendFoxCreateContact]: sendFoxCreateContactStep,
   [stepTypes.enum.optInEmail]: optInEmailStep,
   [stepTypes.enum.optOutEmail]: optOutEmailStep,
   [stepTypes.enum.cancelContactInput]: undefined,

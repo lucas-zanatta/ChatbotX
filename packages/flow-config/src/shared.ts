@@ -27,6 +27,7 @@ import { markEmailVerifiedStepSchema } from "./steps/mark-email-verified"
 import { optInEmailStepSchema } from "./steps/opt-in-email"
 import { optOutEmailStepSchema } from "./steps/opt-out-email"
 import { removeContactTagStepSchema } from "./steps/remove-contact-tag"
+import { sendFoxCreateContactSchema } from "./steps/send-fox-create-contact"
 import { setCustomFieldStepSchema } from "./steps/set-custom-field"
 import { spreadsheetClearRowSchema } from "./steps/spreadsheet-clear-row"
 import { spreadsheetGetRowSchema } from "./steps/spreadsheet-get-row"
@@ -88,6 +89,7 @@ const emailSteps = [
   optInEmailStepSchema,
   optOutEmailStepSchema,
   mailchimpAddMemberSchema,
+  sendFoxCreateContactSchema,
 ]
 
 const flowSteps = [

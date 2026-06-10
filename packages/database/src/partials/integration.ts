@@ -10,6 +10,7 @@ export const integrationTypes = z.enum([
   "mailchimp",
   "messenger",
   "openai",
+  "sendFox",
   "smtp",
   "telegram",
   "tiktok",

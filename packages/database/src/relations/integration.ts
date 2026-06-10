@@ -20,6 +20,10 @@ export const integrationRelations = defineRelationsPart(schema, (r) => ({
       from: r.integrationModel.id,
       to: r.integrationMailchimpModel.integrationId,
     }),
+    integrationSendFox: r.one.integrationSendFoxModel({
+      from: r.integrationModel.id,
+      to: r.integrationSendFoxModel.integrationId,
+    }),
     integrationGemini: r.one.integrationGeminiModel({
       from: r.integrationModel.id,
       to: r.integrationGeminiModel.integrationId,

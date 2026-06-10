@@ -712,6 +712,9 @@
     "mailchimp": {
       "label": "Mailchimp"
     },
+    "sendFox": {
+      "label": "SendFox"
+    },
     "host": {
       "label": "Host",
       "placeholder": "smtp.example.com"
@@ -1444,6 +1447,7 @@
       "inboxActions": "Inbox Actions",
       "markEmailVerified": "Mark Email Verified",
       "mailchimpAddMember": "Add Contact to MailChimp",
+      "sendFoxCreateContact": "Add Contact to SendFox",
       "openWebsite": "Open Website",
       "optInEmail": "Opt In Email",
       "optOutEmail": "Opt Out Email",
@@ -1619,6 +1623,23 @@
       "optional": "Optional",
       "tags": "Tags",
       "mergeFields": "Custom Fields in MailChimp"
+    }
+  },
+  "sendFox": {
+    "title": "SendFox",
+    "setting": {
+      "label": "SendFox",
+      "description": "This integration lets you save customers contacts from your bot to SendFox."
+    },
+    "fields": {
+      "accessToken": "API Access Token",
+      "list": "List (optional)",
+      "emailField": "Email field"
+    },
+    "lists": {
+      "loading": "Loading SendFox lists...",
+      "error": "Unable to load SendFox lists.",
+      "empty": "No SendFox lists found. Contacts can still be created without a list."
     }
   },
   "integrations": {

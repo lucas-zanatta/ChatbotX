@@ -383,6 +383,11 @@ export const performActionMenus = (t: TranslationFn): MenuItem[] => [
         icon: MailIcon,
         stepType: stepTypes.enum.mailchimpAddMember,
       },
+      {
+        label: t("flows.actions.sendFoxCreateContact"),
+        icon: MailIcon,
+        stepType: stepTypes.enum.sendFoxCreateContact,
+      },
     ],
   },
   {

@@ -18,6 +18,7 @@ type SettingIntegrationLayoutProps = {
   deepSeek: ReactNode
   googleSheets: ReactNode
   mailchimp: ReactNode
+  sendFox: ReactNode
 }
 
 export default function SettingIntegrationLayout({
@@ -28,6 +29,7 @@ export default function SettingIntegrationLayout({
   deepSeek,
   googleSheets,
   mailchimp,
+  sendFox,
 }: SettingIntegrationLayoutProps) {
   const t = useTranslations()
 
@@ -66,6 +68,11 @@ export default function SettingIntegrationLayout({
       keyName: t("mailchimp.title"),
       icon: MailIcon,
       content: mailchimp,
+    },
+    {
+      keyName: t("sendFox.title"),
+      icon: MailIcon,
+      content: sendFox,
     },
   ]
 

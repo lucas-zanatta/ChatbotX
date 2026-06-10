@@ -3,6 +3,7 @@ import { integration as integrationGoogleSheets } from "@chatbotx.io/integration
 import { integration as integrationInstagram } from "@chatbotx.io/integration-instagram"
 import { integration as integrationMailchimp } from "@chatbotx.io/integration-mailchimp"
 import { integration as integrationMessenger } from "@chatbotx.io/integration-messenger"
+import { integration as integrationSendFox } from "@chatbotx.io/integration-send-fox"
 import { integration as integrationSmtp } from "@chatbotx.io/integration-smtp"
 import { integration as integrationTelegram } from "@chatbotx.io/integration-telegram"
 import { integration as integrationTiktok } from "@chatbotx.io/integration-tiktok"
@@ -15,6 +16,7 @@ export const integrations = {
   messenger: integrationMessenger,
   instagram: integrationInstagram,
   mailchimp: integrationMailchimp,
+  sendFox: integrationSendFox,
   googleSheets: integrationGoogleSheets,
   zalo: integrationZalo,
   telegram: integrationTelegram,
