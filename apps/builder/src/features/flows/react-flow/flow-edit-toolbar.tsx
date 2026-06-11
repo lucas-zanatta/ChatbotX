@@ -68,7 +68,7 @@ export function FlowEditToolbar({
     publishFlowAction.bind(null, workspaceId, flow.id),
     {
       onSuccess: () => {
-        toast.success("A new version has been published")
+        toast.success(t("messages.publishVersionSuccess"))
       },
     },
   )
@@ -79,23 +79,21 @@ export function FlowEditToolbar({
     // validate nodes & edges
     const nodes = getNodes()
     const edges = getEdges()
-    const { success, error } = updateFlowVersionSchema.safeParse({
+    const { success } = updateFlowVersionSchema.safeParse({
       nodes,
       edges,
     })
 
-    console.log("error", error)
     if (success) {
       executePublish()
     } else {
-      toast.error("Some configurations are incomplete")
+      toast.error(t("messages.flowConfigIncomplete"))
     }
     setIsValidating(false)
   }
 
   return (
     <div className="flex gap-2">
-      {/* <div>{isValidating}</div> */}
       <Button className="px-1.5" size="sm" variant="ghost">
         <RotateCcwIcon />
       </Button>

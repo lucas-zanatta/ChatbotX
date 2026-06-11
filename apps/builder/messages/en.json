@@ -1715,7 +1715,9 @@
     "enableSuccess": "{feature} enabled successfully",
     "userInactive": "User has been inactive more than 7 days",
     "restoreVersionSuccess": "Flow restored to selected version",
-    "noVersionsFound": "No published versions found"
+    "noVersionsFound": "No published versions found",
+    "publishVersionSuccess": "A new version has been published",
+    "flowConfigIncomplete": "Some configurations are incomplete"
   },
   "instagram": {
     "description": "This integration lets you create Instagram bots.",

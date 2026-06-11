@@ -1726,7 +1726,9 @@
     "enableSuccess": "Đã bật {feature} thành công",
     "userInactive": "Người dùng không hoạt động hơn 7 ngày",
     "restoreVersionSuccess": "Đã khôi phục luồng về phiên bản đã chọn",
-    "noVersionsFound": "Không tìm thấy phiên bản đã xuất bản"
+    "noVersionsFound": "Không tìm thấy phiên bản đã xuất bản",
+    "publishVersionSuccess": "Đã xuất bản phiên bản mới",
+    "flowConfigIncomplete": "Một số cấu hình chưa hoàn chỉnh"
   },
   "instagram": {
     "description": "Tích hợp này cho phép bạn tạo bot Instagram.",

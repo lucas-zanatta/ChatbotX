@@ -12,6 +12,7 @@ import { format } from "date-fns"
 import { Loader2Icon, StarIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useAction } from "next-safe-action/hooks"
+import { useState } from "react"
 import { toast } from "sonner"
 import useSWR from "swr"
 import type { FlowResource } from "@/features/flows/schemas/resource"
@@ -34,6 +35,7 @@ export function FlowVersionsDialog({
   onRestoreSuccess,
 }: FlowVersionsDialogProps) {
   const t = useTranslations()
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const {
     data: versions = [],
@@ -48,18 +50,20 @@ export function FlowVersionsDialog({
       }),
   )
 
-  const { execute: restoreVersion, isPending: isRestoring } = useAction(
+  const { execute: restoreVersion } = useAction(
     restoreFlowVersionAction.bind(null, workspaceId, flow.id),
     {
       onSuccess: ({ data }) => {
         toast.success(t("messages.restoreVersionSuccess"))
         mutate()
         onOpenChange(false)
+        setRestoringId(null)
         if (data) {
           onRestoreSuccess(data.nodes, data.edges)
         }
       },
       onError: ({ error }) => {
+        setRestoringId(null)
         if (error.serverError) {
           toast.error(error.serverError)
         }
@@ -95,19 +99,24 @@ export function FlowVersionsDialog({
                 key={version.id}
               >
                 <span className="flex items-center gap-1.5 font-medium text-sm">
-                  {format(new Date(version.createdAt), "yyyy/MM/dd HH:mm")}
+                  {format(version.createdAt, "yyyy/MM/dd HH:mm")}
                   {version.isLatest && (
                     <StarIcon className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                   )}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
-                    disabled={version.isLatest || isRestoring}
-                    onClick={() => restoreVersion({ versionId: version.id })}
+                    disabled={version.isLatest || restoringId !== null}
+                    onClick={() => {
+                      setRestoringId(version.id)
+                      restoreVersion({ versionId: version.id })
+                    }}
                     size="sm"
                     variant="outline"
                   >
-                    {isRestoring && <Loader2Icon className="animate-spin" />}
+                    {restoringId === version.id && (
+                      <Loader2Icon className="animate-spin" />
+                    )}
                     {t("actions.restore")}
                   </Button>
                 </div>
