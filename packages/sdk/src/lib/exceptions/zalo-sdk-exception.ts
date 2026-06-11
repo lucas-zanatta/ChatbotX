@@ -2,27 +2,30 @@ import { SdkException, UNKNOWN_ERROR } from "../exception"
 import type { ParsedError } from "../schemas"
 
 export class ZaloSdkException extends SdkException {
-  async parseErrorData(): Promise<ParsedError> {
-    // biome-ignore lint/suspicious/noExplicitAny: <does not care about type>
+  async getErrorData(): Promise<ParsedError> {
+    const base = await super.getErrorData()
+
+    // biome-ignore lint/suspicious/noExplicitAny: transport errors have non-uniform shapes
     const originError = this.originError as any
-    if (originError?.response) {
-      const body =
-        originError.response.error || (await originError.response.json())
-
-      const error = body?.error || {}
-
-      if (!error) {
-        console.error("ZaloSdkException: No error in response", body)
-      }
-
-      return {
-        message: error?.message,
-        code: error?.code,
-        statusCode: body?.statusCode,
-        subcode: error?.subcode,
-      }
+    if (!originError?.response) {
+      return base
     }
 
-    return UNKNOWN_ERROR
+    let body: any
+    try {
+      body = originError.response.error ?? (await originError.response.json())
+    } catch {
+      body = originError.response.error
+    }
+
+    const error = body?.error
+
+    return {
+      ...base,
+      message: error?.message ?? base.message,
+      code: error?.code ?? base.code,
+      statusCode: body?.statusCode ?? base.statusCode,
+      subcode: error?.subcode ?? base.subcode,
+    }
   }
 }
