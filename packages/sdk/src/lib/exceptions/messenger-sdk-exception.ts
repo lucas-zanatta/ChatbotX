@@ -1,19 +1,34 @@
-import { SdkException, UNKNOWN_ERROR } from "../exception"
+import { SdkException } from "../exception"
 import type { ParsedError } from "../schemas"
+
+type ErrorBody = {
+  error?: {
+    message?: string
+    code?: string | number
+    subcode?: string | number
+  }
+  statusCode?: number
+}
+
+type OriginError = {
+  response?: {
+    error?: ErrorBody
+    json?: () => Promise<ErrorBody>
+  }
+}
 
 export class MessengerSdkException extends SdkException {
   async getErrorData(): Promise<ParsedError> {
     const base = await super.getErrorData()
 
-    // biome-ignore lint/suspicious/noExplicitAny: transport errors have non-uniform shapes
-    const originError = this.originError as any
+    const originError = this.originError as OriginError
     if (!originError?.response) {
       return base
     }
 
-    let body: any
+    let body: ErrorBody | undefined
     try {
-      body = originError.response.error ?? (await originError.response.json())
+      body = originError.response.error ?? (await originError.response.json?.())
     } catch {
       body = originError.response.error
     }
