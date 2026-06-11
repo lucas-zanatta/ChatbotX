@@ -57,13 +57,18 @@ function makePool(id: string, query = vi.fn().mockResolvedValue([{ ok: 1 }])) {
 
 function makeManager(
   registryOverrides: Record<string, unknown> = {},
+  options: { readReplicasEnabled?: boolean } = {},
 ): MessageShardConnectionManager {
   const registry = {
     countActiveShards: vi.fn().mockResolvedValue(1),
     findShardForWrite: vi.fn().mockResolvedValue(shardRecord),
     ...registryOverrides,
   }
-  return new MessageShardConnectionManager({} as never, registry as never)
+  return new MessageShardConnectionManager(
+    {} as never,
+    registry as never,
+    options,
+  )
 }
 
 describe("MessageShardConnectionManager.getWriteShardInfo", () => {
@@ -114,7 +119,7 @@ describe("MessageShardConnectionManager.getWriteShardInfo", () => {
   })
 })
 
-describe("MessageShardConnectionManager.getShardClientForRead", () => {
+describe("MessageShardConnectionManager.withShardClientForRead", () => {
   beforeEach(() => {
     shardMocks.createMessageShardClient.mockReset()
     shardMocks.createReadShardPool.mockReset()
@@ -125,45 +130,138 @@ describe("MessageShardConnectionManager.getShardClientForRead", () => {
   })
 
   afterEach(() => {
-    vi.useRealTimers()
+    vi.unstubAllEnvs()
   })
 
-  test("retries an unhealthy read replica after the retry TTL", async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"))
+  const readShard = {
+    ...shardRecord,
+    readHost: "replica",
+    readPort: 5432,
+  } satisfies ShardConfig
 
-    const shard = {
-      ...shardRecord,
-      readHost: "replica",
-      readPort: 5432,
-    } satisfies ShardConfig
-    const primaryPool = makePool("primary")
+  async function flushBackgroundRetry() {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  test("uses primary even when a read replica is configured while read replicas are disabled by default", async () => {
+    const manager = makeManager()
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
+
+    const usedClient = await manager.withShardClientForRead(
+      readShard,
+      (client) => Promise.resolve(client),
+    )
+
+    expect(usedClient).toEqual({ clientId: "primary" })
+    expect(shardMocks.createReadShardPool).not.toHaveBeenCalled()
+  })
+
+  test("uses the replica when read replicas are enabled and the health check passes", async () => {
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
+    shardMocks.createReadShardPool.mockReturnValue(makePool("read-ok"))
+
+    const usedClient = await manager.withShardClientForRead(
+      readShard,
+      (client) => Promise.resolve(client),
+    )
+
+    expect(usedClient).toEqual({ clientId: "read-ok" })
+  })
+
+  test("falls back to primary when enabled replica fails its initial health check", async () => {
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
+    const failingReadPool = makePool(
+      "read-fail",
+      vi.fn().mockRejectedValue(new Error("replica down")),
+    )
+    shardMocks.createReadShardPool.mockReturnValue(failingReadPool)
+
+    const usedClient = await manager.withShardClientForRead(
+      readShard,
+      (client) => Promise.resolve(client),
+    )
+
+    expect(usedClient).toEqual({ clientId: "primary" })
+    expect(failingReadPool.end).toHaveBeenCalled()
+  })
+
+  test("reconnects the enabled replica in the background after the retry TTL without blocking the read", async () => {
+    vi.stubEnv("SHARD_READ_REPLICA_RETRY_TTL_MS", "0")
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
     const failingReadPool = makePool(
       "read-fail",
       vi.fn().mockRejectedValue(new Error("replica down")),
     )
     const recoveredReadPool = makePool("read-ok")
-    const manager = makeManager()
-
-    shardMocks.createShardPool.mockReturnValue(primaryPool)
     shardMocks.createReadShardPool
       .mockReturnValueOnce(failingReadPool)
       .mockReturnValueOnce(recoveredReadPool)
 
-    const writeClient = await manager.getShardClient(shard)
-    const readClientBeforeTtl = await manager.getShardClientForRead(shard)
+    const first = await manager.withShardClientForRead(readShard, (client) =>
+      Promise.resolve(client),
+    )
+    expect(first).toEqual({ clientId: "primary" })
 
-    expect(writeClient).toEqual({ clientId: "primary" })
-    expect(readClientBeforeTtl).toEqual({ clientId: "primary" })
-    expect(shardMocks.createReadShardPool).toHaveBeenCalledTimes(1)
-    expect(failingReadPool.end).toHaveBeenCalled()
+    await flushBackgroundRetry()
 
-    vi.setSystemTime(new Date("2026-01-01T00:01:01.000Z"))
-
-    const readClientAfterTtl = await manager.getShardClientForRead(shard)
-
-    expect(readClientAfterTtl).toEqual({ clientId: "read-ok" })
-    expect(shardMocks.createReadShardPool).toHaveBeenCalledTimes(2)
+    const second = await manager.withShardClientForRead(readShard, (client) =>
+      Promise.resolve(client),
+    )
+    expect(second).toEqual({ clientId: "read-ok" })
     expect(recoveredReadPool.query).toHaveBeenCalledWith("SELECT 1")
+  })
+
+  test("marks the enabled replica unhealthy on a runtime connection error and retries the query on primary", async () => {
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
+    const readPool = makePool("read-ok")
+    shardMocks.createReadShardPool.mockReturnValue(readPool)
+
+    const seenClients: string[] = []
+    const result = await manager.withShardClientForRead(readShard, (client) => {
+      const { clientId } = client as unknown as { clientId: string }
+      seenClients.push(clientId)
+      if (clientId === "read-ok") {
+        return Promise.reject(
+          Object.assign(new Error("Connection terminated unexpectedly"), {
+            code: "ECONNRESET",
+          }),
+        )
+      }
+      return Promise.resolve("primary-result")
+    })
+
+    expect(result).toBe("primary-result")
+    expect(seenClients).toEqual(["read-ok", "primary"])
+    expect(readPool.end).toHaveBeenCalled()
+
+    const next = await manager.withShardClientForRead(readShard, (client) =>
+      Promise.resolve(client),
+    )
+    expect(next).toEqual({ clientId: "primary" })
+  })
+
+  test("rethrows non-connection errors and keeps the enabled replica healthy", async () => {
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    shardMocks.createShardPool.mockReturnValue(makePool("primary"))
+    const readPool = makePool("read-ok")
+    shardMocks.createReadShardPool.mockReturnValue(readPool)
+
+    const sqlError = Object.assign(new Error('column "nope" does not exist'), {
+      code: "42703",
+    })
+    await expect(
+      manager.withShardClientForRead(readShard, () => Promise.reject(sqlError)),
+    ).rejects.toThrow('column "nope" does not exist')
+
+    expect(readPool.end).not.toHaveBeenCalled()
+
+    const next = await manager.withShardClientForRead(readShard, (client) =>
+      Promise.resolve(client),
+    )
+    expect(next).toEqual({ clientId: "read-ok" })
   })
 })
