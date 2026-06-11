@@ -1,6 +1,7 @@
 import { Pool } from "pg"
 import { logger } from "../../logger"
 import { resolveShardCredentials } from "./credentials"
+import { envInt } from "./env"
 import type { ShardConfig } from "./types"
 
 export interface CreateShardPoolOptions {
@@ -11,14 +12,10 @@ export interface CreateShardPoolOptions {
 }
 
 const ENV_DEFAULTS = {
-  max: process.env.SHARD_POOL_MAX ? Number(process.env.SHARD_POOL_MAX) : 10,
-  min: process.env.SHARD_POOL_MIN ? Number(process.env.SHARD_POOL_MIN) : 2,
-  idleTimeoutMillis: process.env.SHARD_POOL_IDLE_TIMEOUT_MS
-    ? Number(process.env.SHARD_POOL_IDLE_TIMEOUT_MS)
-    : 30_000,
-  connectionTimeoutMillis: process.env.SHARD_POOL_CONNECT_TIMEOUT_MS
-    ? Number(process.env.SHARD_POOL_CONNECT_TIMEOUT_MS)
-    : 5000,
+  max: envInt("SHARD_POOL_MAX", 10, { min: 1 }),
+  min: envInt("SHARD_POOL_MIN", 2),
+  idleTimeoutMillis: envInt("SHARD_POOL_IDLE_TIMEOUT_MS", 30_000),
+  connectionTimeoutMillis: envInt("SHARD_POOL_CONNECT_TIMEOUT_MS", 5000),
 }
 
 function buildSslConfig(sslMode: string) {
