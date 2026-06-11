@@ -1,4 +1,5 @@
 import { Pool } from "pg"
+import { logger } from "../../logger"
 import { resolveShardCredentials } from "./credentials"
 import type { ShardConfig } from "./types"
 
@@ -27,6 +28,19 @@ function buildSslConfig(sslMode: string) {
   return { rejectUnauthorized: sslMode !== "require" }
 }
 
+function attachPoolErrorHandler(
+  pool: Pool,
+  props: { role: "primary" | "read"; shardId: string },
+): Pool {
+  pool.on("error", (error) => {
+    logger.error(
+      { err: error, role: props.role, shardId: props.shardId },
+      "Unexpected idle shard pool error",
+    )
+  })
+  return pool
+}
+
 export function createShardPool(
   shard: ShardConfig,
   options: CreateShardPoolOptions = {},
@@ -38,18 +52,21 @@ export function createShardPool(
 
   const merged = { ...ENV_DEFAULTS, ...options }
 
-  return new Pool({
-    host: shard.host,
-    port: shard.port ?? 5432,
-    database: shard.database,
-    user: shard.user,
-    password,
-    ssl: buildSslConfig(sslMode),
-    max: merged.max,
-    min: merged.min,
-    idleTimeoutMillis: merged.idleTimeoutMillis,
-    connectionTimeoutMillis: merged.connectionTimeoutMillis,
-  })
+  return attachPoolErrorHandler(
+    new Pool({
+      host: shard.host,
+      port: shard.port ?? 5432,
+      database: shard.database,
+      user: shard.user,
+      password,
+      ssl: buildSslConfig(sslMode),
+      max: merged.max,
+      min: merged.min,
+      idleTimeoutMillis: merged.idleTimeoutMillis,
+      connectionTimeoutMillis: merged.connectionTimeoutMillis,
+    }),
+    { role: "primary", shardId: shard.id },
+  )
 }
 
 export function createReadShardPool(
@@ -67,16 +84,19 @@ export function createReadShardPool(
 
   const merged = { ...ENV_DEFAULTS, ...options }
 
-  return new Pool({
-    host: shard.readHost,
-    port: shard.readPort ?? shard.port ?? 5432,
-    database: shard.database,
-    user: shard.user,
-    password,
-    ssl: buildSslConfig(sslMode),
-    max: merged.max,
-    min: merged.min,
-    idleTimeoutMillis: merged.idleTimeoutMillis,
-    connectionTimeoutMillis: merged.connectionTimeoutMillis,
-  })
+  return attachPoolErrorHandler(
+    new Pool({
+      host: shard.readHost,
+      port: shard.readPort ?? shard.port ?? 5432,
+      database: shard.database,
+      user: shard.user,
+      password,
+      ssl: buildSslConfig(sslMode),
+      max: merged.max,
+      min: merged.min,
+      idleTimeoutMillis: merged.idleTimeoutMillis,
+      connectionTimeoutMillis: merged.connectionTimeoutMillis,
+    }),
+    { role: "read", shardId: shard.id },
+  )
 }
