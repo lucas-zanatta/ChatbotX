@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@chatbotx.io/ui/components/ui/dropdown-menu"
-import { useReactFlow } from "@xyflow/react"
+import { type Edge, MarkerType, type Node, useReactFlow } from "@xyflow/react"
 import {
   ChartNoAxesCombinedIcon,
   CopyIcon,
@@ -34,6 +34,7 @@ import { publishFlowAction } from "../actions/publish-flow-action"
 import { DeleteFlowsDialog } from "../delete-flow-dialog"
 import { updateFlowVersionSchema } from "../schemas/action"
 import { DuplicateFlowDialog } from "./components/duplicate-flow"
+import { FlowVersionsDialog } from "./components/flow-versions-dialog"
 import { RenameFlowDialog } from "./components/rename-flow"
 
 export function FlowEditToolbar({
@@ -61,7 +62,7 @@ export function FlowEditToolbar({
   >(null)
 
   // NOTES: DO NOT use useNodes & useEdges, it makes component re-render when node or edge is changed
-  const { getNodes, getEdges } = useReactFlow()
+  const { getNodes, getEdges, setNodes, setEdges } = useReactFlow()
 
   const { execute: executePublish, isPending: isPendingPublish } = useAction(
     publishFlowAction.bind(null, workspaceId, flow.id),
@@ -143,7 +144,7 @@ export function FlowEditToolbar({
               <ChartNoAxesCombinedIcon />
               {t("actions.analytics")}
             </DropdownMenuItem>
-            <DropdownMenuItem disabled>
+            <DropdownMenuItem onClick={() => setAction("flowVersions")}>
               <HistoryIcon />
               {t("actions.flowVersions")}
             </DropdownMenuItem>
@@ -198,6 +199,23 @@ export function FlowEditToolbar({
           type: "flow",
           flowId: flow.id,
         }}
+      />
+
+      <FlowVersionsDialog
+        flow={flow}
+        onOpenChange={() => setAction(null)}
+        onRestoreSuccess={(nodes, edges) => {
+          setNodes(nodes as Node[])
+          setEdges(
+            (edges as Edge[]).map((edge) => ({
+              ...edge,
+              type: "buttonedge",
+              markerEnd: { type: MarkerType.ArrowClosed },
+            })),
+          )
+        }}
+        open={action === "flowVersions"}
+        workspaceId={workspaceId}
       />
     </div>
   )
