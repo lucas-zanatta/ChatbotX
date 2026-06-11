@@ -252,7 +252,11 @@ export class MessageShardConnectionManager {
         "Read replica query failed with connection error, retrying on primary",
       )
       this.markReadReplicaUnhealthy(shard.id)
-      return fn(entry.client)
+      const retryEntry =
+        this.pools.get(shard.id) === entry
+          ? entry
+          : await this.ensureEntry(shard)
+      return fn(retryEntry.client)
     }
   }
 
@@ -289,6 +293,9 @@ export class MessageShardConnectionManager {
       return
     }
 
+    // .catch is mandatory: nothing awaits this promise. connectReadReplica
+    // catches expected failures internally, but this remains the final guard
+    // against future unexpected throws becoming unhandled rejections.
     entry.readRetryPromise = this.connectReadReplica(shard, entry)
       .catch((error) => {
         logger.warn(

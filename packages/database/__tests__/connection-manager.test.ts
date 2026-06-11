@@ -81,10 +81,6 @@ describe("MessageShardConnectionManager.getWriteShardInfo", () => {
     )
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   test("maps the workspace write shard to an all-time time-range info", async () => {
     const manager = makeManager()
 
@@ -242,6 +238,50 @@ describe("MessageShardConnectionManager.withShardClientForRead", () => {
       Promise.resolve(client),
     )
     expect(next).toEqual({ clientId: "primary" })
+  })
+
+  test("recreates the primary before retrying when the shard entry was evicted mid-read", async () => {
+    const manager = makeManager({}, { readReplicasEnabled: true })
+    const readPool = makePool("read-ok")
+    const evictedPrimaryPool = makePool("primary-evicted")
+    const replacementPrimaryPool = makePool("primary-replacement")
+    let mainShardPoolCreated = false
+    shardMocks.createShardPool.mockImplementation((shard: ShardConfig) => {
+      if (shard.id !== readShard.id) {
+        return makePool(`primary-${shard.id}`)
+      }
+      if (mainShardPoolCreated) {
+        return replacementPrimaryPool
+      }
+      mainShardPoolCreated = true
+      return evictedPrimaryPool
+    })
+    shardMocks.createReadShardPool.mockReturnValue(readPool)
+
+    const seenClients: string[] = []
+    const result = await manager.withShardClientForRead(readShard, (client) => {
+      const { clientId } = client as unknown as { clientId: string }
+      seenClients.push(clientId)
+      if (clientId === "read-ok") {
+        return (async () => {
+          for (let index = 0; index < 10; index++) {
+            await manager.getShardClient({
+              ...readShard,
+              id: `other-${index}`,
+              readHost: null,
+            })
+          }
+          throw Object.assign(new Error("Connection terminated unexpectedly"), {
+            code: "ECONNRESET",
+          })
+        })()
+      }
+      return Promise.resolve("primary-result")
+    })
+
+    expect(result).toBe("primary-result")
+    expect(seenClients).toEqual(["read-ok", "primary-replacement"])
+    expect(evictedPrimaryPool.end).toHaveBeenCalled()
   })
 
   test("rethrows non-connection errors and keeps the enabled replica healthy", async () => {
