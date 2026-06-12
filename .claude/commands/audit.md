@@ -7,13 +7,13 @@ Run a focused audit of the repo's AI-assist infrastructure and report findings �
 
 ## Scope
 
-In scope: `.claude/` (agents, commands, settings), `.agents/` (skills, rules), `.github/copilot-instructions.md`, `.windsurf/`, root `SKILL.md`, `AGENTS.md`, `CLAUDE.md`. **Out of scope:** editor-specific `.cursor/**` and Devin config.
+In scope: `.claude/` (agents, commands, settings), `.agents/` (skills, rules), `.github/copilot-instructions.md`, root `SKILL.md`, `AGENTS.md`, `CLAUDE.md`. **Out of scope:** editor-specific `.cursor/**` and Devin agent config.
 
 ## Steps
 
-1. **Inventory** — list every in-scope file with line count and git-tracked/ignored status (`git ls-files`, `git check-ignore`). Flag untracked load-bearing config and missing referenced paths (e.g. a `.windsurf/` reference with no dir).
+1. **Inventory** — list every in-scope file with line count and git-tracked/ignored status (`git ls-files`, `git check-ignore`). Flag untracked load-bearing config and missing referenced paths (e.g. a rules dir referenced by `AGENTS.md` that does not exist on disk).
 
-2. **Coverage & drift** — check that each tool's context (Claude/Copilot/Windsurf) carries the project invariants from `AGENTS.md`; flag any tool whose context omits them, and any invariant duplicated across files that can drift.
+2. **Coverage & drift** — check that each tool's context (Claude, Copilot, and any editor-rule mirrors) carries the project invariants from `AGENTS.md`; flag any tool whose context omits them, and any invariant duplicated across files that can drift.
 
 3. **Skills & commands** — flag skills >400 lines (split candidates), skills/commands that duplicate a `~/.claude/` global, and prompts with no stop condition or with phantom commands.
 
