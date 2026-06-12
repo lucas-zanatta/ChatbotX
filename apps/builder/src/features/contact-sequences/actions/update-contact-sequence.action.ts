@@ -59,7 +59,10 @@ async function removeContactSequences(
   }
 
   const enrollments = await tx
-    .select({ id: contactsOnSequenceModel.id })
+    .select({
+      id: contactsOnSequenceModel.id,
+      workspaceId: contactsOnSequenceModel.workspaceId,
+    })
     .from(contactsOnSequenceModel)
     .where(
       and(
@@ -72,26 +75,27 @@ async function removeContactSequences(
     return
   }
 
-  const enrollmentIds = enrollments.map((e: { id: string }) => e.id)
-  if (enrollmentIds.length > 0) {
-    await tx
-      .delete(contactsOnSequenceModel)
-      .where(
-        and(
-          inArray(contactsOnSequenceModel.id, enrollmentIds),
-          eq(contactsOnSequenceModel.workspaceId, workspaceId),
-        ),
-      )
-  }
-
   await Promise.all(
-    enrollments.map((enrollment: { id: string }) =>
+    enrollments.map((enrollment) =>
       cancelPendingDispatches({
         client: tx,
         enrollmentId: enrollment.id,
-        workspaceId,
+        workspaceId: enrollment.workspaceId,
         reason: "enrollment_removed",
       }),
+    ),
+  )
+
+  await Promise.all(
+    enrollments.map((enrollment) =>
+      tx
+        .delete(contactsOnSequenceModel)
+        .where(
+          and(
+            eq(contactsOnSequenceModel.id, enrollment.id),
+            eq(contactsOnSequenceModel.workspaceId, enrollment.workspaceId),
+          ),
+        ),
     ),
   )
 }

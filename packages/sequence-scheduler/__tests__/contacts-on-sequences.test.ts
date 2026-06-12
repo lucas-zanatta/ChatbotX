@@ -13,11 +13,16 @@ vi.mock("@chatbotx.io/database/client", () => ({
       contactInboxModel: { findMany: findManyContactInboxMock },
     },
   },
+  and: (...a: unknown[]) => ({ __and: a }),
+  eq: (c: unknown, v: unknown) => ({ __eq: [c, v] }),
   inArray: (c: unknown, v: unknown) => ({ __inArray: [c, v] }),
 }))
 
 vi.mock("@chatbotx.io/database/schema", () => ({
-  contactsOnSequenceModel: { id: "__contactsOnSequenceModel.id" },
+  contactsOnSequenceModel: {
+    id: "__contactsOnSequenceModel.id",
+    workspaceId: "__contactsOnSequenceModel.workspaceId",
+  },
 }))
 
 vi.mock("../src/dispatch-manager", () => ({
@@ -238,7 +243,7 @@ describe("bulkRemoveIds", () => {
         workspaceId: "ws-1",
       }),
     )
-    expect(deleteWhereMock).toHaveBeenCalledTimes(1)
+    expect(deleteWhereMock).toHaveBeenCalledTimes(2)
   })
 
   test("passes the reason 'enrollment_removed' to cancelPendingDispatches", async () => {

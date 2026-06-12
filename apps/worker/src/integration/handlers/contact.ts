@@ -391,6 +391,14 @@ export async function removeContactSequence({
     return
   }
 
+  for (const enrollment of enrollments) {
+    await cancelPendingDispatches({
+      enrollmentId: enrollment.id,
+      workspaceId: conversation.workspaceId,
+      reason: "unsubscribed_via_flow",
+    })
+  }
+
   await db.delete(contactsOnSequenceModel).where(
     and(
       inArray(
@@ -400,14 +408,6 @@ export async function removeContactSequence({
       eq(contactsOnSequenceModel.workspaceId, conversation.workspaceId),
     ),
   )
-
-  for (const enrollment of enrollments) {
-    await cancelPendingDispatches({
-      enrollmentId: enrollment.id,
-      workspaceId: conversation.workspaceId,
-      reason: "unsubscribed_via_flow",
-    })
-  }
 }
 
 export async function subscribeBroadcast({

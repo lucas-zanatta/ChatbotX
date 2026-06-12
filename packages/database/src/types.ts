@@ -82,6 +82,8 @@ export type ContactsOnSequenceModel =
   typeof schema.contactsOnSequenceModel.$inferSelect
 export type SequenceDispatchModel =
   typeof schema.sequenceDispatchModel.$inferSelect
+export type SequenceDispatchIdempotencyModel =
+  typeof schema.sequenceDispatchIdempotencyModel.$inferSelect
 export type TriggerModel = typeof schema.triggerModel.$inferSelect
 export type WebhookModel = typeof schema.webhookModel.$inferSelect
 export type ConditionModel = typeof schema.conditionModel.$inferSelect

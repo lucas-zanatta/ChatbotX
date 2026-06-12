@@ -1,5 +1,3 @@
-import { and, db, eq } from "@chatbotx.io/database/client"
-import { sequenceDispatchModel } from "@chatbotx.io/database/schema"
 import { SEQUENCE_SCHEDULE_PAYLOAD_TYPE } from "@chatbotx.io/flow-config"
 import { sequenceConnections } from "@chatbotx.io/redis"
 import { SchedulerClient } from "@chatbotx.io/scheduler"
@@ -13,6 +11,7 @@ import {
 import { createConsumer } from "@chatbotx.io/worker-config/message-queue/factory"
 import pLimit, { type LimitFunction } from "p-limit"
 import { logger } from "../lib/logger"
+import { revertDispatchToPending } from "./revert-dispatch"
 import { MAX_PROCESS } from "./services/constants"
 import { DispatchProcessorService } from "./services/dispatch-processor.service"
 import { RetrySchedulerService } from "./services/retry-scheduler.service"
@@ -94,6 +93,8 @@ class DispatchConsumer {
         async () => {
           const dispatch = await this.dispatchProcessor.fetchDispatch(
             payload.dispatchId,
+            "pending",
+            payload.workspaceId,
           )
 
           if (!dispatch || dispatch === null) {
@@ -194,28 +195,8 @@ class DispatchConsumer {
         "Failed to enqueue sendSequenceFlow; reverting dispatch",
       )
 
-      await this.revertDispatchToPending(dispatch.id, dispatch.workspaceId)
+      await revertDispatchToPending(dispatch.id, dispatch.workspaceId)
     }
-  }
-
-  private async revertDispatchToPending(
-    dispatchId: string,
-    workspaceId: string,
-  ) {
-    await db
-      .update(sequenceDispatchModel)
-      .set({
-        status: "pending",
-        lockedAt: null,
-        lockOwner: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(sequenceDispatchModel.id, dispatchId),
-          eq(sequenceDispatchModel.workspaceId, workspaceId),
-        ),
-      )
   }
 
   async stop() {

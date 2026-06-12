@@ -14,7 +14,7 @@ interface ReconcileJobOptions {
   intervalMs: number
 }
 
-class ReconcileJob {
+export class ReconcileJob {
   private running = false
   private intervalId: NodeJS.Timeout | null = null
   private cleanupIntervalId: NodeJS.Timeout | null = null
@@ -74,6 +74,7 @@ class ReconcileJob {
 
       while (hasMore) {
         const dispatches = await db.query.sequenceDispatchModel.findMany({
+          // status=pending intentionally prunes this scan to SequenceDispatch_pending.
           where: {
             status: "pending",
             runAtMs: { lte: String(windowEnd.getTime()) },
@@ -235,6 +236,7 @@ const cleanupIntervalMs = Number.parseInt(
 )
 
 const reconcile = new ReconcileJob({ intervalMs, cleanupIntervalMs })
+const shouldAutoStart = process.env.NODE_ENV !== "test" && !process.env.VITEST
 
 let isShuttingDown = false
 
@@ -250,10 +252,12 @@ function stopReconcileWorker() {
   }
 }
 
-startReconcileWorker().catch((error) => {
-  console.error("Error starting reconcile worker:", error)
-  process.exitCode = 1
-})
+if (shouldAutoStart) {
+  startReconcileWorker().catch((error) => {
+    console.error("Error starting reconcile worker:", error)
+    process.exitCode = 1
+  })
+}
 
 const handleShutdownSignal = (signal: "SIGINT" | "SIGTERM") => {
   if (isShuttingDown) {
@@ -272,10 +276,12 @@ const handleShutdownSignal = (signal: "SIGINT" | "SIGTERM") => {
   }
 }
 
-process.on("SIGINT", () => {
-  handleShutdownSignal("SIGINT")
-})
+if (shouldAutoStart) {
+  process.on("SIGINT", () => {
+    handleShutdownSignal("SIGINT")
+  })
 
-process.on("SIGTERM", () => {
-  handleShutdownSignal("SIGTERM")
-})
+  process.on("SIGTERM", () => {
+    handleShutdownSignal("SIGTERM")
+  })
+}

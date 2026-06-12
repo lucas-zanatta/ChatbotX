@@ -6,7 +6,10 @@ import {
   inArray,
   type Transaction,
 } from "@chatbotx.io/database/client"
-import { sequenceDispatchModel } from "@chatbotx.io/database/schema"
+import {
+  sequenceDispatchIdempotencyModel,
+  sequenceDispatchModel,
+} from "@chatbotx.io/database/schema"
 import { sequenceConnections } from "@chatbotx.io/redis"
 import { SchedulerClient } from "@chatbotx.io/scheduler"
 import { createId } from "@chatbotx.io/utils"
@@ -52,10 +55,11 @@ export async function createDispatch(
     stepId,
     enrollmentId,
     runAt,
-    client = db,
+    client,
   } = params
   const bucket = calculateBucket(workspaceId, contactId)
   const runAtMs = String(runAt.getTime())
+  const dispatchId = createId()
   const idempotencyKey = generateIdempotencyKey(
     workspaceId,
     enrollmentId,
@@ -63,33 +67,47 @@ export async function createDispatch(
     runAt,
   )
 
-  const [dispatch] = await client
-    .insert(sequenceDispatchModel)
-    .values({
-      id: createId(),
-      workspaceId,
-      sequenceId,
-      contactId,
-      contactInboxId,
-      stepId,
-      enrollmentId,
-      runAtMs,
-      bucket,
+  const insertDispatch = async (tx: DrizzleClient) => {
+    const [dispatch] = await tx
+      .insert(sequenceDispatchModel)
+      .values({
+        id: dispatchId,
+        workspaceId,
+        sequenceId,
+        contactId,
+        contactInboxId,
+        stepId,
+        enrollmentId,
+        runAtMs,
+        bucket,
+        idempotencyKey,
+        status: "pending",
+        attempt: 0,
+      })
+      .returning({
+        id: sequenceDispatchModel.id,
+        bucket: sequenceDispatchModel.bucket,
+        runAtMs: sequenceDispatchModel.runAtMs,
+      })
+
+    if (!dispatch) {
+      throw new Error("Failed to create dispatch")
+    }
+
+    await tx.insert(sequenceDispatchIdempotencyModel).values({
       idempotencyKey,
-      status: "pending",
-      attempt: 0,
-    })
-    .returning({
-      id: sequenceDispatchModel.id,
-      bucket: sequenceDispatchModel.bucket,
-      runAtMs: sequenceDispatchModel.runAtMs,
+      workspaceId,
+      dispatchId,
     })
 
-  if (!dispatch) {
-    throw new Error("Failed to create dispatch")
+    return dispatch
   }
 
-  return dispatch
+  if (client && client !== db) {
+    return await insertDispatch(client)
+  }
+
+  return await db.transaction(insertDispatch)
 }
 export interface CancelPendingDispatchesParams {
   client?: DatabaseClient

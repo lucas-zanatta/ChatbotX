@@ -73,7 +73,10 @@ describe("DispatchProcessorService", () => {
       findFirstSpy.mockResolvedValue(dispatch)
 
       // Act
-      const result = await new DispatchProcessorService().fetchDispatch("d1")
+      const result = await new DispatchProcessorService().fetchDispatch(
+        "d1",
+        "pending",
+      )
 
       // Assert
       expect(result).toEqual(dispatch)
@@ -86,6 +89,7 @@ describe("DispatchProcessorService", () => {
       // Act
       const result = await new DispatchProcessorService().fetchDispatch(
         "missing",
+        "pending",
       )
 
       // Assert
@@ -100,7 +104,10 @@ describe("DispatchProcessorService", () => {
       findFirstSpy.mockRejectedValue(new Error("connection refused"))
 
       // Act
-      const result = await new DispatchProcessorService().fetchDispatch("d1")
+      const result = await new DispatchProcessorService().fetchDispatch(
+        "d1",
+        "pending",
+      )
 
       // Assert
       expect(result).toBeNull()
@@ -110,18 +117,41 @@ describe("DispatchProcessorService", () => {
       )
     })
 
-    test("queries with id and fetches sequence/contact/enrollment relations", async () => {
+    test("queries with id + status and fetches sequence/contact/enrollment relations", async () => {
       // Arrange
       findFirstSpy.mockResolvedValue({ id: "d99" })
 
       // Act
-      await new DispatchProcessorService().fetchDispatch("d99")
+      await new DispatchProcessorService().fetchDispatch("d99", "pending")
 
       // Assert
       expect(findFirstSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: "d99" }),
+          where: expect.objectContaining({ id: "d99", status: "pending" }),
           with: { sequence: true, contact: true, enrollment: true },
+        }),
+      )
+    })
+
+    test("includes workspaceId when caller provides it", async () => {
+      // Arrange
+      findFirstSpy.mockResolvedValue({ id: "d99" })
+
+      // Act
+      await new DispatchProcessorService().fetchDispatch(
+        "d99",
+        "pending",
+        "ws1",
+      )
+
+      // Assert
+      expect(findFirstSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "d99",
+            status: "pending",
+            workspaceId: "ws1",
+          }),
         }),
       )
     })

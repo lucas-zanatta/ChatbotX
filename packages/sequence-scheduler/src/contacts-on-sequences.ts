@@ -1,4 +1,4 @@
-import { type DatabaseClient, db, inArray } from "@chatbotx.io/database/client"
+import { and, type DatabaseClient, db, eq } from "@chatbotx.io/database/client"
 import { contactsOnSequenceModel } from "@chatbotx.io/database/schema"
 import type { ContactInboxModel } from "@chatbotx.io/database/types"
 import { cancelPendingDispatches } from "./dispatch-manager"
@@ -65,10 +65,16 @@ export const contactsOnSequencesUtils = {
       ),
     )
 
-    await dbClient.delete(contactsOnSequenceModel).where(
-      inArray(
-        contactsOnSequenceModel.id,
-        enrollments.map((e) => e.id),
+    await Promise.all(
+      enrollments.map((enrollment) =>
+        dbClient
+          .delete(contactsOnSequenceModel)
+          .where(
+            and(
+              eq(contactsOnSequenceModel.id, enrollment.id),
+              eq(contactsOnSequenceModel.workspaceId, enrollment.workspaceId),
+            ),
+          ),
       ),
     )
   },

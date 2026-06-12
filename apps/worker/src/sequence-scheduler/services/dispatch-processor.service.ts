@@ -3,11 +3,17 @@ import { sequenceDispatchModel } from "@chatbotx.io/database/schema"
 import type { DispatchWithRelations } from "./types"
 
 export class DispatchProcessorService {
-  async fetchDispatch(dispatchId: string) {
+  async fetchDispatch(
+    dispatchId: string,
+    expectedStatus: string,
+    workspaceId?: string,
+  ) {
     try {
       const dispatch = await db.query.sequenceDispatchModel.findFirst({
         where: {
           id: dispatchId,
+          status: expectedStatus,
+          ...(workspaceId ? { workspaceId } : {}),
         },
         with: {
           sequence: true,
