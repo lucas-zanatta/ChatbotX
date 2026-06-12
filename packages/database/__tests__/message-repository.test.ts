@@ -30,6 +30,21 @@ function makeDbMock() {
   return { insert, chain, update, updateChain }
 }
 
+function makeSelectDbMock(messages: unknown[] = []) {
+  const selectChain = {
+    from: vi.fn(),
+    where: vi.fn(),
+    orderBy: vi.fn(),
+    limit: vi.fn().mockResolvedValue(messages),
+  }
+  selectChain.from.mockReturnValue(selectChain)
+  selectChain.where.mockReturnValue(selectChain)
+  selectChain.orderBy.mockReturnValue(selectChain)
+  const select = vi.fn().mockReturnValue(selectChain)
+
+  return { select, selectChain }
+}
+
 function makeMessage(
   overrides: Partial<CreateMessageInput> = {},
 ): CreateMessageInput {
@@ -171,5 +186,26 @@ describe("MessageRepository.bulkCreate", () => {
     expect(result).toEqual([])
     // insert call count must remain 0 — no DB roundtrip
     expect(insert).toHaveBeenCalledTimes(0)
+  })
+})
+
+describe("MessageRepository.findLastByConversation", () => {
+  test("orders by createdAt desc and id desc", async () => {
+    const message = {
+      id: "2",
+      conversationId: "conv-1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    }
+    const { select, selectChain } = makeSelectDbMock([message])
+    const repo = new MessageRepository({ select } as never)
+
+    await expect(repo.findLastByConversation("conv-1")).resolves.toEqual([
+      { ...message, attachments: [] },
+    ])
+
+    expect(selectChain.orderBy).toHaveBeenCalledOnce()
+    const orderByArgs = selectChain.orderBy.mock.calls[0]
+    expect(orderByArgs).toHaveLength(2)
+    expect(orderByArgs[1]?.queryChunks?.[1]).toBe(messageModel.id)
   })
 })

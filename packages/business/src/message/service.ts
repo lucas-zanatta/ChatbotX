@@ -1,8 +1,11 @@
 import { type DatabaseClient, db } from "@chatbotx.io/database/client"
 import { type MessageType, messageTypes } from "@chatbotx.io/database/partials"
+import { createMessageRepository } from "@chatbotx.io/database/repositories"
 import type { MessageModel } from "@chatbotx.io/database/types"
 import { withCache } from "@chatbotx.io/redis"
 import { BaseService } from "../base.service"
+
+const LAST_INPUT_LOOKBACK_MS = 180 * 24 * 60 * 60 * 1000
 
 type FindByProps = {
   id: string
@@ -44,13 +47,18 @@ class MessageService extends BaseService {
     )
   }
 
-  findLatestIncomingMessage(
+  async findLatestIncomingMessage(
     conversationId: string,
   ): Promise<MessageModel | undefined> {
-    return this.findBy({
-      where: { conversationId, messageType: messageTypes.enum.incoming },
-      ttlInSeconds: 2 * 60,
+    const repository = await createMessageRepository()
+    const [message] = await repository.findLastByConversation(conversationId, {
+      limit: 1,
+      messageTypes: [messageTypes.enum.incoming],
+      // Sharded message reads require a bounded time range. Six months keeps
+      // last_input useful for active conversations without scanning all shards.
+      sinceTime: new Date(Date.now() - LAST_INPUT_LOOKBACK_MS),
     })
+    return message
   }
 
   listLastMessages(props: {

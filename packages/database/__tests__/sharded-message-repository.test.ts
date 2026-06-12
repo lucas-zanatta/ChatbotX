@@ -40,6 +40,21 @@ function makeShardDbMock() {
   return { insert, chain, update, updateChain }
 }
 
+function makeShardReadDbMock(messages: unknown[] = []) {
+  const selectChain = {
+    from: vi.fn(),
+    where: vi.fn(),
+    orderBy: vi.fn(),
+    limit: vi.fn().mockResolvedValue(messages),
+  }
+  selectChain.from.mockReturnValue(selectChain)
+  selectChain.where.mockReturnValue(selectChain)
+  selectChain.orderBy.mockReturnValue(selectChain)
+  const select = vi.fn().mockReturnValue(selectChain)
+
+  return { select, selectChain }
+}
+
 function makeShardManagerMock(shardDb: { insert: ReturnType<typeof vi.fn> }) {
   return {
     getShardForWrite: vi.fn().mockResolvedValue(shardDb),
@@ -237,6 +252,50 @@ describe("ShardedMessageRepository.bulkCreate", () => {
 
     expect(result).toEqual([])
     expect(insert).toHaveBeenCalledTimes(0)
+  })
+})
+
+describe("ShardedMessageRepository.findLastByConversation", () => {
+  test("orders each shard by createdAt desc and id desc, then tie-breaks merged rows by id desc", async () => {
+    const createdAt = new Date("2026-01-01T00:00:00.000Z")
+    const shard1Db = makeShardReadDbMock([
+      { id: "2", conversationId: "conv-1", createdAt },
+    ])
+    const shard2Db = makeShardReadDbMock([
+      { id: "3", conversationId: "conv-1", createdAt },
+    ])
+    const shardManager = {
+      getShardsForTimeRange: vi.fn().mockResolvedValue([
+        {
+          id: "range-1",
+          shardId: "shard-1",
+          shard: { id: "shard-1" },
+          startTime: createdAt,
+          endTime: null,
+        },
+        {
+          id: "range-2",
+          shardId: "shard-2",
+          shard: { id: "shard-2" },
+          startTime: createdAt,
+          endTime: null,
+        },
+      ]),
+      withShardClientForRead: vi.fn(async (shard, fn) => {
+        const db = shard.id === "shard-1" ? shard1Db : shard2Db
+        return await fn(db)
+      }),
+    }
+    const repo = new ShardedMessageRepository(shardManager as never)
+
+    const result = await repo.findLastByConversation("conv-1", {
+      limit: 1,
+      sinceTime: new Date("2025-12-31T00:00:00.000Z"),
+    })
+
+    expect(result[0]?.id).toBe("3")
+    expect(shard1Db.selectChain.orderBy.mock.calls[0]).toHaveLength(2)
+    expect(shard2Db.selectChain.orderBy.mock.calls[0]).toHaveLength(2)
   })
 })
 

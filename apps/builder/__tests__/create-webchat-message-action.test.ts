@@ -172,6 +172,7 @@ describe("handleCreateWebchatMessage", () => {
     mockDbTransaction.mockImplementation((fn: (tx: unknown) => unknown) =>
       fn(tx),
     )
+    tx.insert.mockReset()
     mockFindOrFail.mockResolvedValue({ inboxId: "inbox-1" })
     tx.query.contactInboxModel.findFirst.mockResolvedValue(contactInbox)
     tx.query.conversationModel.findFirst.mockResolvedValue(conversation)
@@ -189,6 +190,91 @@ describe("handleCreateWebchatMessage", () => {
       createWithAttachments: vi.fn(),
     })
     mockChatQueueAdd.mockResolvedValue(undefined)
+  })
+
+  const mockInsertReturning = (row: Record<string, unknown>) => {
+    const chain = {
+      values: vi.fn(),
+      returning: vi.fn().mockResolvedValue([row]),
+    }
+    chain.values.mockReturnValue(chain)
+    return chain
+  }
+
+  test("stores locale and timezone on new webchat contacts", async () => {
+    tx.query.contactInboxModel.findFirst.mockResolvedValueOnce(null)
+    const contactInsert = mockInsertReturning({
+      ...contact,
+      locale: "vi-VN",
+      timezone: "Asia/Ho_Chi_Minh",
+    })
+    const contactInboxInsert = mockInsertReturning(contactInbox)
+    const conversationInsert = mockInsertReturning(conversation)
+    tx.insert
+      .mockReturnValueOnce(contactInsert)
+      .mockReturnValueOnce(contactInboxInsert)
+      .mockReturnValueOnce(conversationInsert)
+
+    await handleCreateWebchatMessage({
+      parsedInput: {
+        text: "hello",
+        workspaceId: "ws-1",
+        webchatId: "webchat-1",
+        guestConversationId: "guest-1",
+        locale: "vi-VN",
+        timezone: "Asia/Ho_Chi_Minh",
+      },
+    })
+
+    expect(contactInsert.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        locale: "vi-VN",
+        timezone: "Asia/Ho_Chi_Minh",
+      }),
+    )
+  })
+
+  test("creates new webchat contacts when locale and timezone are absent", async () => {
+    tx.query.contactInboxModel.findFirst.mockResolvedValueOnce(null)
+    const contactInsert = mockInsertReturning(contact)
+    tx.insert
+      .mockReturnValueOnce(contactInsert)
+      .mockReturnValueOnce(mockInsertReturning(contactInbox))
+      .mockReturnValueOnce(mockInsertReturning(conversation))
+
+    await expect(
+      handleCreateWebchatMessage({
+        parsedInput: {
+          text: "hello",
+          workspaceId: "ws-1",
+          webchatId: "webchat-1",
+          guestConversationId: "guest-1",
+        },
+      }),
+    ).resolves.toMatchObject({ id: "msg-1" })
+
+    expect(contactInsert.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: "Guest",
+        timezone: undefined,
+        locale: undefined,
+      }),
+    )
+  })
+
+  test("does not overwrite existing webchat contacts with payload locale and timezone", async () => {
+    await handleCreateWebchatMessage({
+      parsedInput: {
+        text: "hello",
+        workspaceId: "ws-1",
+        webchatId: "webchat-1",
+        guestConversationId: "guest-1",
+        locale: "vi-VN",
+        timezone: "Asia/Ho_Chi_Minh",
+      },
+    })
+
+    expect(tx.insert).not.toHaveBeenCalled()
   })
 
   test("updates conversation read and activity timestamps from the created webchat message", async () => {

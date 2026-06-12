@@ -352,7 +352,7 @@ export class MessageRepository implements IMessageRepository {
       .select()
       .from(messageModel)
       .where(and(...whereConditions))
-      .orderBy(desc(messageModel.createdAt))
+      .orderBy(desc(messageModel.createdAt), desc(messageModel.id))
       .limit(limit)
 
     if (messages.length === 0) {

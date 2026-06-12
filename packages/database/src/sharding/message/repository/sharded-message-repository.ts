@@ -39,6 +39,30 @@ export { getSafeSinceTime } from "../../../repositories"
 const SHARD_RANGE_CACHE_TAG = "message-shard-range"
 const SHARD_RANGE_CACHE_TTL_S = 30
 
+const compareMessagesByNewest = (
+  a: Pick<MessageModel, "createdAt" | "id">,
+  b: Pick<MessageModel, "createdAt" | "id">,
+): number => {
+  const createdAtDiff = b.createdAt.getTime() - a.createdAt.getTime()
+  if (createdAtDiff !== 0) {
+    return createdAtDiff
+  }
+
+  try {
+    const aId = BigInt(a.id)
+    const bId = BigInt(b.id)
+    if (bId > aId) {
+      return 1
+    }
+    if (bId < aId) {
+      return -1
+    }
+    return 0
+  } catch {
+    return b.id.localeCompare(a.id)
+  }
+}
+
 export class ShardedMessageRepository implements IMessageRepository {
   private readonly shardManager: MessageShardConnectionManager
   private readonly distributedLock: DistributedLock
@@ -575,7 +599,7 @@ export class ShardedMessageRepository implements IMessageRepository {
                 .select()
                 .from(messageModel)
                 .where(and(...whereConditions))
-                .orderBy(desc(messageModel.createdAt))
+                .orderBy(desc(messageModel.createdAt), desc(messageModel.id))
                 .limit(limit)
 
               if (messages.length === 0) {
@@ -606,10 +630,7 @@ export class ShardedMessageRepository implements IMessageRepository {
       }),
     )
 
-    return shardResults
-      .flat()
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limit)
+    return shardResults.flat().sort(compareMessagesByNewest).slice(0, limit)
   }
 
   async findManyByConversation(

@@ -4,6 +4,7 @@ import type { IncomingContact, IncomingMessage } from "./message"
 export * from "./context"
 export * from "./message"
 export * from "./mime-types"
+export * from "./profile-fields"
 
 export type Handler<I, O> = (props: I) => Promise<O>
 
