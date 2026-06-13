@@ -719,6 +719,9 @@
     "mailchimp": {
       "label": "Mailchimp"
     },
+    "mailerLite": {
+      "label": "MailerLite"
+    },
     "host": {
       "label": "Host",
       "placeholder": "smtp.example.com"
@@ -1452,6 +1455,7 @@
       "inboxActions": "Inbox Actions",
       "markEmailVerified": "Mark Email Verified",
       "mailchimpAddMember": "Add Contact to MailChimp",
+      "mailerLiteAddSubscriber": "Add Contact to MailerLite",
       "openWebsite": "Open Website",
       "optInEmail": "Opt In Email",
       "optOutEmail": "Opt Out Email",
@@ -1627,6 +1631,28 @@
       "optional": "Optional",
       "tags": "Tags",
       "mergeFields": "Custom Fields in MailChimp"
+    }
+  },
+  "mailerLite": {
+    "title": "MailerLite",
+    "setting": {
+      "label": "MailerLite",
+      "description": "This integration lets you save customers contacts from your bot to MailerLite."
+    },
+    "fields": {
+      "apiToken": "API Token",
+      "group": "Group",
+      "groupPlaceholder": "Nothing selected",
+      "email": "Email Field",
+      "status": "Type",
+      "customFields": "Custom Fields in MailerLite (Optional)",
+      "emptyField": "---",
+      "providerField": "Select MailerLite field",
+      "addMapping": "Add New"
+    },
+    "status": {
+      "active": "Subscribed",
+      "unconfirmed": "Unconfirmed"
     }
   },
   "integrations": {
