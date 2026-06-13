@@ -123,7 +123,7 @@ describe("sequenceDispatchUtils.bulkCancelPendingDispatches", () => {
     ])
   })
 
-  // RED → Phase 2: UPDATE WHERE must include workspaceId + status=pending for partition pruning.
+  // UPDATE WHERE must include workspaceId + status=pending for partition pruning.
   test("UPDATE WHERE includes workspaceId and status=pending", async () => {
     const { sequenceDispatchUtils } = await import("../src/sequence-dispatch")
     findManyDispatchMock.mockResolvedValue([

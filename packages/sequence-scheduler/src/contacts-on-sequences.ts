@@ -1,7 +1,5 @@
-import { and, type DatabaseClient, db, eq } from "@chatbotx.io/database/client"
-import { contactsOnSequenceModel } from "@chatbotx.io/database/schema"
+import { type DatabaseClient, db } from "@chatbotx.io/database/client"
 import type { ContactInboxModel } from "@chatbotx.io/database/types"
-import { cancelPendingDispatches } from "./dispatch-manager"
 
 export const contactsOnSequencesUtils = {
   getAllSequenceIds: async (
@@ -33,51 +31,6 @@ export const contactsOnSequencesUtils = {
 
     return { toAdd, toRemove }
   },
-
-  bulkRemoveIds: async (
-    dbClient: DatabaseClient,
-    contactId: string,
-    sequenceIds: string[],
-  ) => {
-    if (sequenceIds.length === 0) {
-      return
-    }
-
-    const enrollments = await dbClient.query.contactsOnSequenceModel.findMany({
-      where: {
-        contactId,
-        sequenceId: { in: sequenceIds },
-      },
-    })
-
-    if (enrollments.length === 0) {
-      return
-    }
-
-    await Promise.all(
-      enrollments.map((enrollment) =>
-        cancelPendingDispatches({
-          enrollmentId: enrollment.id,
-          workspaceId: enrollment.workspaceId,
-          reason: "enrollment_removed",
-          client: dbClient,
-        }),
-      ),
-    )
-
-    await Promise.all(
-      enrollments.map((enrollment) =>
-        dbClient
-          .delete(contactsOnSequenceModel)
-          .where(
-            and(
-              eq(contactsOnSequenceModel.id, enrollment.id),
-              eq(contactsOnSequenceModel.workspaceId, enrollment.workspaceId),
-            ),
-          ),
-      ),
-    )
-  },
 }
 
 export type ContactsOnSequencesUtils = typeof contactsOnSequencesUtils
@@ -94,6 +47,10 @@ export async function getContactInboxes(
       id: true,
     },
   })
+
+  if (inboxes.length === 0) {
+    return []
+  }
 
   const contactInboxes = await db.query.contactInboxModel.findMany({
     where: {

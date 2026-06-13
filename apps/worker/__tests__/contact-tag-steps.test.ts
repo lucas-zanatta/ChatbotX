@@ -18,8 +18,6 @@ const state = {
   txNewlyLinked: [] as { tagId: string }[], // contactsToTags insert .returning()
   // removeContactTag
   tagFindMany: [] as { id: string }[], // db.query.tagModel.findMany()
-  // removeContactSequence
-  sequenceEnrollments: [] as { id: string }[],
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +42,7 @@ mockTxSelectBuilder.from.mockReturnValue(mockTxSelectBuilder)
 mockTxSelectBuilder.where.mockImplementation(async () => state.txExistingTags)
 
 const mockTx = {
+  delete: vi.fn(() => mockDeleteBuilder),
   insert: vi.fn(() => mockTxInsertBuilder),
   select: vi.fn(() => mockTxSelectBuilder),
 }
@@ -107,8 +106,11 @@ vi.mock("@chatbotx.io/database/schema", () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock: @chatbotx.io/business — tagSyncService
+// Mock: @chatbotx.io/business
 // ---------------------------------------------------------------------------
+const removeContactSequencesForContact = vi.fn(() => {
+  order.push("remove-sequence")
+})
 const enqueueAttach = vi.fn(() => {
   order.push("enqueue")
 })
@@ -117,6 +119,10 @@ const enqueueDetach = vi.fn(() => {
 })
 vi.mock("@chatbotx.io/business", () => ({
   tagSyncService: { enqueueAttach, enqueueDetach },
+}))
+
+vi.mock("@chatbotx.io/business/contact-sequence", () => ({
+  contactSequenceService: { removeContactSequencesForContact },
 }))
 
 // ---------------------------------------------------------------------------
@@ -135,15 +141,19 @@ vi.mock("@chatbotx.io/events", () => ({
 // Remaining runtime imports of contact.ts (unused by tested handlers)
 // ---------------------------------------------------------------------------
 vi.mock("@chatbotx.io/event-bus", () => ({ emit: vi.fn() }))
-const { cancelPendingDispatchesMock, enrollContactInSequenceMock } = vi.hoisted(
-  () => ({
-    cancelPendingDispatchesMock: vi.fn(),
-    enrollContactInSequenceMock: vi.fn(),
-  }),
-)
+const {
+  cancelPendingDispatchesMock,
+  enrollContactInSequenceMock,
+  removeDispatchesFromScheduleMock,
+} = vi.hoisted(() => ({
+  cancelPendingDispatchesMock: vi.fn(),
+  enrollContactInSequenceMock: vi.fn(),
+  removeDispatchesFromScheduleMock: vi.fn(),
+}))
 vi.mock("@chatbotx.io/sequence-scheduler", () => ({
   cancelPendingDispatches: cancelPendingDispatchesMock,
   enrollContactInSequence: enrollContactInSequenceMock,
+  removeDispatchesFromSchedule: removeDispatchesFromScheduleMock,
 }))
 
 let idCounter = 0
@@ -190,7 +200,6 @@ function reset() {
   state.txExistingTags = []
   state.txNewlyLinked = []
   state.tagFindMany = []
-  state.sequenceEnrollments = []
   order.length = 0
   idCounter = 0
   vi.clearAllMocks()
@@ -204,13 +213,21 @@ function reset() {
   mockTxSelectBuilder.where.mockImplementation(async () => state.txExistingTags)
   mockTx.insert.mockReturnValue(mockTxInsertBuilder)
   mockTx.select.mockReturnValue(mockTxSelectBuilder)
+  mockTx.delete.mockReturnValue(mockDeleteBuilder)
   mockDeleteBuilder.where.mockImplementation(() => {
     order.push("delete")
   })
-  cancelPendingDispatchesMock.mockImplementation(() => {
+  cancelPendingDispatchesMock.mockImplementation(({ enrollmentId }) => {
     order.push("cancel")
+    return Promise.resolve([{ id: `dispatch-${enrollmentId}`, bucket: 1 }])
+  })
+  removeDispatchesFromScheduleMock.mockImplementation(() => {
+    order.push("remove")
   })
   enrollContactInSequenceMock.mockResolvedValue(undefined)
+  removeContactSequencesForContact.mockImplementation(() => {
+    order.push("remove-sequence")
+  })
   enqueueAttach.mockImplementation(() => {
     order.push("enqueue")
   })
@@ -225,29 +242,23 @@ function reset() {
 describe("removeContactSequence", () => {
   beforeEach(reset)
 
-  test("cancels pending dispatches before deleting enrollments", async () => {
-    state.sequenceEnrollments = [{ id: "enroll-1" }, { id: "enroll-2" }]
-
+  test("delegates unsubscribe removal to the business service", async () => {
     await removeContactSequence(removeSequenceProps())
 
-    expect(cancelPendingDispatchesMock).toHaveBeenCalledTimes(2)
-    expect(cancelPendingDispatchesMock).toHaveBeenCalledWith({
-      enrollmentId: "enroll-1",
+    expect(removeContactSequencesForContact).toHaveBeenCalledWith({
       workspaceId: "ws-1",
+      contactId: "c-1",
+      sequenceIds: ["seq-1"],
       reason: "unsubscribed_via_flow",
     })
-    expect(cancelPendingDispatchesMock).toHaveBeenCalledWith({
-      enrollmentId: "enroll-2",
-      workspaceId: "ws-1",
-      reason: "unsubscribed_via_flow",
-    })
-    expect(order).toEqual(["cancel", "cancel", "delete"])
+    expect(cancelPendingDispatchesMock).not.toHaveBeenCalled()
+    expect(removeDispatchesFromScheduleMock).not.toHaveBeenCalled()
   })
 
   test("returns early when sequenceId is missing", async () => {
     await removeContactSequence(removeSequenceProps(null))
 
-    expect(cancelPendingDispatchesMock).not.toHaveBeenCalled()
+    expect(removeContactSequencesForContact).not.toHaveBeenCalled()
     expect(order).toEqual([])
   })
 })

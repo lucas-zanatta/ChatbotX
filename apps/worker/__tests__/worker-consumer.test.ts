@@ -48,6 +48,7 @@ describe("revertDispatchToPending", () => {
       status: "pending",
       lockedAt: null,
       lockOwner: null,
+      updatedAt: expect.any(Date),
     })
     const c = cols(whereSpy.mock.calls[0][0] as { __and: [] })
     expect(c).toEqual(expect.arrayContaining(["id", "workspaceId", "status"]))

@@ -67,7 +67,7 @@ class DispatchConsumer {
     })
 
     this.running = true
-    console.log("Dispatch consumer fully operational")
+    logger.info("Dispatch consumer fully operational")
 
     await this.consumer.consume(async (value: string) => {
       if (!this.running) {
@@ -75,8 +75,17 @@ class DispatchConsumer {
       }
 
       try {
-        const payload = JSON.parse(value || "{}")
-        await this.limitProcess(() => this.processDispatch(payload))
+        const payload = JSON.parse(value || "{}") as Partial<DispatchMessage>
+        if (!payload.workspaceId) {
+          logger.warn(
+            { payload },
+            "Skipping sequence dispatch message without workspaceId",
+          )
+          return
+        }
+        await this.limitProcess(() =>
+          this.processDispatch(payload as DispatchMessage),
+        )
       } catch (error) {
         logger.error(error, "Error processing dispatch message")
         logger.error({ value }, "Error processing dispatch message value")
@@ -218,30 +227,30 @@ const consumer = new DispatchConsumer()
 let isShuttingDown = false
 
 async function startDispatchConsumer() {
-  console.log("Starting dispatch consumer...")
+  logger.info("Starting dispatch consumer")
 
   try {
     await consumer.start()
   } catch (error) {
-    console.error("Error starting dispatch consumer:", error)
+    logger.error(error, "Error starting dispatch consumer")
     throw error
   }
 }
 
 async function stopDispatchConsumer() {
-  console.log("Stopping dispatch consumer...")
+  logger.info("Stopping dispatch consumer")
 
   try {
     await consumer.stop()
-    console.log("Dispatch consumer stopped")
+    logger.info("Dispatch consumer stopped")
   } catch (error) {
-    console.error("Error stopping dispatch consumer:", error)
+    logger.error(error, "Error stopping dispatch consumer")
     throw error
   }
 }
 
 startDispatchConsumer().catch((error) => {
-  console.error("Error starting dispatch consumer:", error)
+  logger.error(error, "Error starting dispatch consumer")
   process.exitCode = 1
 })
 
@@ -251,27 +260,27 @@ const handleShutdownSignal = async (signal: "SIGINT" | "SIGTERM") => {
   }
   isShuttingDown = true
 
-  console.log(`${signal} received, shutting down dispatch consumer...`)
+  logger.info({ signal }, "Shutdown signal received")
 
   try {
     await stopDispatchConsumer()
     process.exit(0)
   } catch (error) {
-    console.error("Error during dispatch consumer shutdown:", error)
+    logger.error(error, "Error during dispatch consumer shutdown")
     process.exit(1)
   }
 }
 
 process.on("SIGINT", () => {
   handleShutdownSignal("SIGINT").catch((error) => {
-    console.error("Unhandled SIGINT shutdown error:", error)
+    logger.error(error, "Unhandled SIGINT shutdown error")
     process.exit(1)
   })
 })
 
 process.on("SIGTERM", () => {
   handleShutdownSignal("SIGTERM").catch((error) => {
-    console.error("Unhandled SIGTERM shutdown error:", error)
+    logger.error(error, "Unhandled SIGTERM shutdown error")
     process.exit(1)
   })
 })

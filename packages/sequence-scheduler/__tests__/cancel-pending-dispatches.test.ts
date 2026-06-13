@@ -57,7 +57,7 @@ beforeEach(() => {
 })
 
 describe("cancelPendingDispatches", () => {
-  test("GREEN SELECT filters enrollmentId + workspaceId + status=pending", async () => {
+  test("SELECT filters enrollmentId + workspaceId + status=pending", async () => {
     findManySpy.mockResolvedValue([])
     const { cancelPendingDispatches } = await import("../src/dispatch-manager")
 
@@ -75,7 +75,7 @@ describe("cancelPendingDispatches", () => {
     })
   })
 
-  test("GREEN empty result skips UPDATE and Redis", async () => {
+  test("empty result skips UPDATE and Redis", async () => {
     findManySpy.mockResolvedValue([])
     const { cancelPendingDispatches } = await import("../src/dispatch-manager")
 
@@ -90,7 +90,7 @@ describe("cancelPendingDispatches", () => {
     expect(removeFromScheduleSpy).not.toHaveBeenCalled()
   })
 
-  test("GREEN UPDATE WHERE has id + workspaceId + status; Redis removed per dispatch", async () => {
+  test("UPDATE WHERE has id + workspaceId + status; Redis removed per dispatch", async () => {
     findManySpy.mockResolvedValue([
       { id: "d1", bucket: 1 },
       { id: "d2", bucket: 2 },
@@ -106,5 +106,78 @@ describe("cancelPendingDispatches", () => {
     const c = cols(updateWhereSpy.mock.calls[0][0] as { __and: [] })
     expect(c).toEqual(expect.arrayContaining(["id", "workspaceId", "status"]))
     expect(removeFromScheduleSpy).toHaveBeenCalledTimes(2)
+  })
+
+  test("skips Redis removal when removal is deferred", async () => {
+    findManySpy.mockResolvedValue([
+      { id: "d1", bucket: 1 },
+      { id: "d2", bucket: 2 },
+    ])
+    const { cancelPendingDispatches } = await import("../src/dispatch-manager")
+
+    const res = await cancelPendingDispatches({
+      enrollmentId: "e1",
+      workspaceId: "w1",
+      client,
+      removeFromSchedule: false,
+    })
+
+    expect(res).toEqual([
+      { id: "d1", bucket: 1 },
+      { id: "d2", bucket: 2 },
+    ])
+    expect(updateWhereSpy).toHaveBeenCalledTimes(1)
+    expect(removeFromScheduleSpy).not.toHaveBeenCalled()
+  })
+
+  test("removeDispatchesFromSchedule removes each dispatch from Redis", async () => {
+    const { removeDispatchesFromSchedule } = await import(
+      "../src/dispatch-manager"
+    )
+
+    await removeDispatchesFromSchedule([
+      { id: "d1", bucket: 1 },
+      { id: "d2", bucket: 2 },
+    ])
+
+    expect(removeFromScheduleSpy).toHaveBeenCalledTimes(2)
+    expect(removeFromScheduleSpy).toHaveBeenCalledWith(1, "d1")
+    expect(removeFromScheduleSpy).toHaveBeenCalledWith(2, "d2")
+  })
+
+  test("removeDispatchesFromSchedule attempts every Redis removal before reporting failures", async () => {
+    removeFromScheduleSpy
+      .mockRejectedValueOnce(new Error("redis down"))
+      .mockResolvedValueOnce(undefined)
+    const { removeDispatchesFromSchedule } = await import(
+      "../src/dispatch-manager"
+    )
+
+    await expect(
+      removeDispatchesFromSchedule([
+        { id: "d1", bucket: 1 },
+        { id: "d2", bucket: 2 },
+      ]),
+    ).rejects.toThrow("Failed to remove sequence dispatches from schedule")
+
+    expect(removeFromScheduleSpy).toHaveBeenCalledTimes(2)
+    expect(removeFromScheduleSpy).toHaveBeenCalledWith(1, "d1")
+    expect(removeFromScheduleSpy).toHaveBeenCalledWith(2, "d2")
+  })
+
+  test("removeDispatchesFromSchedule identifies failed dispatches", async () => {
+    removeFromScheduleSpy
+      .mockRejectedValueOnce(new Error("redis down"))
+      .mockResolvedValueOnce(undefined)
+    const { removeDispatchesFromSchedule } = await import(
+      "../src/dispatch-manager"
+    )
+
+    await expect(
+      removeDispatchesFromSchedule([
+        { id: "d1", bucket: 1 },
+        { id: "d2", bucket: 2 },
+      ]),
+    ).rejects.toThrow("d1 bucket=1")
   })
 })

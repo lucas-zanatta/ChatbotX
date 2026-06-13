@@ -188,6 +188,17 @@ describe("enrollContactInSequence", () => {
       )
     })
 
+    test("uses the provided root db client without wrapping another transaction", async () => {
+      const { db } = await import("@chatbotx.io/database/client")
+
+      await enrollContactInSequence(makeEnrollParams({ client: db as never }))
+
+      expect(transactionMock).not.toHaveBeenCalled()
+      expect(vi.mocked(createDispatch)).toHaveBeenCalledWith(
+        expect.objectContaining({ client: db }),
+      )
+    })
+
     test("inserts a new enrollment row", async () => {
       await enrollContactInSequence(makeEnrollParams())
 

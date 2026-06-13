@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 import { bigintAsString, timestampConfig } from "../partials/shared"
 import { contactModel } from "./contact"
@@ -81,9 +82,13 @@ export const sequenceDispatchModel = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.id, table.status],
+      columns: [table.id, table.workspaceId],
       name: "SequenceDispatch_pkey",
     }),
+    uniqueIndex("SequenceDispatch_idempotencyKey_key").on(
+      table.idempotencyKey,
+      table.workspaceId,
+    ),
     foreignKey({
       columns: [table.enrollmentId, table.workspaceId],
       foreignColumns: [
@@ -95,6 +100,12 @@ export const sequenceDispatchModel = pgTable(
       .onDelete("cascade")
       .onUpdate("cascade"),
     index("SequenceDispatch_id_idx").on(table.id),
+    index("SequenceDispatch_pending_runAtMs_idx")
+      .on(table.runAtMs)
+      .where(sql`"status" = 'pending'`),
+    index("SequenceDispatch_pending_bucket_runAtMs_idx")
+      .on(table.bucket, table.runAtMs)
+      .where(sql`"status" = 'pending'`),
     index("SequenceDispatch_status_runAtMs_idx").on(
       table.status,
       table.runAtMs,
@@ -113,5 +124,8 @@ export const sequenceDispatchModel = pgTable(
       table.status,
       table.runAtMs,
     ),
+    index("SequenceDispatch_terminal_updatedAt_idx")
+      .on(table.updatedAt)
+      .where(sql`"status" in ('completed', 'failed', 'canceled')`),
   ],
 )

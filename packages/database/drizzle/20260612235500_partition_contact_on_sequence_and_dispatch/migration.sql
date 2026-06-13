@@ -110,26 +110,17 @@ CREATE TABLE "SequenceDispatch_new" (
          WHEN "deliveredAt" IS NULL THEN false
          ELSE "seenAt" >= "deliveredAt" END
   ) STORED,
-  CONSTRAINT "SequenceDispatch_new_pkey" PRIMARY KEY ("id", "status")
-) PARTITION BY LIST ("status");
+  CONSTRAINT "SequenceDispatch_new_pkey" PRIMARY KEY ("id", "workspaceId")
+) PARTITION BY HASH ("workspaceId");
 --> statement-breakpoint
-CREATE TABLE "SequenceDispatch_pending"
-  PARTITION OF "SequenceDispatch_new" FOR VALUES IN ('pending');
---> statement-breakpoint
-CREATE TABLE "SequenceDispatch_running"
-  PARTITION OF "SequenceDispatch_new" FOR VALUES IN ('running');
---> statement-breakpoint
-CREATE TABLE "SequenceDispatch_completed"
-  PARTITION OF "SequenceDispatch_new" FOR VALUES IN ('completed');
---> statement-breakpoint
-CREATE TABLE "SequenceDispatch_failed"
-  PARTITION OF "SequenceDispatch_new" FOR VALUES IN ('failed');
---> statement-breakpoint
-CREATE TABLE "SequenceDispatch_canceled"
-  PARTITION OF "SequenceDispatch_new" FOR VALUES IN ('canceled');
---> statement-breakpoint
-CREATE TABLE "SequenceDispatch_default"
-  PARTITION OF "SequenceDispatch_new" DEFAULT;
+DO $$
+BEGIN
+  FOR i IN 0..63 LOOP
+    EXECUTE format(
+      'CREATE TABLE "SequenceDispatch_p%s" PARTITION OF "SequenceDispatch_new"
+       FOR VALUES WITH (MODULUS 64, REMAINDER %s)', i, i);
+  END LOOP;
+END $$;
 --> statement-breakpoint
 INSERT INTO "ContactOnSequence_new" (
   "id",
@@ -237,14 +228,19 @@ CREATE INDEX "ContactsOnSequence_workspaceId_status_nextRunAt_idx_new"
 CREATE UNIQUE INDEX "ContactsOnSequence_contactId_sequenceId_workspaceId_key_new"
   ON "ContactOnSequence_new" ("contactId", "sequenceId", "workspaceId");
 --> statement-breakpoint
+CREATE UNIQUE INDEX "SequenceDispatch_idempotencyKey_key_new"
+  ON "SequenceDispatch_new" ("idempotencyKey", "workspaceId");
+--> statement-breakpoint
+CREATE INDEX "SequenceDispatch_pending_runAtMs_idx_new"
+  ON "SequenceDispatch_new" ("runAtMs")
+  WHERE "status" = 'pending';
+--> statement-breakpoint
+CREATE INDEX "SequenceDispatch_pending_bucket_runAtMs_idx_new"
+  ON "SequenceDispatch_new" ("bucket", "runAtMs")
+  WHERE "status" = 'pending';
+--> statement-breakpoint
 CREATE INDEX "SequenceDispatch_id_idx_new"
   ON "SequenceDispatch_new" ("id");
---> statement-breakpoint
-CREATE INDEX "SequenceDispatch_pending_runAtMs_idx"
-  ON "SequenceDispatch_pending" ("runAtMs");
---> statement-breakpoint
-CREATE INDEX "SequenceDispatch_pending_bucket_runAtMs_idx"
-  ON "SequenceDispatch_pending" ("bucket", "runAtMs");
 --> statement-breakpoint
 CREATE INDEX "SequenceDispatch_status_runAtMs_idx_new"
   ON "SequenceDispatch_new" ("status", "runAtMs");
@@ -257,6 +253,10 @@ CREATE INDEX "SequenceDispatch_enrollmentId_workspaceId_idx_new"
 --> statement-breakpoint
 CREATE INDEX "SequenceDispatch_bucket_status_runAtMs_idx_new"
   ON "SequenceDispatch_new" ("bucket", "status", "runAtMs");
+--> statement-breakpoint
+CREATE INDEX "SequenceDispatch_terminal_updatedAt_idx_new"
+  ON "SequenceDispatch_new" ("updatedAt")
+  WHERE "status" IN ('completed', 'failed', 'canceled');
 --> statement-breakpoint
 ALTER TABLE "ContactOnSequence_new"
   ADD CONSTRAINT "ContactOnSequence_contactId_Contact_id_fkey"
@@ -304,41 +304,13 @@ ALTER TABLE "SequenceDispatch_new"
     REFERENCES "ContactOnSequence_new"("id", "workspaceId")
     ON DELETE CASCADE ON UPDATE CASCADE;
 --> statement-breakpoint
-CREATE TABLE "SequenceDispatchIdempotency" (
-  "idempotencyKey" text NOT NULL,
-  "workspaceId" bigint NOT NULL,
-  "dispatchId" bigint NOT NULL,
-  CONSTRAINT "SequenceDispatchIdempotency_pkey"
-    PRIMARY KEY ("idempotencyKey", "workspaceId")
-);
---> statement-breakpoint
-ALTER TABLE "SequenceDispatchIdempotency"
-  ADD CONSTRAINT "SequenceDispatchIdempotency_workspaceId_Workspace_id_fkey"
-    FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
---> statement-breakpoint
-CREATE INDEX "SequenceDispatchIdempotency_dispatchId_idx"
-  ON "SequenceDispatchIdempotency" ("dispatchId");
---> statement-breakpoint
-INSERT INTO "SequenceDispatchIdempotency" (
-  "idempotencyKey",
-  "workspaceId",
-  "dispatchId"
-)
-SELECT
-  "idempotencyKey",
-  "workspaceId",
-  "id"
-FROM "SequenceDispatch";
---> statement-breakpoint
 DO $$
-DECLARE old_cos bigint; new_cos bigint; old_sd bigint; new_sd bigint; reg bigint;
+DECLARE old_cos bigint; new_cos bigint; old_sd bigint; new_sd bigint;
 BEGIN
   SELECT COUNT(*) INTO old_cos FROM "ContactOnSequence";
   SELECT COUNT(*) INTO new_cos FROM "ContactOnSequence_new";
   SELECT COUNT(*) INTO old_sd FROM "SequenceDispatch";
   SELECT COUNT(*) INTO new_sd FROM "SequenceDispatch_new";
-  SELECT COUNT(*) INTO reg FROM "SequenceDispatchIdempotency";
 
   IF old_cos <> new_cos THEN
     RAISE EXCEPTION 'CoS count mismatch old=% new=%', old_cos, new_cos;
@@ -346,10 +318,6 @@ BEGIN
 
   IF old_sd <> new_sd THEN
     RAISE EXCEPTION 'SD count mismatch old=% new=%', old_sd, new_sd;
-  END IF;
-
-  IF reg <> old_sd THEN
-    RAISE EXCEPTION 'Registry count % <> SequenceDispatch %', reg, old_sd;
   END IF;
 END $$;
 --> statement-breakpoint
@@ -382,8 +350,8 @@ BEGIN
   FROM pg_inherits
   WHERE inhparent = '"SequenceDispatch_new"'::regclass;
 
-  IF n <> 6 THEN
-    RAISE EXCEPTION 'SequenceDispatch_new expected 6 partitions, got %', n;
+  IF n <> 64 THEN
+    RAISE EXCEPTION 'SequenceDispatch_new expected 64 partitions, got %', n;
   END IF;
 END $$;
 --> statement-breakpoint
@@ -394,6 +362,9 @@ ALTER TABLE "ContactOnSequence_new" RENAME TO "ContactOnSequence";
 ALTER TABLE "SequenceDispatch" RENAME TO "SequenceDispatch_old";
 --> statement-breakpoint
 ALTER TABLE "SequenceDispatch_new" RENAME TO "SequenceDispatch";
+--> statement-breakpoint
+ALTER TABLE "SequenceDispatch_old"
+  DROP CONSTRAINT IF EXISTS "SequenceDispatch_enrollment_workspace_fkey";
 --> statement-breakpoint
 ALTER TABLE "SequenceDispatch_old"
   DROP CONSTRAINT IF EXISTS "SequenceDispatch_enrollmentId_ContactOnSequence_id_fkey";
@@ -426,6 +397,15 @@ ALTER INDEX "ContactsOnSequence_workspaceId_status_nextRunAt_idx_new"
 ALTER INDEX "ContactsOnSequence_contactId_sequenceId_workspaceId_key_new"
   RENAME TO "ContactsOnSequence_contactId_sequenceId_workspaceId_key";
 --> statement-breakpoint
+ALTER INDEX "SequenceDispatch_idempotencyKey_key_new"
+  RENAME TO "SequenceDispatch_idempotencyKey_key";
+--> statement-breakpoint
+ALTER INDEX "SequenceDispatch_pending_runAtMs_idx_new"
+  RENAME TO "SequenceDispatch_pending_runAtMs_idx";
+--> statement-breakpoint
+ALTER INDEX "SequenceDispatch_pending_bucket_runAtMs_idx_new"
+  RENAME TO "SequenceDispatch_pending_bucket_runAtMs_idx";
+--> statement-breakpoint
 ALTER INDEX "SequenceDispatch_id_idx_new"
   RENAME TO "SequenceDispatch_id_idx";
 --> statement-breakpoint
@@ -441,8 +421,9 @@ ALTER INDEX "SequenceDispatch_enrollmentId_workspaceId_idx_new"
 ALTER INDEX "SequenceDispatch_bucket_status_runAtMs_idx_new"
   RENAME TO "SequenceDispatch_bucket_status_runAtMs_idx";
 --> statement-breakpoint
+ALTER INDEX "SequenceDispatch_terminal_updatedAt_idx_new"
+  RENAME TO "SequenceDispatch_terminal_updatedAt_idx";
+--> statement-breakpoint
 ANALYZE "ContactOnSequence";
 --> statement-breakpoint
 ANALYZE "SequenceDispatch";
---> statement-breakpoint
-ANALYZE "SequenceDispatchIdempotency";

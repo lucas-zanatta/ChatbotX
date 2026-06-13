@@ -2,22 +2,36 @@
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
-const { addToScheduleSpy, findManySpy, getZSetMembersSpy, removeFromAllSpy } =
-  vi.hoisted(() => ({
-    addToScheduleSpy: vi.fn().mockResolvedValue(undefined),
-    findManySpy: vi.fn(),
-    getZSetMembersSpy: vi.fn().mockResolvedValue([]),
-    removeFromAllSpy: vi.fn().mockResolvedValue(undefined),
-  }))
+const {
+  addToScheduleSpy,
+  executeSpy,
+  findManySpy,
+  getZSetMembersSpy,
+  removeFromAllSpy,
+} = vi.hoisted(() => ({
+  addToScheduleSpy: vi.fn().mockResolvedValue(undefined),
+  executeSpy: vi.fn(),
+  findManySpy: vi.fn(),
+  getZSetMembersSpy: vi.fn().mockResolvedValue([]),
+  removeFromAllSpy: vi.fn().mockResolvedValue(undefined),
+}))
 
 vi.mock("@chatbotx.io/database/client", () => ({
   db: {
+    execute: executeSpy,
     query: {
       sequenceDispatchModel: {
         findMany: findManySpy,
       },
     },
   },
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({
+      strings: Array.from(strings),
+      values,
+    }),
+    { raw: (value: string) => ({ raw: value }) },
+  ),
 }))
 
 vi.mock("@chatbotx.io/redis", () => ({
@@ -64,6 +78,7 @@ describe("ReconcileJob", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    executeSpy.mockResolvedValue([])
     process.env.SCHEDULER_BUCKET_RANGE = "0-0"
   })
 
@@ -138,5 +153,32 @@ describe("ReconcileJob", () => {
       },
     })
     expect(removeFromAllSpy).toHaveBeenCalledWith(0, "dispatch-orphan")
+  })
+
+  test("deleteTerminalDispatches batches terminal rows older than the retention TTL", async () => {
+    executeSpy
+      .mockResolvedValueOnce({ rows: [{ id: "d1" }, { id: "d2" }] })
+      .mockResolvedValueOnce({ rows: [{ id: "d3" }] })
+    const job = new ReconcileJob({
+      intervalMs: 1000,
+      cleanupIntervalMs: 1000,
+      retentionBatchSize: 2,
+      retentionTtlDays: 30,
+    })
+
+    const deleted = await job.deleteTerminalDispatches()
+
+    expect(deleted).toBe(3)
+    expect(executeSpy).toHaveBeenCalledTimes(2)
+    const firstQuery = executeSpy.mock.calls[0]?.[0] as {
+      strings: string[]
+      values: unknown[]
+    }
+    expect(firstQuery.strings.join("")).toContain(
+      'DELETE FROM "SequenceDispatch"',
+    )
+    expect(firstQuery.strings.join("")).toContain('"status" IN')
+    expect(firstQuery.strings.join("")).toContain("LIMIT ")
+    expect(firstQuery.values).toEqual(expect.arrayContaining([30, 2]))
   })
 })

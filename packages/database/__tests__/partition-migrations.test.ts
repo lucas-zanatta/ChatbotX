@@ -71,12 +71,33 @@ describe("partition migrations", () => {
     expect(broadcastValidation).toBeLessThan(broadcastDrop)
 
     const sequenceValidation = sequenceSql.indexOf(
-      "SequenceDispatch_new expected 6 partitions",
+      "SequenceDispatch_new expected 64 partitions",
     )
     const sequenceDrop = sequenceSql.indexOf(
       'DROP TABLE "SequenceDispatch_old"',
     )
     expect(sequenceValidation).toBeGreaterThanOrEqual(0)
     expect(sequenceValidation).toBeLessThan(sequenceDrop)
+  })
+
+  test("SequenceDispatch uses workspace hash partitioning without idempotency registry", () => {
+    expect(sequenceSql).toContain(
+      'CONSTRAINT "SequenceDispatch_new_pkey" PRIMARY KEY ("id", "workspaceId")',
+    )
+    expect(sequenceSql).toContain('PARTITION BY HASH ("workspaceId")')
+    expect(sequenceSql).toContain(
+      'CREATE UNIQUE INDEX "SequenceDispatch_idempotencyKey_key_new"',
+    )
+    expect(sequenceSql).toContain(
+      'ON "SequenceDispatch_new" ("idempotencyKey", "workspaceId")',
+    )
+    expect(sequenceSql).toContain(
+      'CREATE INDEX "SequenceDispatch_pending_runAtMs_idx_new"',
+    )
+    expect(sequenceSql).toContain(
+      'CREATE INDEX "SequenceDispatch_pending_bucket_runAtMs_idx_new"',
+    )
+    expect(sequenceSql).not.toContain('PARTITION BY LIST ("status")')
+    expect(sequenceSql).not.toContain('"SequenceDispatchIdempotency"')
   })
 })

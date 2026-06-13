@@ -22,7 +22,7 @@ export type DispatchMessage = {
   dispatchId: string
   claimedAt: number
   bucket: number
-  workspaceId?: string
+  workspaceId: string
 }
 
 export type ValidationResult =

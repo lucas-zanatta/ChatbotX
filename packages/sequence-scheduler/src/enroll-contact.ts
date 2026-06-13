@@ -87,10 +87,9 @@ export async function enrollContactInSequence(params: EnrollContactParams) {
     return dispatches
   }
 
-  const dispatches =
-    client && client !== db
-      ? await enroll(client)
-      : await db.transaction(enroll)
+  const dispatches = client
+    ? await enroll(client)
+    : await db.transaction(enroll)
 
   if (dispatches.length === 0) {
     return

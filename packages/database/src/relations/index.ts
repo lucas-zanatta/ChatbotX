@@ -77,7 +77,6 @@ import { reflinkRelations } from "./reflink"
 import { savedReplyRelations } from "./save-reply"
 import { sequenceRelations } from "./sequence"
 import { sequenceDispatchRelations } from "./sequence-dispatch"
-import { sequenceDispatchIdempotencyRelations } from "./sequence-dispatch-idempotency"
 import { sequenceStepRelations } from "./sequence-step"
 import { spreadsheetRelations } from "./spreadsheet"
 import { tagRelations } from "./tag"
@@ -161,7 +160,6 @@ export const relations = {
   ...sequenceStepRelations,
   ...contactsOnSequenceRelations,
   ...sequenceDispatchRelations,
-  ...sequenceDispatchIdempotencyRelations,
   ...inboxContactStatsRelations,
   ...triggerRelations,
   ...webhookRelations,

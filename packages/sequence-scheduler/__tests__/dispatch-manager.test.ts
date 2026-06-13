@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 
 const returningInsertMock = vi.fn()
-const registryValuesMock = vi.fn()
 const transactionMock = vi.fn()
 const findManyMock = vi.fn()
 const updateWhereMock = vi.fn()
@@ -10,11 +9,8 @@ const useExistingMock = vi.fn()
 
 vi.mock("@chatbotx.io/database/client", () => ({
   db: {
-    insert: (table: { __table?: string }) => ({
-      values:
-        table.__table === "SequenceDispatchIdempotency"
-          ? registryValuesMock
-          : () => ({ returning: returningInsertMock }),
+    insert: () => ({
+      values: () => ({ returning: returningInsertMock }),
     }),
     query: {
       sequenceDispatchModel: { findMany: findManyMock },
@@ -22,11 +18,8 @@ vi.mock("@chatbotx.io/database/client", () => ({
     transaction: async (cb: (tx: unknown) => Promise<unknown>) => {
       transactionMock()
       return await cb({
-        insert: (table: { __table?: string }) => ({
-          values:
-            table.__table === "SequenceDispatchIdempotency"
-              ? registryValuesMock
-              : () => ({ returning: returningInsertMock }),
+        insert: () => ({
+          values: () => ({ returning: returningInsertMock }),
         }),
       })
     },
@@ -38,9 +31,6 @@ vi.mock("@chatbotx.io/database/client", () => ({
 }))
 
 vi.mock("@chatbotx.io/database/schema", () => ({
-  sequenceDispatchIdempotencyModel: {
-    __table: "SequenceDispatchIdempotency",
-  },
   sequenceDispatchModel: {
     __table: "SequenceDispatch",
     id: { __col: "id" },
@@ -124,7 +114,6 @@ describe("generateIdempotencyKey", () => {
 
 describe("createDispatch", () => {
   beforeEach(() => {
-    registryValuesMock.mockResolvedValue(undefined)
     transactionMock.mockClear()
     returningInsertMock.mockResolvedValue([
       { id: "test-id", bucket: 77, runAtMs: "1700000000000" },
@@ -150,12 +139,7 @@ describe("createDispatch", () => {
       bucket: 77,
       runAtMs: "1700000000000",
     })
-    expect(transactionMock).toHaveBeenCalledTimes(1)
-    expect(registryValuesMock).toHaveBeenCalledWith({
-      idempotencyKey: `ws-1:enroll-1:step-1:${runAt.toISOString()}`,
-      workspaceId: "ws-1",
-      dispatchId: "test-id",
-    })
+    expect(transactionMock).not.toHaveBeenCalled()
   })
 
   test("throws 'Failed to create dispatch' when insert returns empty array", async () => {
@@ -201,7 +185,7 @@ describe("createDispatch", () => {
     expect(result.id).toBe("custom-id")
   })
 
-  test("uses an internal transaction when provided client is the default db", async () => {
+  test("uses the provided root db client without wrapping another transaction", async () => {
     const { createDispatch } = await import("../src/dispatch-manager")
     const { db } = await import("@chatbotx.io/database/client")
 
@@ -216,13 +200,13 @@ describe("createDispatch", () => {
       client: db,
     })
 
-    expect(transactionMock).toHaveBeenCalledTimes(1)
+    expect(transactionMock).not.toHaveBeenCalled()
     expect(result.id).toBe("test-id")
   })
 
-  test("throws when idempotency registry insert conflicts", async () => {
+  test("throws when SequenceDispatch unique idempotency insert conflicts", async () => {
     const { createDispatch } = await import("../src/dispatch-manager")
-    registryValuesMock.mockRejectedValue(new Error("duplicate key"))
+    returningInsertMock.mockRejectedValue(new Error("duplicate key"))
 
     await expect(
       createDispatch({

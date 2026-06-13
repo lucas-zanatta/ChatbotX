@@ -6,16 +6,14 @@ import {
   inArray,
   type Transaction,
 } from "@chatbotx.io/database/client"
-import {
-  sequenceDispatchIdempotencyModel,
-  sequenceDispatchModel,
-} from "@chatbotx.io/database/schema"
+import { sequenceDispatchModel } from "@chatbotx.io/database/schema"
 import { sequenceConnections } from "@chatbotx.io/redis"
 import { SchedulerClient } from "@chatbotx.io/scheduler"
 import { createId } from "@chatbotx.io/utils"
 import { createHash } from "crypto"
 
 type DrizzleClient = typeof db | Transaction
+type ScheduledDispatch = { id: string; bucket: number }
 
 export function calculateBucket(
   workspaceId: string,
@@ -94,31 +92,35 @@ export async function createDispatch(
       throw new Error("Failed to create dispatch")
     }
 
-    await tx.insert(sequenceDispatchIdempotencyModel).values({
-      idempotencyKey,
-      workspaceId,
-      dispatchId,
-    })
-
     return dispatch
   }
 
-  if (client && client !== db) {
+  if (client) {
     return await insertDispatch(client)
   }
 
-  return await db.transaction(insertDispatch)
+  return await insertDispatch(db)
 }
 export interface CancelPendingDispatchesParams {
-  client?: DatabaseClient
+  client?: DatabaseClient | Transaction
   enrollmentId: string
   reason?: string
+  /**
+   * Set to false only when the caller removes scheduler entries after its
+   * surrounding database transaction has committed.
+   */
+  removeFromSchedule?: boolean
   workspaceId: string
 }
 export async function cancelPendingDispatches(
   params: CancelPendingDispatchesParams,
-): Promise<Array<{ id: string; bucket: number }>> {
-  const { enrollmentId, workspaceId, client = db } = params
+): Promise<ScheduledDispatch[]> {
+  const {
+    enrollmentId,
+    workspaceId,
+    client = db,
+    removeFromSchedule = true,
+  } = params
 
   const pendingDispatches = await client.query.sequenceDispatchModel.findMany({
     where: {
@@ -154,14 +156,58 @@ export async function cancelPendingDispatches(
       ),
     )
 
-  const redisClient = await sequenceConnections.useExisting()
-  const scheduler = new SchedulerClient(redisClient)
-  for (const dispatch of pendingDispatches) {
-    await scheduler.removeFromSchedule(dispatch.bucket, dispatch.id)
+  if (removeFromSchedule) {
+    await removeDispatchesFromSchedule(pendingDispatches)
   }
 
   return pendingDispatches.map((d) => ({
     id: d.id,
     bucket: d.bucket,
   }))
+}
+
+export async function removeDispatchesFromSchedule(
+  dispatches: ScheduledDispatch[],
+) {
+  if (dispatches.length === 0) {
+    return
+  }
+
+  const redisClient = await sequenceConnections.useExisting()
+  const scheduler = new SchedulerClient(redisClient)
+
+  const results = await Promise.allSettled(
+    dispatches.map((dispatch) =>
+      scheduler.removeFromSchedule(dispatch.bucket, dispatch.id),
+    ),
+  )
+  const failures = results.flatMap((result, index) => {
+    if (result.status !== "rejected") {
+      return []
+    }
+
+    const dispatch = dispatches[index]
+    if (!dispatch) {
+      return []
+    }
+
+    return [{ dispatch, reason: result.reason }]
+  })
+
+  if (failures.length > 0) {
+    const failedDispatches = failures
+      .map(({ dispatch }) => `${dispatch.id} bucket=${dispatch.bucket}`)
+      .join(", ")
+
+    throw new AggregateError(
+      failures.map(({ dispatch, reason }) => {
+        const reasonMessage =
+          reason instanceof Error ? reason.message : String(reason)
+        return new Error(
+          `Failed to remove ${dispatch.id} bucket=${dispatch.bucket}: ${reasonMessage}`,
+        )
+      }),
+      `Failed to remove sequence dispatches from schedule: ${failedDispatches}`,
+    )
+  }
 }

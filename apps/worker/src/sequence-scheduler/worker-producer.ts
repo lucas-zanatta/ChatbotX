@@ -255,32 +255,32 @@ const shouldAutoStart = process.env.NODE_ENV !== "test" && !process.env.VITEST
 let isShuttingDown = false
 
 async function startSchedulerWorker() {
-  console.log("Starting scheduler worker...")
+  logger.info("Starting scheduler worker")
 
   try {
     await scheduler.start()
-    console.log("Scheduler worker fully operational")
+    logger.info("Scheduler worker fully operational")
   } catch (error) {
-    console.error("Error starting scheduler worker:", error)
+    logger.error(error, "Error starting scheduler worker")
     throw error
   }
 }
 
 async function stopSchedulerWorker() {
-  console.log("Stopping scheduler worker...")
+  logger.info("Stopping scheduler worker")
 
   try {
     await scheduler.stop()
-    console.log("Scheduler worker stopped")
+    logger.info("Scheduler worker stopped")
   } catch (error) {
-    console.error("Error stopping scheduler worker:", error)
+    logger.error(error, "Error stopping scheduler worker")
     throw error
   }
 }
 
 if (shouldAutoStart) {
   startSchedulerWorker().catch((error) => {
-    console.error("Error starting scheduler worker:", error)
+    logger.error(error, "Error starting scheduler worker")
     process.exitCode = 1
   })
 }
@@ -291,13 +291,13 @@ const handleShutdownSignal = async (signal: "SIGINT" | "SIGTERM") => {
   }
   isShuttingDown = true
 
-  console.log(`${signal} received, shutting down scheduler worker...`)
+  logger.info({ signal }, "Shutdown signal received")
 
   try {
     await stopSchedulerWorker()
     process.exit(0)
   } catch (error) {
-    console.error("Error during scheduler worker shutdown:", error)
+    logger.error(error, "Error during scheduler worker shutdown")
     process.exit(1)
   }
 }
@@ -305,14 +305,14 @@ const handleShutdownSignal = async (signal: "SIGINT" | "SIGTERM") => {
 if (shouldAutoStart) {
   process.on("SIGINT", () => {
     handleShutdownSignal("SIGINT").catch((error) => {
-      console.error("Unhandled SIGINT shutdown error:", error)
+      logger.error(error, "Unhandled SIGINT shutdown error")
       process.exit(1)
     })
   })
 
   process.on("SIGTERM", () => {
     handleShutdownSignal("SIGTERM").catch((error) => {
-      console.error("Unhandled SIGTERM shutdown error:", error)
+      logger.error(error, "Unhandled SIGTERM shutdown error")
       process.exit(1)
     })
   })
