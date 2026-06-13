@@ -96,6 +96,7 @@ export const stepTypes = z.enum([
   // Mail Marketing Operations (M_)
   "mailchimpAddMember",
   "dripSubscribeSubscriber",
+  "sendGridAddContact",
 
   // Sequence Operations (Q_)
   "subscribeSequence",

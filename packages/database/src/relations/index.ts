@@ -64,6 +64,7 @@ import { integrationInstagramRelations } from "./integration-instagram"
 import { integrationMailchimpRelations } from "./integration-mailchimp"
 import { integrationMessengerRelations } from "./integration-messenger"
 import { integrationOpenaiRelations } from "./integration-openai"
+import { integrationSendGridRelations } from "./integration-sendgrid"
 import { integrationSmtpRelations } from "./integration-smtp"
 import { integrationTelegramRelations } from "./integration-telegram"
 import { integrationTiktokRelations } from "./integration-tiktok"
@@ -177,6 +178,7 @@ export const relations = {
   ...integrationInstagramRelations,
   ...integrationMailchimpRelations,
   ...integrationDripRelations,
+  ...integrationSendGridRelations,
   ...flowAnalyticsSessionRelations,
   ...flowNodeStatRelations,
   ...contactOnSmartDelayRelations,

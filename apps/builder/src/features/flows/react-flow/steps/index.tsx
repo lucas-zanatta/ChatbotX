@@ -45,6 +45,7 @@ import sendMessengerTemplateMessageStep from "./send-messenger-template-message"
 import sendTextStep from "./send-text"
 import { sendVideoStep } from "./send-video"
 import sendWaTemplateMessageStep from "./send-wa-template-message"
+import { sendGridAddContactStep } from "./sendgrid-add-contact"
 import { setCustomFieldStep } from "./set-custom-field"
 import { splitTrafficStep } from "./split-traffic"
 import { spreadsheetClearRowStep } from "./spreadsheet-clear-row"
@@ -102,6 +103,7 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [stepTypes.enum.markEmailVerified]: markEmailVerifiedStep,
   [stepTypes.enum.dripSubscribeSubscriber]: dripSubscribeSubscriberStep,
   [stepTypes.enum.mailchimpAddMember]: mailchimpAddMemberStep,
+  [stepTypes.enum.sendGridAddContact]: sendGridAddContactStep,
   [stepTypes.enum.optInEmail]: optInEmailStep,
   [stepTypes.enum.optOutEmail]: optOutEmailStep,
   [stepTypes.enum.cancelContactInput]: undefined,
