@@ -23,6 +23,7 @@ vi.mock("@chatbotx.io/database/client", () => ({
     delete: vi.fn(),
   },
   eq: vi.fn(),
+  isDatabaseError: vi.fn().mockReturnValue(false),
 }))
 
 vi.mock("@chatbotx.io/database/schema", () => ({
@@ -90,10 +91,21 @@ describe("IntegrationMailerLiteService", () => {
   })
 
   test("recovers after a concurrent unique insert wins", async () => {
+    const uniqueError = Object.assign(new Error("unique violation"), {
+      cause: {
+        code: "23505",
+        constraint: "IntegrationMailerLite_workspaceId_key",
+      },
+    })
+    const { isDatabaseError } = await import("@chatbotx.io/database/client")
+    vi.mocked(isDatabaseError).mockImplementationOnce(
+      (e: unknown) => e === uniqueError,
+    )
+
     mocks.updateReturning
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "winner-id" }])
-    mocks.transaction.mockRejectedValue(new Error("unique violation"))
+    mocks.transaction.mockRejectedValue(uniqueError)
 
     await expect(
       integrationMailerLiteService.upsert({

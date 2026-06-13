@@ -43,6 +43,7 @@ import {
   unsubscribeBroadcast,
 } from "./contact"
 import { handleAIDeleteMessageHistory } from "./delete-message-history"
+import { subscribeDripSubscriber } from "./drip-handler"
 import { handleAIEditImage } from "./edit-image"
 import { handleAIExtractData } from "./extract-data/index"
 import { type ExecuteStepProps, seekConnectedNode } from "./flow-utils"
@@ -350,6 +351,7 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.getDataFromJson]: getDataFromJSON,
   [stepTypes.enum.landingPage]: undefined,
   [stepTypes.enum.markEmailVerified]: markEmailVerified,
+  [stepTypes.enum.dripSubscribeSubscriber]: subscribeDripSubscriber,
   [stepTypes.enum.mailchimpAddMember]: addMailchimpMember,
   [stepTypes.enum.mailerLiteAddSubscriber]: addMailerLiteSubscriber,
   [stepTypes.enum.notifyAgent]: undefined,

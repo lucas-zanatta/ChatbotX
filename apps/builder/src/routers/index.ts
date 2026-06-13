@@ -15,6 +15,7 @@ import { errorLogsAPI } from "@/features/error-logs/api"
 import { flowsAPI } from "@/features/flows/api"
 import { foldersAPI } from "@/features/folders/api"
 import { inboxesAPI } from "@/features/inboxes/api"
+import { integrationDripAPI } from "@/features/integration-drip/api"
 import { integrationMailchimpAPI } from "@/features/integration-mailchimp/api"
 import { integrationMailerLiteAPI } from "@/features/integration-mailer-lite/api"
 import { integrationMessengerAPIs } from "@/features/integration-messenger/api"
@@ -53,6 +54,7 @@ export const router = {
     // @ts-expect-error
     .use(workspaceAuthorizedMidddleware, (input) => input.workspaceId)
     .router(analyticsRoutes),
+  integrationDripAPI,
   integrationMailchimpAPI,
   integrationMailerLiteAPI,
   integrationMessengerAPIs,

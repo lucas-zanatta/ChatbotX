@@ -15,6 +15,7 @@ export const getContactFieldMap = async (props: {
     }),
     contactCustomFieldService.listValues({ contactId: props.contactId }),
   ])
+
   return {
     [systemFieldTypes.enum.first_name]: contact.firstName ?? "",
     [systemFieldTypes.enum.last_name]: contact.lastName ?? "",

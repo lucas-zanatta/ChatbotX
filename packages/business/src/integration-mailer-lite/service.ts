@@ -1,4 +1,4 @@
-import { db, eq } from "@chatbotx.io/database/client"
+import { db, eq, isDatabaseError } from "@chatbotx.io/database/client"
 import {
   integrationMailerLiteModel,
   integrationModel,
@@ -7,6 +7,18 @@ import { encryptUtils } from "@chatbotx.io/encryption"
 import type { AuthValue } from "@chatbotx.io/sdk"
 import { createId } from "@chatbotx.io/utils"
 import { BaseService } from "../base.service"
+
+const WORKSPACE_UNIQUE_CONSTRAINT = "IntegrationMailerLite_workspaceId_key"
+
+const isWorkspaceUniqueViolation = (error: unknown): boolean => {
+  if (!(isDatabaseError(error) && error.cause.code === "23505")) {
+    return false
+  }
+  return (
+    "constraint" in error.cause &&
+    error.cause.constraint === WORKSPACE_UNIQUE_CONSTRAINT
+  )
+}
 
 class IntegrationMailerLiteService extends BaseService {
   findByWorkspaceId(workspaceId: string) {
@@ -25,19 +37,25 @@ class IntegrationMailerLiteService extends BaseService {
 
   async upsert(props: { workspaceId: string; auth: AuthValue }) {
     const encryptedAuth = await encryptUtils.encryptObject(props.auth)
-    const updated = await db
-      .update(integrationMailerLiteModel)
-      .set({ auth: encryptedAuth })
-      .where(eq(integrationMailerLiteModel.workspaceId, props.workspaceId))
-      .returning({ id: integrationMailerLiteModel.id })
-    if (updated[0]) {
-      return updated[0].id
+
+    const updateExisting = async () => {
+      const [updated] = await db
+        .update(integrationMailerLiteModel)
+        .set({ auth: encryptedAuth })
+        .where(eq(integrationMailerLiteModel.workspaceId, props.workspaceId))
+        .returning({ id: integrationMailerLiteModel.id })
+      return updated?.id
     }
 
+    const existingId = await updateExisting()
+    if (existingId) {
+      return existingId
+    }
+
+    const integrationId = createId()
+    const mailerLiteId = createId()
     try {
-      return await db.transaction(async (tx) => {
-        const integrationId = createId()
-        const mailerLiteId = createId()
+      await db.transaction(async (tx) => {
         await tx.insert(integrationModel).values({
           id: integrationId,
           workspaceId: props.workspaceId,
@@ -49,18 +67,17 @@ class IntegrationMailerLiteService extends BaseService {
           integrationId,
           auth: encryptedAuth,
         })
-        return mailerLiteId
       })
-    } catch {
-      const recovered = await db
-        .update(integrationMailerLiteModel)
-        .set({ auth: encryptedAuth })
-        .where(eq(integrationMailerLiteModel.workspaceId, props.workspaceId))
-        .returning({ id: integrationMailerLiteModel.id })
-      if (!recovered[0]) {
-        throw new Error("Failed to connect MailerLite integration")
+      return mailerLiteId
+    } catch (error) {
+      if (!isWorkspaceUniqueViolation(error)) {
+        throw error
       }
-      return recovered[0].id
+      const winnerId = await updateExisting()
+      if (!winnerId) {
+        throw error
+      }
+      return winnerId
     }
   }
 
@@ -69,9 +86,14 @@ class IntegrationMailerLiteService extends BaseService {
     if (!existing) {
       return
     }
-    await db
-      .delete(integrationModel)
-      .where(eq(integrationModel.id, existing.integrationId))
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(integrationMailerLiteModel)
+        .where(eq(integrationMailerLiteModel.id, existing.id))
+      await tx
+        .delete(integrationModel)
+        .where(eq(integrationModel.id, existing.integrationId))
+    })
   }
 }
 

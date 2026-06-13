@@ -19,6 +19,7 @@ type SettingIntegrationLayoutProps = {
   googleSheets: ReactNode
   mailchimp: ReactNode
   mailerLite: ReactNode
+  drip: ReactNode
 }
 
 export default function SettingIntegrationLayout({
@@ -30,6 +31,7 @@ export default function SettingIntegrationLayout({
   googleSheets,
   mailchimp,
   mailerLite,
+  drip,
 }: SettingIntegrationLayoutProps) {
   const t = useTranslations()
 
@@ -73,6 +75,11 @@ export default function SettingIntegrationLayout({
       keyName: t("mailerLite.title"),
       icon: MailIcon,
       content: mailerLite,
+    },
+    {
+      keyName: t("drip.title"),
+      icon: MailIcon,
+      content: drip,
     },
   ]
 

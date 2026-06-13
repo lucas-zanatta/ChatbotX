@@ -2,7 +2,6 @@ import ky, { type Options } from "ky"
 import type { z } from "zod"
 import {
   MAILER_LITE_API_BASE_URL,
-  MAILER_LITE_API_VERSION,
   MAILER_LITE_HTTP_TIMEOUT_MS,
 } from "./constants"
 import { MailerLiteApiError } from "./error"
@@ -42,9 +41,6 @@ export const getMailerLiteClient = (authValue: MailerLiteAuthValue) => {
       Accept: "application/json",
       Authorization: `Bearer ${auth.apiKey}`,
       "Content-Type": "application/json",
-      ...(MAILER_LITE_API_VERSION
-        ? { "X-Version": MAILER_LITE_API_VERSION }
-        : {}),
     },
     retry: 0,
     throwHttpErrors: false,
@@ -60,7 +56,10 @@ export async function mailerLiteRequest<T>(
   acceptedStatuses?: readonly number[],
 ): Promise<T> {
   const response = await getMailerLiteClient(authValue)(path, options)
-  const payload: unknown = await response.json().catch(() => undefined)
+  const payload: unknown =
+    response.status === 204
+      ? undefined
+      : await response.json().catch(() => undefined)
   const accepted =
     response.ok &&
     (!acceptedStatuses || acceptedStatuses.includes(response.status))

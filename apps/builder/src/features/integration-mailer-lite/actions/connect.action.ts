@@ -1,7 +1,12 @@
 "use server"
 
 import { integrationMailerLiteService } from "@chatbotx.io/business"
-import { integration as mailerLiteIntegration } from "@chatbotx.io/integration-mailer-lite"
+import {
+  MailerLiteApiError,
+  integration as mailerLiteIntegration,
+} from "@chatbotx.io/integration-mailer-lite"
+import { SdkException } from "@chatbotx.io/sdk"
+import { getTranslations } from "next-intl/server"
 import { normalizeError } from "universal-error-normalizer"
 import { workspaceIdrequestParams } from "@/features/common/schemas"
 import { logger } from "@/lib/log"
@@ -23,6 +28,13 @@ export const connectMailerLiteAction = workspaceActionClient
         { err: normalizeError(error), workspaceId },
         "Failed to connect MailerLite",
       )
+      if (
+        error instanceof MailerLiteApiError &&
+        (error.statusCode === 401 || error.statusCode === 403)
+      ) {
+        const t = await getTranslations("mailerLite.errors")
+        throw new SdkException(t("invalidApiKey"), 400, 400)
+      }
       throw error
     }
   })

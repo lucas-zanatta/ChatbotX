@@ -16,7 +16,7 @@ import { distributedLock } from "@chatbotx.io/redis"
 import { normalizeError } from "universal-error-normalizer"
 import { logger } from "../../lib/logger"
 import { getContactFieldMap } from "./contact-field-map"
-import type { ExecuteStepProps } from "./flow-utils"
+import type { ExecuteStepProps } from "./flow"
 import type { ExecuteStepResult } from "./step"
 
 export const MAILER_LITE_LOCK_TIMEOUT_SECONDS = 30
@@ -103,7 +103,7 @@ export const addMailerLiteSubscriber = async (
       integration: { ...row, auth },
     })
     await distributedLock.runExclusive({
-      key: `mailer-lite:sync-subscriber:${hash(auth.apiKey)}:${hash(subscriber.email)}`,
+      key: `mailer-lite:sync-subscriber:${hash(String(conversation.workspaceId))}:${hash(subscriber.email)}`,
       timeoutInSeconds: MAILER_LITE_LOCK_TIMEOUT_SECONDS,
       fn: async () => {
         await mailerLiteIntegration.runAction("createOrUpdateSubscriber", {

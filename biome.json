@@ -19,7 +19,6 @@
       "!**/packages/ui/src/hooks",
       "!**/packages/ui/src/components/carousel-snap.tsx",
       "!**/packages/ui/src/types/data-table.ts",
-      "!**/coverage",
       "!**/dist"
     ]
   },
