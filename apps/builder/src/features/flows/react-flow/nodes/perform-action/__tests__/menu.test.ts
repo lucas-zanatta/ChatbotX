@@ -18,3 +18,14 @@ describe("perform action SendGrid registration", () => {
     )
   })
 })
+
+describe("perform action MailerLite menu", () => {
+  test("includes the MailerLite subscriber action", () => {
+    const items = performActionMenus(t).flatMap((item) => item.children ?? [])
+    expect(
+      items.some(
+        (item) => item.stepType === stepTypes.enum.mailerLiteAddSubscriber,
+      ),
+    ).toBe(true)
+  })
+})

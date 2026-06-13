@@ -23,7 +23,13 @@ import {
 import { Form } from "@chatbotx.io/ui/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import ky from "ky"
-import { ArrowRightIcon, MailIcon, PlusIcon, XIcon } from "lucide-react"
+import {
+  ArrowRightIcon,
+  CircleHelpIcon,
+  MailIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useMemo, useState } from "react"
 import { useFieldArray, useForm, useFormContext } from "react-hook-form"
@@ -32,6 +38,26 @@ import { CustomFieldSelect } from "@/features/custom-fields/custom-field-select"
 import { useWorkspaceId } from "@/hooks/routing"
 import { callAPI } from "@/lib/swr"
 import { BaseStepEditor } from "../base/editor"
+
+const FieldLabel = (props: {
+  label: string
+  optionalLabel?: string
+  tooltip?: string
+}) => (
+  <div className="flex items-center gap-1">
+    <span className="font-medium text-sm">{props.label}</span>
+    {props.optionalLabel && (
+      <span className="text-muted-foreground text-xs">
+        ({props.optionalLabel})
+      </span>
+    )}
+    {props.tooltip && (
+      <span title={props.tooltip}>
+        <CircleHelpIcon className="size-4 text-muted-foreground" />
+      </span>
+    )}
+  </div>
+)
 
 const SendGridDialog = ({ parentName }: { parentName: string }) => {
   const [open, setOpen] = useState(false)
@@ -113,9 +139,7 @@ const SendGridDialog = ({ parentName }: { parentName: string }) => {
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("sendGrid.title")}</DialogTitle>
-          <DialogDescription>
-            {t("sendGrid.acceptedLimitation")}
-          </DialogDescription>
+          <DialogDescription />
         </DialogHeader>
         <Form {...form}>
           <form
@@ -146,14 +170,17 @@ const SendGridDialog = ({ parentName }: { parentName: string }) => {
               placeholder={t("sendGrid.fields.nothingSelected")}
             />
             <div className="space-y-2">
-              <p className="font-medium text-sm">
-                {t("sendGrid.fields.customFields")}
-              </p>
+              <FieldLabel
+                label={t("sendGrid.fields.customFields")}
+                optionalLabel={t("sendGrid.fields.optional")}
+              />
               {customFields.isLoading && (
-                <p>{t("sendGrid.customFields.loading")}</p>
+                <p className="text-muted-foreground text-sm">
+                  {t("sendGrid.customFields.loading")}
+                </p>
               )}
               {customFields.error && (
-                <p className="text-destructive">
+                <p className="text-destructive text-sm">
                   {t("sendGrid.customFields.error")}
                 </p>
               )}
@@ -186,19 +213,17 @@ const SendGridDialog = ({ parentName }: { parentName: string }) => {
                   </Button>
                 </div>
               ))}
-              {customFieldOptions.length > 0 && (
-                <Button
-                  onClick={() =>
-                    append({ contactFieldId: "", sendGridField: "" })
-                  }
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <PlusIcon className="size-4" />
-                  {t("sendGrid.fields.addCustomField")}
-                </Button>
-              )}
+              <Button
+                onClick={() =>
+                  append({ contactFieldId: "", sendGridField: "" })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <PlusIcon className="size-4" />
+                {t("sendGrid.fields.addCustomField")}
+              </Button>
             </div>
             <DialogFooter>
               <Button

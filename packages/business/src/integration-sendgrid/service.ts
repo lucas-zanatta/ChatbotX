@@ -34,15 +34,12 @@ class IntegrationSendGridService extends BaseService {
   async upsert(props: { workspaceId: string; auth: AuthValue }) {
     const encryptedAuth = await encryptUtils.encryptObject(props.auth)
     const updateExisting = async () => {
-      const existing = await this.findByWorkspaceId(props.workspaceId)
-      if (!existing) {
-        return
-      }
-      await db
+      const [updated] = await db
         .update(integrationSendGridModel)
         .set({ auth: encryptedAuth })
-        .where(eq(integrationSendGridModel.id, existing.id))
-      return existing.id
+        .where(eq(integrationSendGridModel.workspaceId, props.workspaceId))
+        .returning({ id: integrationSendGridModel.id })
+      return updated?.id
     }
 
     const existingId = await updateExisting()

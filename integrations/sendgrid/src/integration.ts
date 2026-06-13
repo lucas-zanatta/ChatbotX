@@ -6,6 +6,7 @@ import {
 import { sendGridRequest } from "./client"
 import {
   SENDGRID_API_BASE_URL,
+  SENDGRID_CONTACTS_IMPORTS_PATH,
   SENDGRID_CONTACTS_PATH,
   SENDGRID_FIELD_DEFINITIONS_PATH,
   SENDGRID_LISTS_PATH,
@@ -20,6 +21,7 @@ import {
   sendGridAcceptedResponseSchema,
   sendGridContactPayloadSchema,
   sendGridFieldDefinitionsResponseSchema,
+  sendGridImportJobSchema,
   sendGridListsResponseSchema,
   sendGridScopesResponseSchema,
 } from "./schemas"
@@ -106,6 +108,12 @@ const config: IntegrationDefinition<
         { method: "put", json: payload },
       )
     },
+    checkImportJob: ({ ctx, props }) =>
+      sendGridRequest(
+        ctx.auth,
+        `${SENDGRID_CONTACTS_IMPORTS_PATH}/${props.jobId}`,
+        sendGridImportJobSchema,
+      ),
   },
   disconnect: async () => undefined,
   handleRequest: () =>

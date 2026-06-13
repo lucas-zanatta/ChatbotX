@@ -131,7 +131,7 @@ describe("SendGrid integration", () => {
           contacts: [
             {
               email: "a@example.com",
-              phone_number_id: "phone",
+              phone_number: "phone",
               custom_fields: { "field-1": "Pro" },
             },
           ],

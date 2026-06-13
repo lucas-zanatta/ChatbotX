@@ -73,7 +73,7 @@ export const sendGridContactSchema = z.object({
   email: z.string().trim().min(1),
   first_name: z.string().trim().min(1).optional(),
   last_name: z.string().trim().min(1).optional(),
-  phone_number_id: z.string().trim().min(1).optional(),
+  phone_number: z.string().trim().min(1).optional(),
   custom_fields: z.record(z.string().trim().min(1), z.string()).optional(),
 })
 
@@ -91,6 +91,24 @@ export const sendGridAcceptedResponseSchema = z.object({
 export type SendGridAcceptedResponse = z.infer<
   typeof sendGridAcceptedResponseSchema
 >
+
+export const sendGridImportJobSchema = z.object({
+  id: z.string(),
+  // SendGrid API actually returns "completed"/"failed"; keep legacy values for safety
+  status: z.enum(["pending", "completed", "failed", "errored", "done"]),
+  results: z
+    .object({
+      requested_count: z.number().int().nonnegative().optional(),
+      created_count: z.number().int().nonnegative().optional(),
+      updated_count: z.number().int().nonnegative().optional(),
+      deleted_count: z.number().int().nonnegative().optional(),
+      errored_count: z.number().int().nonnegative().optional(),
+      errors_by_field: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
+  errors_url: z.string().optional(),
+})
+export type SendGridImportJob = z.infer<typeof sendGridImportJobSchema>
 
 export const sendGridErrorSchema = z.object({
   id: z.string().optional(),
@@ -130,5 +148,9 @@ export type SendGridActions = {
   addOrUpdateContact: Handler<
     { ctx: Context<SendGridAuthValue>; props: SendGridContactPayload },
     SendGridAcceptedResponse
+  >
+  checkImportJob: Handler<
+    { ctx: Context<SendGridAuthValue>; props: { jobId: string } },
+    SendGridImportJob
   >
 }

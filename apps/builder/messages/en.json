@@ -719,6 +719,9 @@
     "mailchimp": {
       "label": "Mailchimp"
     },
+    "mailerLite": {
+      "label": "MailerLite"
+    },
     "host": {
       "label": "Host",
       "placeholder": "smtp.example.com"
@@ -1458,6 +1461,7 @@
       "inboxActions": "Inbox Actions",
       "markEmailVerified": "Mark Email Verified",
       "mailchimpAddMember": "Add Contact to MailChimp",
+      "mailerLiteAddSubscriber": "Add Contact to MailerLite",
       "dripSubscribeSubscriber": "Add Contact to Drip",
       "sendGridAddContact": "Add Contact to SendGrid",
       "openWebsite": "Open Website",
@@ -1637,6 +1641,31 @@
       "mergeFields": "Custom Fields in MailChimp"
     }
   },
+  "mailerLite": {
+    "title": "MailerLite",
+    "setting": {
+      "label": "MailerLite",
+      "description": "This integration lets you save customers contacts from your bot to MailerLite."
+    },
+    "fields": {
+      "apiToken": "API Token",
+      "group": "Group",
+      "groupPlaceholder": "Nothing selected",
+      "email": "Email Field",
+      "status": "Type",
+      "customFields": "Custom Fields in MailerLite (Optional)",
+      "emptyField": "---",
+      "providerField": "Select MailerLite field",
+      "addMapping": "Add New"
+    },
+    "status": {
+      "active": "Subscribed",
+      "unconfirmed": "Unconfirmed"
+    },
+    "errors": {
+      "invalidApiKey": "Invalid API Token. Please check your MailerLite API Token and try again."
+    }
+  },
   "drip": {
     "title": "Drip",
     "setting": {
@@ -1683,10 +1712,11 @@
     "acceptedLimitation": "SendGrid accepts contact updates for asynchronous processing. Accepted updates may still fail later.",
     "fields": {
       "apiKey": "API Key",
-      "list": "List (optional)",
+      "list": "List",
       "emailField": "Email field",
-      "phoneField": "Phone field (optional)",
-      "customFields": "Custom fields (optional)",
+      "phoneField": "Phone field",
+      "customFields": "Custom Fields in SendGrid",
+      "optional": "Optional",
       "nothingSelected": "Nothing selected",
       "addCustomField": "Add custom field"
     },
