@@ -1,5 +1,9 @@
 import { type DatabaseClient, db } from "../../client"
-import type { DistributedLock, IMessageRepository } from "../../repositories"
+import { MessageShardConfigurationError } from "../../errors"
+import type {
+  DistributedLock,
+  IMessageRepository,
+} from "../../repositories/message/message-repository"
 import { MessageShardConnectionManager } from "./connection-manager"
 import { MessageShardRegistry } from "./registry"
 import { ShardedMessageRepository } from "./repository"
@@ -19,12 +23,14 @@ export type CreateShardRepositoryResult = {
 export async function createShardRepository(
   client: DatabaseClient = db,
   distributedLock?: DistributedLock,
-): Promise<CreateShardRepositoryResult | null> {
+): Promise<CreateShardRepositoryResult> {
   const registry = new MessageShardRegistry(client)
   const shardCount = await registry.countShards()
 
   if (shardCount === 0) {
-    return null
+    throw new MessageShardConfigurationError(
+      "Message sharding is enabled but no message shards are configured.",
+    )
   }
 
   const manager = new MessageShardConnectionManager(client, registry)
