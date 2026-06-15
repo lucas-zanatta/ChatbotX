@@ -51,8 +51,10 @@ import { handleAIGenerateImage } from "./generate-image"
 import { handleAIGenerateText } from "./generate-text"
 import { handleAIGenerateTextAgent } from "./generate-text-agent"
 import { getUserData } from "./get-user-data"
+import { syncKlaviyoProfile } from "./klaviyo-handler"
 import { addMailchimpMember } from "./mailchimp-handler"
 import { addMailerLiteSubscriber } from "./mailer-lite-handler"
+import { addOrUpdateMoosendContact } from "./moosend-handler"
 import { sendEmail } from "./send-email"
 import { addSendGridContact } from "./sendgrid-handler"
 import { handleAISpeechToText } from "./speech-to-text"
@@ -355,6 +357,8 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.dripSubscribeSubscriber]: subscribeDripSubscriber,
   [stepTypes.enum.mailchimpAddMember]: addMailchimpMember,
   [stepTypes.enum.mailerLiteAddSubscriber]: addMailerLiteSubscriber,
+  [stepTypes.enum.klaviyoSyncProfile]: syncKlaviyoProfile,
+  [stepTypes.enum.moosendCreateContact]: addOrUpdateMoosendContact,
   [stepTypes.enum.sendGridAddContact]: addSendGridContact,
   [stepTypes.enum.notifyAgent]: undefined,
   [stepTypes.enum.openWebsite]: undefined,

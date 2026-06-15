@@ -30,9 +30,11 @@ import { formatDateStep } from "./format-date"
 import { generateCodeStep } from "./generate-code"
 import { getDataFromJsonStep } from "./get-data-from-json"
 import { getUserDataStep } from "./get-user-data"
+import { klaviyoSyncProfileStep } from "./klaviyo-sync-profile"
 import { mailchimpAddMemberStep } from "./mailchimp-add-member"
 import { mailerLiteAddSubscriberStep } from "./mailer-lite-add-subscriber"
 import { markEmailVerifiedStep } from "./mark-email-verified"
+import { moosendCreateContactStep } from "./moosend-create-contact"
 import { openWebsiteStep } from "./open-website"
 import { optInEmailStep } from "./opt-in-email"
 import { optOutEmailStep } from "./opt-out-email"
@@ -105,7 +107,9 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [stepTypes.enum.dripSubscribeSubscriber]: dripSubscribeSubscriberStep,
   [stepTypes.enum.mailchimpAddMember]: mailchimpAddMemberStep,
   [stepTypes.enum.mailerLiteAddSubscriber]: mailerLiteAddSubscriberStep,
+  [stepTypes.enum.moosendCreateContact]: moosendCreateContactStep,
   [stepTypes.enum.sendGridAddContact]: sendGridAddContactStep,
+  [stepTypes.enum.klaviyoSyncProfile]: klaviyoSyncProfileStep,
   [stepTypes.enum.optInEmail]: optInEmailStep,
   [stepTypes.enum.optOutEmail]: optOutEmailStep,
   [stepTypes.enum.cancelContactInput]: undefined,

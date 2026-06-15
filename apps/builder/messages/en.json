@@ -722,6 +722,12 @@
     "mailerLite": {
       "label": "MailerLite"
     },
+    "klaviyo": {
+      "label": "Klaviyo"
+    },
+    "moosend": {
+      "label": "Moosend"
+    },
     "host": {
       "label": "Host",
       "placeholder": "smtp.example.com"
@@ -1391,6 +1397,10 @@
     "authCallbackUrl": {
       "label": "Auth Callback URL"
     },
+    "signInCallbackUrl": {
+      "label": "Sign-in Callback URL",
+      "hint": "Add this to your Google app's authorized redirect URIs to enable Google sign-in."
+    },
     "webhookUrl": {
       "label": "Webhook URL"
     },
@@ -1462,6 +1472,8 @@
       "markEmailVerified": "Mark Email Verified",
       "mailchimpAddMember": "Add Contact to MailChimp",
       "mailerLiteAddSubscriber": "Add Contact to MailerLite",
+      "klaviyoSyncProfile": "Add Contact to Klaviyo",
+      "moosendCreateContact": "Add Contact to Moosend",
       "dripSubscribeSubscriber": "Add Contact to Drip",
       "sendGridAddContact": "Add Contact to SendGrid",
       "openWebsite": "Open Website",
@@ -1664,6 +1676,56 @@
     },
     "errors": {
       "invalidApiKey": "Invalid API Token. Please check your MailerLite API Token and try again."
+    }
+  },
+  "klaviyo": {
+    "title": "Klaviyo",
+    "setting": {
+      "label": "Klaviyo",
+      "description": "This integration lets you sync customer profiles from your bot to Klaviyo."
+    },
+    "fields": {
+      "apiKey": "API Key",
+      "list": "Klaviyo List",
+      "listPlaceholder": "Select a Klaviyo list",
+      "email": "Email Field",
+      "titleField": "Title Field",
+      "titlePlaceholder": "Select a field",
+      "orgField": "Organization Field",
+      "orgPlaceholder": "Select a field",
+      "customProperties": "Custom Fields in Klaviyo",
+      "emptyField": "Select a contact field",
+      "propertyKey": "Klaviyo property key",
+      "addMapping": "Add mapping"
+    },
+    "lists": {
+      "error": "Unable to load Klaviyo lists. Check that the integration is connected."
+    },
+    "errors": {
+      "invalidApiKey": "Invalid API Key. Please check your Klaviyo API Key and try again."
+    }
+  },
+  "moosend": {
+    "title": "Moosend",
+    "setting": {
+      "label": "Moosend",
+      "description": "This integration lets you save customers contacts from your bot to Moosend."
+    },
+    "fields": {
+      "apiKey": "API Key",
+      "list": "Moosend list",
+      "listPlaceholder": "Select a Moosend list",
+      "email": "Email Field"
+    },
+    "lists": {
+      "loading": "Loading Moosend mailing lists...",
+      "empty": "No Moosend mailing lists found.",
+      "error": "Unable to load Moosend mailing lists. Check that the integration is connected."
+    },
+    "errors": {
+      "invalidApiKey": "Invalid API Key. Please check your Moosend API Key and try again.",
+      "userNotEnabled": "This Moosend account is not enabled for API access.",
+      "connectFailed": "Failed to connect Moosend. Please try again later."
     }
   },
   "drip": {
@@ -2553,7 +2615,11 @@
     }
   },
   "platformCredentials": {
-    "title": "Platform Credentials"
+    "title": "Platform Credentials",
+    "usingPlatformDefault": "Using platform default",
+    "usingPlatformDefaultHint": "This channel works out of the box with the platform's shared app. Add your own settings anytime to override it.",
+    "notConfigured": "Not set up yet",
+    "notConfiguredHint": "Add your settings to start using this integration."
   },
   "platformBranding": {
     "title": "Platform Branding",
@@ -2616,11 +2682,13 @@
   "manageSidebar": {
     "platformGroup": "Platform",
     "saasGroup": "SaaS",
-    "portalUsers": "Users",
+    "portalUsers": "Sub-accounts",
+    "portalWorkspaces": "Workspaces",
     "portalPlans": "Plans",
     "portalUsage": "Usage",
     "portalCustomDomain": "Custom Domain",
-    "portalPaymentProcessor": "Payment Processor"
+    "portalPaymentProcessor": "Payment Processor",
+    "portalPricingPage": "Pricing"
   },
   "unsubscribePage": {
     "title": "You have been unsubscribed.",

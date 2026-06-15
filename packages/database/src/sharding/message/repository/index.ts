@@ -1,1 +1,4 @@
-export { ShardedMessageRepository } from "./sharded-message-repository"
+export {
+  getSafeSinceTime,
+  ShardedMessageRepository,
+} from "./sharded-message-repository"

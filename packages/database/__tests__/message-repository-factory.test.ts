@@ -1,8 +1,4 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
-import {
-  MessageShardConfigurationError,
-  MessageShardUnavailableError,
-} from "../src/errors"
 
 const mocks = vi.hoisted(() => ({
   createShardRepository: vi.fn(),
@@ -62,40 +58,17 @@ describe("message repository factory", () => {
     expect(getShardManager(client)).toBe(manager)
   })
 
-  test("rejects configuration errors without falling back to main", async () => {
-    const client = {} as never
-    const error = new MessageShardConfigurationError("missing shards")
-    mocks.enableMessageSharding = true
-    mocks.createShardRepository.mockRejectedValue(error)
-
-    await expect(createMessageRepository(client)).rejects.toBe(error)
-  })
-
-  test("wraps initialization errors without falling back to main", async () => {
+  test("falls back to the main repository when shard initialization fails", async () => {
     const client = {} as never
     mocks.enableMessageSharding = true
     mocks.createShardRepository.mockRejectedValue(new Error("connection down"))
 
-    await expect(createMessageRepository(client)).rejects.toBeInstanceOf(
-      MessageShardUnavailableError,
-    )
-  })
+    const repository = await createMessageRepository(client)
 
-  test("retries shard initialization after a transient failure", async () => {
-    const client = {} as never
-    const repository = { findAIContextMessages: vi.fn() }
-    const manager = {
-      invalidateShardingCache: vi.fn(),
-      shutdown: vi.fn(),
-    }
-    mocks.enableMessageSharding = true
-    mocks.createShardRepository
-      .mockRejectedValueOnce(new Error("connection down"))
-      .mockResolvedValueOnce({ manager, repository })
-
-    await expect(createMessageRepository(client)).rejects.toBeInstanceOf(
-      MessageShardUnavailableError,
+    expect(repository).toBeInstanceOf(MessageRepository)
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      "Shard module failed to load; falling back to main repository. Check shard configuration.",
     )
-    await expect(createMessageRepository(client)).resolves.toBe(repository)
   })
 })

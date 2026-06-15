@@ -2,9 +2,11 @@ import { integration as integrationChatbotx } from "@chatbotx.io/integration-cha
 import { integration as integrationDrip } from "@chatbotx.io/integration-drip"
 import { integration as integrationGoogleSheets } from "@chatbotx.io/integration-google-sheets"
 import { integration as integrationInstagram } from "@chatbotx.io/integration-instagram"
+import { integration as integrationKlaviyo } from "@chatbotx.io/integration-klaviyo"
 import { integration as integrationMailchimp } from "@chatbotx.io/integration-mailchimp"
 import { integration as integrationMailerLite } from "@chatbotx.io/integration-mailer-lite"
 import { integration as integrationMessenger } from "@chatbotx.io/integration-messenger"
+import { integration as integrationMoosend } from "@chatbotx.io/integration-moosend"
 import { integration as integrationSendGrid } from "@chatbotx.io/integration-sendgrid"
 import { integration as integrationSmtp } from "@chatbotx.io/integration-smtp"
 import { integration as integrationTelegram } from "@chatbotx.io/integration-telegram"
@@ -18,8 +20,10 @@ export const integrations = {
   messenger: integrationMessenger,
   instagram: integrationInstagram,
   drip: integrationDrip,
+  klaviyo: integrationKlaviyo,
   mailchimp: integrationMailchimp,
   mailerLite: integrationMailerLite,
+  moosend: integrationMoosend,
   googleSheets: integrationGoogleSheets,
   zalo: integrationZalo,
   telegram: integrationTelegram,

@@ -16,10 +16,12 @@ import { flowsAPI } from "@/features/flows/api"
 import { foldersAPI } from "@/features/folders/api"
 import { inboxesAPI } from "@/features/inboxes/api"
 import { integrationDripAPI } from "@/features/integration-drip/api"
+import { integrationKlaviyoAPI } from "@/features/integration-klaviyo/api"
 import { integrationMailchimpAPI } from "@/features/integration-mailchimp/api"
 import { integrationMailerLiteAPI } from "@/features/integration-mailer-lite/api"
 import { integrationMessengerAPIs } from "@/features/integration-messenger/api"
 import { messengerMessageTemplateAPIs } from "@/features/integration-messenger/message-templates/api"
+import { integrationMoosendAPI } from "@/features/integration-moosend/api"
 import { integrationSendGridAPI } from "@/features/integration-sendgrid/api"
 import { integrationSmtpAPI } from "@/features/integration-smtp/api"
 import { integrationWhatsappAPIs } from "@/features/integration-whatsapp/api"
@@ -56,9 +58,11 @@ export const router = {
     .use(workspaceAuthorizedMidddleware, (input) => input.workspaceId)
     .router(analyticsRoutes),
   integrationDripAPI,
+  integrationKlaviyoAPI,
   integrationMailchimpAPI,
   integrationMailerLiteAPI,
   integrationMessengerAPIs,
+  integrationMoosendAPI,
   integrationSmtpAPI,
   integrationSendGridAPI,
   integrationWhatsappAPIs,

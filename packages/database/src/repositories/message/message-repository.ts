@@ -84,7 +84,6 @@ export interface FindManyByConversationOptions {
   limit: number
   messageTypes?: ("incoming" | "outgoing" | "activity")[]
   requireCompleteResults?: boolean
-  shardSinceTime?: Date
   sinceTime?: Date
   textNotNull?: boolean
   workspaceId?: string
@@ -150,14 +149,6 @@ export interface IMessageRepository {
   ): Promise<MessageModel[]>
 
   findById(id: string, createdAt?: Date): Promise<MessageWithAttachments | null>
-
-  findByIdInConversation(
-    id: string,
-    conversationId: string,
-    sinceTime: Date,
-    requireCompleteResults: boolean | undefined,
-    workspaceId: string,
-  ): Promise<MessageWithAttachments | null>
 
   findBySourceId(
     sourceId: string,
@@ -394,7 +385,7 @@ export class MessageRepository implements IMessageRepository {
       .limit(1)
 
     if (!marker) {
-      return []
+      return latestMessages()
     }
 
     const messages = await this.db
@@ -432,34 +423,6 @@ export class MessageRepository implements IMessageRepository {
           gte(messageModel.createdAt, options.sinceTime),
         ),
       )
-      .limit(1)
-
-    if (!message) {
-      return null
-    }
-
-    const attachments = await this.queryAttachmentsForMessages([message.id])
-    return { ...message, attachments } as MessageWithAttachments
-  }
-
-  async findByIdInConversation(
-    id: string,
-    conversationId: string,
-    sinceTime: Date,
-    _requireCompleteResults: boolean | undefined,
-    workspaceId: string,
-  ): Promise<MessageWithAttachments | null> {
-    const whereConditions = [
-      eq(messageModel.id, id),
-      eq(messageModel.conversationId, conversationId),
-      eq(messageModel.workspaceId, workspaceId),
-      gte(messageModel.createdAt, sinceTime),
-    ]
-
-    const [message] = await this.db
-      .select()
-      .from(messageModel)
-      .where(and(...whereConditions))
       .limit(1)
 
     if (!message) {

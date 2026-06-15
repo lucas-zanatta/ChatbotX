@@ -37,6 +37,8 @@ import type { MessageShardConnectionManager } from "../connection-manager"
 import type { MessageShardTimeRangeInfo } from "../registry"
 import { attachmentModel, messageModel } from "../shard-schema"
 
+export { getSafeSinceTime } from "../../../repositories"
+
 const SHARD_RANGE_CACHE_TAG = "message-shard-range"
 const SHARD_RANGE_CACHE_TTL_S = 30
 
@@ -646,7 +648,7 @@ export class ShardedMessageRepository implements IMessageRepository {
     )
   }
 
-  async findByIdInConversation(
+  private async findByIdInConversation(
     id: string,
     conversationId: string,
     sinceTime: Date,
@@ -896,7 +898,7 @@ export class ShardedMessageRepository implements IMessageRepository {
     conversationId: string,
     options: FindManyByConversationOptions,
   ): Promise<MessageModel[]> {
-    const sinceTime = options.shardSinceTime ?? options.sinceTime
+    const sinceTime = options.sinceTime
 
     if (!sinceTime) {
       throw new Error(

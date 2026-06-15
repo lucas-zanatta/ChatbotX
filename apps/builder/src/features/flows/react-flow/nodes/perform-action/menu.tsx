@@ -389,6 +389,11 @@ export const performActionMenus = (t: TranslationFn): MenuItem[] => [
         stepType: stepTypes.enum.mailerLiteAddSubscriber,
       },
       {
+        label: t("flows.actions.moosendCreateContact"),
+        icon: MailIcon,
+        stepType: stepTypes.enum.moosendCreateContact,
+      },
+      {
         label: t("flows.actions.dripSubscribeSubscriber"),
         icon: MailIcon,
         stepType: stepTypes.enum.dripSubscribeSubscriber,
@@ -397,6 +402,11 @@ export const performActionMenus = (t: TranslationFn): MenuItem[] => [
         label: t("flows.actions.sendGridAddContact"),
         icon: MailIcon,
         stepType: stepTypes.enum.sendGridAddContact,
+      },
+      {
+        label: t("flows.actions.klaviyoSyncProfile"),
+        icon: MailIcon,
+        stepType: stepTypes.enum.klaviyoSyncProfile,
       },
     ],
   },

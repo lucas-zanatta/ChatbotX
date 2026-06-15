@@ -237,28 +237,6 @@ function collectSqlValues(
   return out
 }
 
-describe("MessageRepository.findByIdInConversation", () => {
-  test("filters by workspace when workspaceId is provided", async () => {
-    const chain = makeSelectChain([])
-    const repo = new MessageRepository({
-      select: vi.fn().mockReturnValue(chain),
-    } as never)
-
-    await repo.findByIdInConversation(
-      "msg-1",
-      "conv-1",
-      new Date("2026-01-01T00:00:00Z"),
-      undefined,
-      "ws-1",
-    )
-
-    const whereValues = collectSqlValues(chain.where.mock.calls[0])
-    expect(whereValues).toContain("msg-1")
-    expect(whereValues).toContain("conv-1")
-    expect(whereValues).toContain("ws-1")
-  })
-})
-
 describe("MessageRepository.findAIContextMessages", () => {
   const latest = [
     { id: "10", createdAt: new Date("2026-06-01T00:00:00Z") },
@@ -319,18 +297,27 @@ describe("MessageRepository.findAIContextMessages", () => {
     expect(select).toHaveBeenCalledTimes(2)
   })
 
-  test.each([
-    "missing",
-    "latest",
-  ] as const)("returns empty history when marker is %s", async (scenario) => {
-    const markerRows =
-      scenario === "missing"
-        ? []
-        : [{ id: "10", createdAt: new Date("2026-06-01T00:00:00Z") }]
-    const select = vi.fn().mockReturnValueOnce(makeSelectChain(markerRows))
-    if (scenario === "latest") {
-      select.mockReturnValueOnce(makeSelectChain([]))
-    }
+  test("falls back to latest history when marker is missing", async () => {
+    const select = vi
+      .fn()
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain(latest))
+    const repo = new MessageRepository({ select } as never)
+
+    const result = await repo.findAIContextMessages(options)
+
+    expect(result.map((message) => message.id)).toEqual(["9", "10"])
+  })
+
+  test("returns empty history when marker is latest", async () => {
+    const select = vi
+      .fn()
+      .mockReturnValueOnce(
+        makeSelectChain([
+          { id: "10", createdAt: new Date("2026-06-01T00:00:00Z") },
+        ]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
     const repo = new MessageRepository({ select } as never)
 
     const result = await repo.findAIContextMessages(options)
