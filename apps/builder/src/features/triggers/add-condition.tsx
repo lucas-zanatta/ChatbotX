@@ -19,6 +19,7 @@ import { useMemo } from "react"
 import { defaultFn as addCustomFieldValueChangedCondition } from "../conditions/schemas/custom-field-value-changed"
 import { defaultFn as addDateTimeBaseTriggerCondition } from "../conditions/schemas/date-time-based-trigger"
 import {
+  addInstagramCommentCreatedCondition,
   createDefaultFn,
   createDefaultFnWithSourceId,
 } from "../conditions/schemas/simple-conditions"
@@ -116,6 +117,16 @@ export function AddCondition({
             defaultFn: createDefaultFn(
               triggerEventTypes.enum.conversationUnassigned,
             ),
+          },
+        ],
+      },
+      {
+        label: t("fields.instagram.label"),
+        children: [
+          {
+            label: t("trigger.conditions.instagramCommentCreated"),
+            value: triggerEventTypes.enum.instagramCommentCreated,
+            defaultFn: addInstagramCommentCreatedCondition,
           },
         ],
       },

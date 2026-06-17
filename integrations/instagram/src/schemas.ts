@@ -85,10 +85,34 @@ export type InstagramMessagingEvent = z.infer<
   typeof instagramMessagingEventSchema
 >
 
+export const instagramCommentChangeSchema = z.object({
+  field: z.literal("comments"),
+  value: z.object({
+    id: z.string(),
+    text: z.string().optional(),
+    parent_id: z.string().optional(),
+    media: z
+      .object({
+        id: z.string(),
+      })
+      .optional(),
+    from: z
+      .object({
+        id: z.string().optional(),
+        username: z.string().optional(),
+      })
+      .optional(),
+  }),
+})
+export type InstagramCommentChange = z.infer<
+  typeof instagramCommentChangeSchema
+>
+
 export const instagramPageEntrySchema = z.object({
   id: z.string(),
   time: z.number(),
-  messaging: z.array(instagramMessagingEventSchema),
+  messaging: z.array(instagramMessagingEventSchema).optional(),
+  changes: z.array(instagramCommentChangeSchema).optional(),
 })
 export type InstagramPageEntry = z.infer<typeof instagramPageEntrySchema>
 
@@ -276,3 +300,26 @@ export type InstagramContactProfile = {
   followsBusiness: boolean | null
   businessFollowUser: boolean | null
 }
+
+export const instagramMediaSchema = z.object({
+  id: z.string(),
+  caption: z.string().optional(),
+  media_type: z.string().optional(),
+  media_url: z.url().optional(),
+  thumbnail_url: z.url().optional(),
+  permalink: z.url().optional(),
+  timestamp: z.string().optional(),
+})
+export type InstagramMedia = z.infer<typeof instagramMediaSchema>
+
+export const instagramMediaListResponseSchema = z.object({
+  data: z.array(instagramMediaSchema),
+  paging: z
+    .object({
+      next: z.url().optional(),
+    })
+    .optional(),
+})
+export type InstagramMediaListResponse = z.infer<
+  typeof instagramMediaListResponseSchema
+>

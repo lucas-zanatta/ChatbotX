@@ -1533,8 +1533,33 @@
       "subscribeSequence": "Subscribe Sequence",
       "unsubscribeSequence": "Unsubscribe Sequence",
       "splitTraffic": "Split Traffic",
+      "filterContact": "Condition",
       "aiEditImage": "AI Edit Image",
       "whatsappFlow": "WhatsApp Flow"
+    },
+    "filterContact": {
+      "field": "Field",
+      "operator": "Operator",
+      "value": "Value",
+      "fields": {
+        "igFollowBusiness": "User follows Instagram page"
+      },
+      "operators": {
+        "is": "is",
+        "isNot": "is not"
+      },
+      "values": {
+        "true": "True",
+        "false": "False"
+      },
+      "states": {
+        "true": "True",
+        "false": "False",
+        "error": "Error"
+      },
+      "summary": {
+        "igFollowBusiness": "Checks whether the Instagram user follows your page."
+      }
     },
     "splitTraffic": {
       "balanceHint": "The total sum must equal 100%.",
@@ -2494,6 +2519,7 @@
       "followUp": "Follow Up",
       "conversationAssigned": "Conversation Assigned",
       "conversationUnassigned": "Conversation Unassigned",
+      "instagramCommentCreated": "Instagram Comment Created",
       "incomingCall": "Incoming Call",
       "missedAudioCall": "Missed Audio Call",
       "callEnded": "Call Ended",
@@ -2518,6 +2544,26 @@
       "productOrdered": "Product Ordered",
       "contactReferredANewContact": "Contact Referred A New Contact",
       "contactReferredExistingContact": "Contact Referred Existing Contact"
+    },
+    "fields": {
+      "instagramMediaId": "Instagram post/media ID",
+      "commentContains": "Comment contains"
+    },
+    "placeholders": {
+      "anyInstagramPost": "Any current or future post",
+      "anyCommentText": "Leave blank for any comment",
+      "manualInstagramMediaId": "Paste a media ID manually",
+      "searchInstagramPosts": "Search Instagram posts...",
+      "untitledPost": "Untitled post"
+    },
+    "descriptions": {
+      "anyInstagramPost": "Run this trigger for comments on existing posts and posts published later."
+    },
+    "empty": {
+      "instagramPosts": "No Instagram posts found."
+    },
+    "loading": {
+      "instagramPosts": "Loading Instagram posts..."
     },
     "actions": {
       "addTag": "Add Tag",

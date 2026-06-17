@@ -31,6 +31,7 @@ export const triggerEventTypes = z.enum([
   "followUp",
   "conversationAssigned",
   "conversationUnassigned",
+  "instagramCommentCreated",
   "incomingCall",
   "missedAudioCall",
   "callEnded",

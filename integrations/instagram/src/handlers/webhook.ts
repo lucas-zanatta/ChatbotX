@@ -69,13 +69,35 @@ const handleWebhookEvent = async (
       )
     }
 
-    if (webhookData.entry[0].messaging[0]?.read) {
+    const entry = webhookData.entry[0]
+    const messaging = entry.messaging?.[0]
+    const commentChange = entry.changes?.find(
+      (change) => change.field === "comments",
+    )
+
+    if (commentChange) {
+      await queue?.add("incomingMessage", {
+        type: "incomingMessage",
+        data: {
+          integrationType: "instagram",
+          integrationIdentifier: entry.id,
+          payload: webhookData,
+        },
+      })
+      return
+    }
+
+    if (!messaging) {
+      return
+    }
+
+    if (messaging.read) {
       await queue?.add("contactMarkAsRead", {
         type: "contactMarkAsRead",
         data: {
           integrationType: "instagram",
-          integrationIdentifier: webhookData.entry[0].id,
-          sourceConversationId: webhookData.entry[0].messaging[0].sender.id,
+          integrationIdentifier: entry.id,
+          sourceConversationId: messaging.sender.id,
           payload: webhookData,
         },
       })
@@ -83,29 +105,22 @@ const handleWebhookEvent = async (
     }
 
     // Skip if this message is not a message or postback
-    if (
-      !(
-        webhookData.entry[0].messaging[0].message ||
-        webhookData.entry[0].messaging[0].postback
-      )
-    ) {
+    if (!(messaging.message || messaging.postback)) {
       return
     }
 
     if (
-      webhookData.entry[0].messaging[0].message?.is_echo === true &&
-      webhookData.entry[0].messaging[0].message?.metadata ===
-        INSTAGRAM_MESSAGE_METADATA
+      messaging.message?.is_echo === true &&
+      messaging.message?.metadata === INSTAGRAM_MESSAGE_METADATA
     ) {
       // Skip if this message is from our own bot
       return
     }
 
     // Calculate integration identifier
-    const integrationIdentifier = webhookData.entry[0].messaging[0].message
-      ?.is_echo
-      ? webhookData.entry[0].messaging[0].sender.id
-      : webhookData.entry[0].messaging[0].recipient.id
+    const integrationIdentifier = messaging.message?.is_echo
+      ? messaging.sender.id
+      : messaging.recipient.id
 
     await queue?.add("incomingMessage", {
       type: "incomingMessage",

@@ -44,6 +44,14 @@ export class ConditionEvaluator {
       case triggerEventTypes.enum.contactReferredExistingContact:
         return true
 
+      case triggerEventTypes.enum.instagramCommentCreated:
+        return this.evaluateInstagramCommentCondition(
+          sourceId,
+          operator,
+          value,
+          eventData.eventData,
+        )
+
       case triggerEventTypes.enum.dateTimeBasedTrigger:
         return await this.evaluateDateTimeCondition(
           sourceId,
@@ -272,6 +280,32 @@ export class ConditionEvaluator {
       default:
         return false
     }
+  }
+
+  private evaluateInstagramCommentCondition(
+    expectedMediaId: string | null,
+    operator: string | null,
+    expectedValue: unknown,
+    metadata: Record<string, unknown>,
+  ): boolean {
+    if (expectedMediaId && metadata.mediaId !== expectedMediaId) {
+      return false
+    }
+
+    if (!operator) {
+      return true
+    }
+
+    const expected = this.extractExpectedValue(expectedValue)
+    if (!(expected && typeof expected === "string")) {
+      return true
+    }
+
+    return this.evaluateStandardOperator(
+      operator,
+      metadata.text ?? "",
+      expected,
+    )
   }
 
   private parseInterval(

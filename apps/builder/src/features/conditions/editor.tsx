@@ -8,6 +8,7 @@ import { useFormContext } from "react-hook-form"
 import { useTagSelectOptions } from "@/features/tags/provider/tag-hook"
 import { CustomFieldValueChanged } from "./custom-field-value-changed"
 import { DateTimeBasedTrigger } from "./date-time-based-trigger"
+import { InstagramCommentCreated } from "./instagram-comment-created"
 
 export const ConditionEditor = ({
   parentName,
@@ -30,6 +31,8 @@ export const ConditionEditor = ({
       return <DateTimeBasedTrigger parentName={parentName} />
     case triggerEventTypes.enum.customFieldValueChanged:
       return <CustomFieldValueChanged parentName={parentName} />
+    case triggerEventTypes.enum.instagramCommentCreated:
+      return <InstagramCommentCreated parentName={parentName} />
     default:
       return (
         <>

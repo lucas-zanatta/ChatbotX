@@ -45,6 +45,8 @@ export class WebhookExecutor {
       [triggerEventTypes.enum.conversationAssigned]: "conversation_assigned",
       [triggerEventTypes.enum.conversationUnassigned]:
         "conversation_unassigned",
+      [triggerEventTypes.enum.instagramCommentCreated]:
+        "instagram_comment_created",
       [triggerEventTypes.enum.subscribedToSequence]: "subscribed_to_sequence",
       [triggerEventTypes.enum.unsubscribedFromSequence]:
         "unsubscribed_from_sequence",
@@ -176,6 +178,19 @@ export class WebhookExecutor {
         phone: data.phone as string,
         email: data.email as string,
         custom_fields: (data.customFields as Record<string, unknown>) || {},
+      }
+    }
+
+    if (
+      eventData.eventType === triggerEventTypes.enum.instagramCommentCreated
+    ) {
+      return {
+        ...basePayload,
+        comment_id: data.commentId as string,
+        media_id: data.mediaId as string | undefined,
+        parent_id: data.parentId as string | undefined,
+        text: data.text as string | undefined,
+        username: data.username as string | undefined,
       }
     }
 

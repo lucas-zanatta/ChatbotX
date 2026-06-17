@@ -4,7 +4,10 @@ import { ChatbotXException } from "@chatbotx.io/business/errors"
 import { db, eq, findOrFail } from "@chatbotx.io/database/client"
 import { integrationInstagramModel } from "@chatbotx.io/database/schema"
 import type { InstagramAuthValue } from "@chatbotx.io/integration-instagram"
-import { refreshLongLivedToken } from "@chatbotx.io/integration-instagram"
+import {
+  refreshLongLivedToken,
+  subscribePageToInstagramWebhook,
+} from "@chatbotx.io/integration-instagram"
 import { zodBigintAsString } from "@chatbotx.io/utils"
 import { logger } from "@/lib/log"
 import { workspaceActionClient } from "@/lib/safe-action"
@@ -33,6 +36,11 @@ const refreshInstagramPermissions = async (ctx: {
 
   try {
     const newAccessToken = await refreshLongLivedToken(auth.tokens.accessToken)
+    await subscribePageToInstagramWebhook({
+      igId: auth.metadata.pageId,
+      accessToken: newAccessToken,
+      version: auth.metadata.version,
+    })
 
     const updatedAuth: InstagramAuthValue = {
       ...auth,

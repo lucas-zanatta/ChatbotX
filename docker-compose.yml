@@ -14,7 +14,7 @@ services:
     <<: *network
     image: timescale/timescaledb-ha:pg18-all
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - db-data:/home/postgres/pgdata
     command: ["postgres", "-c", "log_statement=${POSTGRES_LOG_STATEMENT:-none}"]

@@ -11,13 +11,16 @@ import { rescue } from "../exception"
 import { instagramBusinessClient } from "../lib/http-client"
 import type {
   InstagramAuthValue,
+  InstagramMediaListResponse,
   InstagramMessageAttachment,
   InstagramProfileRequest,
   InstagramSendMessageRequest,
   InstagramSendMessageResponse,
 } from "../schemas"
+import { instagramMediaListResponseSchema } from "../schemas"
 
 export const INSTAGRAM_SUBSCRIBE_FIELDS = [
+  "comments",
   "messages",
   "messaging_postbacks",
   "messaging_optins",
@@ -40,6 +43,27 @@ export const refreshLongLivedToken = (accessToken: string): Promise<string> => {
     )
 
     return res.access_token
+  })
+}
+
+export const getInstagramMediaList = async (props: {
+  auth: InstagramAuthValue
+  limit?: number
+}): Promise<InstagramMediaListResponse["data"]> => {
+  const version = props.auth.metadata.version ?? DEFAULT_API_VERSION
+  const endpoint = `${version}/${props.auth.metadata.igId}/media`
+
+  return rescue(endpoint, async () => {
+    const response = await instagramBusinessClient.get<unknown>(endpoint, {
+      searchParams: {
+        fields:
+          "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
+        limit: String(props.limit ?? 25),
+        access_token: props.auth.tokens.accessToken,
+      },
+    })
+
+    return instagramMediaListResponseSchema.parse(response).data
   })
 }
 

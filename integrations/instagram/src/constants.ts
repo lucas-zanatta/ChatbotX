@@ -8,5 +8,6 @@ export const DEFAULT_API_VERSION = "v22.0"
 
 export const INSTAGRAM_BUSINESS_SCOPES = [
   "instagram_business_basic",
+  "instagram_business_manage_comments",
   "instagram_business_manage_messages",
 ]

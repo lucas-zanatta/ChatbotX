@@ -20,6 +20,7 @@ import { deleteContactStepSchema } from "./steps/delete-contact"
 import { disableBotStepSchema } from "./steps/disable-bot"
 import { dripSubscribeSubscriberSchema } from "./steps/drip-subscribe-subscriber"
 import { enableBotStepSchema } from "./steps/enable-bot"
+import { filterContactStepSchema } from "./steps/filter-contact"
 import { followConversationStepSchema } from "./steps/follow-conversation"
 import { formatDateStepSchema } from "./steps/format-date"
 import { generateCodeStepSchema } from "./steps/generate-code"
@@ -70,6 +71,7 @@ const contactSteps = [
   removeContactTagStepSchema,
   setCustomFieldStepSchema,
   clearCustomFieldStepSchema,
+  filterContactStepSchema,
   deleteContactStepSchema,
 ]
 

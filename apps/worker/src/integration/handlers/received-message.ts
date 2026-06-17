@@ -24,6 +24,7 @@ import type {
 import { emit } from "@chatbotx.io/event-bus"
 import {
   emitContactCreated,
+  emitInstagramCommentCreated,
   setWebhookExecutionContext,
 } from "@chatbotx.io/events"
 import { messageEventTypeSchema } from "@chatbotx.io/flow-config"
@@ -228,6 +229,23 @@ export const receiveMessage = async (
         occurredAt: newMessage.createdAt,
         sourceId: newMessage.sourceId ?? undefined,
       })
+
+      const instagramComment = getInstagramCommentAttributes(
+        incomingMessage.contentAttributes,
+      )
+      if (inbox.channel === "instagram" && instagramComment) {
+        await emitInstagramCommentCreated(
+          inbox.workspaceId,
+          contactInbox.contactId,
+          {
+            commentId: instagramComment.commentId,
+            mediaId: instagramComment.mediaId,
+            parentId: instagramComment.parentId,
+            text: incomingMessage.text,
+            username: instagramComment.username,
+          },
+        )
+      }
 
       if (postbackAction) {
         await integrationQueue.add(IntegrationJobAction.runFlowPostback, {
@@ -452,3 +470,31 @@ const canGetUserProfileIfNeeded = (integrationType: string) =>
   integrationType === "instagram" ||
   integrationType === "zalo" ||
   integrationType === "telegram"
+
+const getInstagramCommentAttributes = (
+  contentAttributes: unknown,
+):
+  | {
+      commentId: string
+      mediaId?: string
+      parentId?: string
+      username?: string
+    }
+  | undefined => {
+  if (!(contentAttributes && typeof contentAttributes === "object")) {
+    return
+  }
+  const attrs = contentAttributes as Record<string, unknown>
+  if (
+    attrs.type !== "instagram_comment" ||
+    typeof attrs.commentId !== "string"
+  ) {
+    return
+  }
+  return {
+    commentId: attrs.commentId,
+    mediaId: typeof attrs.mediaId === "string" ? attrs.mediaId : undefined,
+    parentId: typeof attrs.parentId === "string" ? attrs.parentId : undefined,
+    username: typeof attrs.username === "string" ? attrs.username : undefined,
+  }
+}

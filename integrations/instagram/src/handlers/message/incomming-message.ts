@@ -13,6 +13,7 @@ import { InstagramException } from "../../exception"
 import { logger } from "../../lib/logger"
 import {
   type InstagramAuthValue,
+  type InstagramCommentChange,
   type InstagramMessage,
   type InstagramMessagingEvent,
   instagramWebhookEventSchema,
@@ -64,11 +65,18 @@ export const receiveMessage = async ({
 
   const entry = validatedData.entry[0]
 
-  if (!entry.messaging[0]) {
+  const commentChange = entry.changes?.find(
+    (change): change is InstagramCommentChange => change.field === "comments",
+  )
+  if (commentChange) {
+    return getCommentMessageEntity(commentChange)
+  }
+
+  const messaging = entry.messaging?.[0]
+  if (!messaging) {
     throw new InstagramException("No messaging found")
   }
 
-  const messaging = entry.messaging[0]
   if (!(messaging.message || messaging.postback)) {
     throw new InstagramException("No message found")
   }
@@ -122,4 +130,39 @@ const getMessageEntity = async (
   }
 
   return { message, postbackAction, quickReplyAction, ref, contact }
+}
+
+const getCommentMessageEntity = (
+  change: InstagramCommentChange,
+): ReceivedMessageResult => {
+  const { value } = change
+  const sourceId = value.from?.id ?? value.from?.username
+  if (!sourceId) {
+    throw new InstagramException("No comment author found")
+  }
+
+  const text = value.text ?? ""
+  return {
+    message: {
+      sourceId: value.id,
+      messageType: messageTypes.enum.incoming,
+      text,
+      contentType: contentTypes.enum.text,
+      contentAttributes: {
+        type: "instagram_comment",
+        commentId: value.id,
+        mediaId: value.media?.id,
+        parentId: value.parent_id,
+        username: value.from?.username,
+      },
+    },
+    postbackAction: null,
+    quickReplyAction: null,
+    ref: null,
+    contact: {
+      sourceId,
+      firstName: value.from?.username,
+      sourceConversationId: value.media?.id,
+    },
+  }
 }

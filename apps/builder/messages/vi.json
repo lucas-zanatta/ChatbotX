@@ -1544,8 +1544,33 @@
       "noTemplatesAvailable": "No templates available",
       "noFlowsAvailable": "Không có flow nào",
       "splitTraffic": "Chia lưu lượng",
+      "filterContact": "Condition",
       "aiEditImage": "AI Chỉnh sửa hình ảnh",
       "whatsappFlow": "Luồng WhatsApp"
+    },
+    "filterContact": {
+      "field": "Field",
+      "operator": "Operator",
+      "value": "Value",
+      "fields": {
+        "igFollowBusiness": "User follows Instagram page"
+      },
+      "operators": {
+        "is": "is",
+        "isNot": "is not"
+      },
+      "values": {
+        "true": "True",
+        "false": "False"
+      },
+      "states": {
+        "true": "True",
+        "false": "False",
+        "error": "Error"
+      },
+      "summary": {
+        "igFollowBusiness": "Checks whether the Instagram user follows your page."
+      }
     },
     "splitTraffic": {
       "balanceHint": "Tổng phần trăm phải bằng 100%.",
@@ -2479,6 +2504,7 @@
       "followUp": "Theo dõi",
       "conversationAssigned": "Cuộc trò chuyện được gán",
       "conversationUnassigned": "Cuộc trò chuyện bị bỏ gán",
+      "instagramCommentCreated": "Instagram comment created",
       "incomingCall": "Cuộc gọi đến",
       "missedAudioCall": "Cuộc gọi âm thanh nhỡ",
       "callEnded": "Cuộc gọi kết thúc",
@@ -2503,6 +2529,26 @@
       "productOrdered": "Sản phẩm đã đặt",
       "contactReferredANewContact": "Liên hệ giới thiệu liên hệ mới",
       "contactReferredExistingContact": "Liên hệ giới thiệu liên hệ hiện có"
+    },
+    "fields": {
+      "instagramMediaId": "Instagram post/media ID",
+      "commentContains": "Comment contains"
+    },
+    "placeholders": {
+      "anyInstagramPost": "Any current or future post",
+      "anyCommentText": "Leave blank for any comment",
+      "manualInstagramMediaId": "Paste a media ID manually",
+      "searchInstagramPosts": "Search Instagram posts...",
+      "untitledPost": "Untitled post"
+    },
+    "descriptions": {
+      "anyInstagramPost": "Run this trigger for comments on existing posts and posts published later."
+    },
+    "empty": {
+      "instagramPosts": "No Instagram posts found."
+    },
+    "loading": {
+      "instagramPosts": "Loading Instagram posts..."
     },
     "actions": {
       "addTag": "Thêm thẻ",

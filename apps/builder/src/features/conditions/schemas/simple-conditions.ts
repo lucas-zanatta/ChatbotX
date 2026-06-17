@@ -40,6 +40,18 @@ export const contactReferredExistingContact = createSimpleCondition(
   triggerEventTypes.enum.contactReferredExistingContact,
 )
 
+export const instagramCommentCreated = z.object({
+  id: zodBigintAsString().optional(),
+  type: z.literal(triggerEventTypes.enum.instagramCommentCreated),
+  sourceId: z.string().optional(),
+  operator: z.literal("contains").optional(),
+  value: z
+    .object({
+      text: z.string().optional(),
+    })
+    .optional(),
+})
+
 // Conditions with sourceId
 const createConditionWithSourceId = (type: TriggerEventType) =>
   z.object({
@@ -63,3 +75,10 @@ export const createDefaultFn =
 export const createDefaultFnWithSourceId =
   <T extends TriggerEventType>(type: T) =>
   () => ({ type, sourceId: "" })
+
+export const addInstagramCommentCreatedCondition = () => ({
+  type: triggerEventTypes.enum.instagramCommentCreated,
+  sourceId: "",
+  operator: "contains",
+  value: { text: "" },
+})

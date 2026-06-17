@@ -47,6 +47,7 @@ import { handleAIDeleteMessageHistory } from "./delete-message-history"
 import { subscribeDripSubscriber } from "./drip-handler"
 import { handleAIEditImage } from "./edit-image"
 import { handleAIExtractData } from "./extract-data/index"
+import { filterContact } from "./filter-contact"
 import { type ExecuteStepProps, seekConnectedNode } from "./flow-utils"
 import { handleAIGenerateImage } from "./generate-image"
 import { handleAIGenerateText } from "./generate-text"
@@ -397,7 +398,7 @@ export const flowStepHandlers: Record<
   [stepTypes.enum.wait]: handleWait,
   [stepTypes.enum.startExternalFlow]: startExternalFlow,
   [stepTypes.enum.chooseChannel]: undefined,
-  [stepTypes.enum.filterContact]: undefined,
+  [stepTypes.enum.filterContact]: filterContact,
   [stepTypes.enum.subscribeBroadcast]: subscribeBroadcast,
   [stepTypes.enum.unsubscribeBroadcast]: unsubscribeBroadcast,
   [stepTypes.enum.splitTraffic]: splitTraffic,

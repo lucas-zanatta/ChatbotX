@@ -19,6 +19,7 @@ const SUPPORTED_EVENT_TYPES: Set<TriggerEventType> = new Set([
   triggerEventTypes.enum.followUp,
   triggerEventTypes.enum.conversationAssigned,
   triggerEventTypes.enum.conversationUnassigned,
+  triggerEventTypes.enum.instagramCommentCreated,
   triggerEventTypes.enum.subscribedToSequence,
   triggerEventTypes.enum.unsubscribedFromSequence,
 ])

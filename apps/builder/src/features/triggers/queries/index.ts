@@ -1,6 +1,6 @@
 import { and, count, db, eq, isNull } from "@chatbotx.io/database/client"
-import { triggerModel } from "@chatbotx.io/database/schema"
-import type { TriggerModel } from "@chatbotx.io/database/types"
+import { conditionModel, triggerModel } from "@chatbotx.io/database/schema"
+import type { ConditionModel, TriggerModel } from "@chatbotx.io/database/types"
 import { assertCurrentUserCanAccessChatbot } from "@/lib/auth/utils"
 import type { GetTriggersSchema, ListTriggersResponse } from "../schema/query"
 
@@ -63,27 +63,35 @@ export async function getTriggers(
 export async function findTrigger(params: {
   id?: string
   workspaceId?: string
-}): Promise<TriggerModel | null> {
-  const where: Record<string, unknown> = {}
+}): Promise<(TriggerModel & { conditions: ConditionModel[] }) | null> {
+  const conditions = [
+    params.id ? eq(triggerModel.id, params.id) : undefined,
+    params.workspaceId
+      ? eq(triggerModel.workspaceId, params.workspaceId)
+      : undefined,
+  ].filter((condition) => condition !== undefined)
 
-  if (params.id) {
-    where.id = params.id
-  }
-
-  if (params.workspaceId) {
-    where.workspaceId = params.workspaceId
-  }
-
-  if (Object.keys(where).length === 0) {
+  if (conditions.length === 0) {
     return null
   }
 
-  const result = await db.query.triggerModel.findFirst({
-    where,
-    with: {
-      conditions: true,
-    },
-  })
+  const [trigger] = await db
+    .select()
+    .from(triggerModel)
+    .where(and(...conditions))
+    .limit(1)
 
-  return result ?? null
+  if (!trigger) {
+    return null
+  }
+
+  const triggerConditions = await db
+    .select()
+    .from(conditionModel)
+    .where(eq(conditionModel.triggerId, trigger.id))
+
+  return {
+    ...trigger,
+    conditions: triggerConditions,
+  }
 }

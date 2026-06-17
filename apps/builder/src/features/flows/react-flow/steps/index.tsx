@@ -26,6 +26,7 @@ import { disableBotStep } from "./disable-bot"
 import { dripSubscribeSubscriberStep } from "./drip-subscribe-subscriber"
 import emailStep from "./email"
 import { enableBotStep } from "./enable-bot"
+import { filterContactStep } from "./filter-contact"
 import { followConversationStep } from "./follow-conversation"
 import { formatDateStep } from "./format-date"
 import { generateCodeStep } from "./generate-code"
@@ -136,7 +137,7 @@ export const allSteps: Record<StepType, StepDefinition<any> | undefined> = {
   [stepTypes.enum.subscribeSequence]: subscribeSequenceStep,
   [stepTypes.enum.unsubscribeSequence]: unsubscribeSequenceStep,
   [stepTypes.enum.chooseChannel]: chooseChannelStep,
-  [stepTypes.enum.filterContact]: undefined,
+  [stepTypes.enum.filterContact]: filterContactStep,
   [stepTypes.enum.addNotes]: addNotesStep,
   [stepTypes.enum.waitUserReply]: undefined,
   [stepTypes.enum.aiGenerateText]: aiGenerateTextStep,

@@ -39,7 +39,7 @@ export class TriggerMatcherService {
       trigger.conditions.some(
         (c) =>
           conditionTypes.includes(c.type) &&
-          (sourceId ? c.sourceId === sourceId : true),
+          (sourceId ? !c.sourceId || c.sourceId === sourceId : true),
       ),
     )
 
@@ -121,6 +121,9 @@ export class TriggerMatcherService {
       ],
       [triggerEventTypes.enum.conversationUnassigned]: [
         triggerEventTypes.enum.conversationUnassigned,
+      ],
+      [triggerEventTypes.enum.instagramCommentCreated]: [
+        triggerEventTypes.enum.instagramCommentCreated,
       ],
       [triggerEventTypes.enum.subscribedToSequence]: [
         triggerEventTypes.enum.subscribedToSequence,

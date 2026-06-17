@@ -228,6 +228,27 @@ export abstract class BaseEventEmitter {
     })
   }
 
+  async instagramCommentCreated(
+    workspaceId: string,
+    contactId: string,
+    comment: {
+      commentId: string
+      mediaId?: string
+      text?: string
+      username?: string
+      parentId?: string
+    },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramCommentCreated, {
+      workspaceId,
+      contactId,
+      metadata: {
+        sourceId: comment.mediaId,
+        ...comment,
+      },
+    })
+  }
+
   async sequenceSubscribed(
     workspaceId: string,
     contactId: string,

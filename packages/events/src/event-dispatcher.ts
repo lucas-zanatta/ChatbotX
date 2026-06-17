@@ -170,6 +170,24 @@ export const emitConversationUnassigned = async (
     unassignedBy,
   )
 
+export const emitInstagramCommentCreated = async (
+  workspaceId: string,
+  contactId: string,
+  comment: {
+    commentId: string
+    mediaId?: string
+    text?: string
+    username?: string
+    parentId?: string
+  },
+) =>
+  await emitToAllEmitters(
+    "instagramCommentCreated",
+    workspaceId,
+    contactId,
+    comment,
+  )
+
 // Sequence events
 export const emitSequenceSubscribed = async (
   workspaceId: string,
