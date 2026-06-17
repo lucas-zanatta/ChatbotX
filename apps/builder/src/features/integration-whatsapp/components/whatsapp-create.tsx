@@ -33,6 +33,7 @@ import { InboxIcon } from "@/features/inboxes/components/inbox-icon"
 import { CoexistPopup } from "@/features/shared/coexist-popup"
 import { clientErrorHandler } from "@/lib/errors/client-handler"
 import { connectWhatsappAction } from "../actions/connect.action"
+import { getEmbeddedSignupRedirectUri } from "../libs/embedded-signup"
 import { connectWhatsappSchema, type ManualOnboardingResult } from "../schemas"
 import { WhatsappOnboardingResult } from "./whatsapp-onboarding-result"
 
@@ -363,6 +364,11 @@ function SdkConnectSection({
           <FacebookLogin
             appId={settings.clientId}
             className="inline-flex h-8 items-center justify-start gap-2 whitespace-nowrap rounded-md bg-secondary px-4 py-2 font-medium text-secondary-foreground text-sm shadow-xs transition-all hover:bg-secondary/80 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"
+            dialogParams={{
+              redirect_uri: getEmbeddedSignupRedirectUri(),
+              response_type: "code",
+              state: "facebookdirect",
+            }}
             initParams={{
               version: (settings.version as InitParams["version"]) ?? "v21.0",
             }}
