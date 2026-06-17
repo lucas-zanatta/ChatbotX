@@ -19,6 +19,8 @@ import { useMemo } from "react"
 import { defaultFn as addCustomFieldValueChangedCondition } from "../conditions/schemas/custom-field-value-changed"
 import { defaultFn as addDateTimeBaseTriggerCondition } from "../conditions/schemas/date-time-based-trigger"
 import {
+  addInstagramCommentCreatedCondition,
+  addInstagramMessageReceivedCondition,
   createDefaultFn,
   createDefaultFnWithSourceId,
 } from "../conditions/schemas/simple-conditions"
@@ -115,6 +117,91 @@ export function AddCondition({
             value: triggerEventTypes.enum.conversationUnassigned,
             defaultFn: createDefaultFn(
               triggerEventTypes.enum.conversationUnassigned,
+            ),
+          },
+        ],
+      },
+      {
+        label: t("fields.instagram.label"),
+        children: [
+          {
+            label: t("trigger.conditions.instagramCommentCreated"),
+            value: triggerEventTypes.enum.instagramCommentCreated,
+            defaultFn: addInstagramCommentCreatedCondition,
+          },
+          {
+            label: t("trigger.conditions.instagramMessageReceived"),
+            value: triggerEventTypes.enum.instagramMessageReceived,
+            defaultFn: addInstagramMessageReceivedCondition,
+          },
+          {
+            label: t("trigger.conditions.instagramPostbackReceived"),
+            value: triggerEventTypes.enum.instagramPostbackReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramPostbackReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramReferralReceived"),
+            value: triggerEventTypes.enum.instagramReferralReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramReferralReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramOptinReceived"),
+            value: triggerEventTypes.enum.instagramOptinReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramOptinReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramMessageSeen"),
+            value: triggerEventTypes.enum.instagramMessageSeen,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramMessageSeen,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramMentionCreated"),
+            value: triggerEventTypes.enum.instagramMentionCreated,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramMentionCreated,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramLiveCommentCreated"),
+            value: triggerEventTypes.enum.instagramLiveCommentCreated,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramLiveCommentCreated,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramReactionReceived"),
+            value: triggerEventTypes.enum.instagramReactionReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramReactionReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramHandoverReceived"),
+            value: triggerEventTypes.enum.instagramHandoverReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramHandoverReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramStandbyReceived"),
+            value: triggerEventTypes.enum.instagramStandbyReceived,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramStandbyReceived,
+            ),
+          },
+          {
+            label: t("trigger.conditions.instagramStoryInsights"),
+            value: triggerEventTypes.enum.instagramStoryInsights,
+            defaultFn: createDefaultFn(
+              triggerEventTypes.enum.instagramStoryInsights,
             ),
           },
         ],

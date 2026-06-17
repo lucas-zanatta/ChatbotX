@@ -52,6 +52,25 @@ export class ConditionEvaluator {
           eventData.eventData,
         )
 
+      case triggerEventTypes.enum.instagramMessageReceived:
+        return this.evaluateInstagramMessageCondition(
+          operator,
+          value,
+          eventData.eventData,
+        )
+
+      case triggerEventTypes.enum.instagramPostbackReceived:
+      case triggerEventTypes.enum.instagramReferralReceived:
+      case triggerEventTypes.enum.instagramOptinReceived:
+      case triggerEventTypes.enum.instagramMessageSeen:
+      case triggerEventTypes.enum.instagramMentionCreated:
+      case triggerEventTypes.enum.instagramLiveCommentCreated:
+      case triggerEventTypes.enum.instagramReactionReceived:
+      case triggerEventTypes.enum.instagramHandoverReceived:
+      case triggerEventTypes.enum.instagramStandbyReceived:
+      case triggerEventTypes.enum.instagramStoryInsights:
+        return true
+
       case triggerEventTypes.enum.dateTimeBasedTrigger:
         return await this.evaluateDateTimeCondition(
           sourceId,
@@ -293,6 +312,27 @@ export class ConditionEvaluator {
     }
 
     if (!operator) {
+      return true
+    }
+
+    const expected = this.extractExpectedValue(expectedValue)
+    if (!(expected && typeof expected === "string")) {
+      return true
+    }
+
+    return this.evaluateStandardOperator(
+      operator,
+      metadata.text ?? "",
+      expected,
+    )
+  }
+
+  private evaluateInstagramMessageCondition(
+    operator: string | null,
+    expectedValue: unknown,
+    metadata: Record<string, unknown>,
+  ): boolean {
+    if (operator !== "contains") {
       return true
     }
 

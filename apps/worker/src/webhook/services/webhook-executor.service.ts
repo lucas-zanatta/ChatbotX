@@ -47,6 +47,27 @@ export class WebhookExecutor {
         "conversation_unassigned",
       [triggerEventTypes.enum.instagramCommentCreated]:
         "instagram_comment_created",
+      [triggerEventTypes.enum.instagramMessageReceived]:
+        "instagram_message_received",
+      [triggerEventTypes.enum.instagramPostbackReceived]:
+        "instagram_postback_received",
+      [triggerEventTypes.enum.instagramReferralReceived]:
+        "instagram_referral_received",
+      [triggerEventTypes.enum.instagramOptinReceived]:
+        "instagram_optin_received",
+      [triggerEventTypes.enum.instagramMessageSeen]: "instagram_message_seen",
+      [triggerEventTypes.enum.instagramMentionCreated]:
+        "instagram_mention_created",
+      [triggerEventTypes.enum.instagramLiveCommentCreated]:
+        "instagram_live_comment_created",
+      [triggerEventTypes.enum.instagramReactionReceived]:
+        "instagram_reaction_received",
+      [triggerEventTypes.enum.instagramHandoverReceived]:
+        "instagram_handover_received",
+      [triggerEventTypes.enum.instagramStandbyReceived]:
+        "instagram_standby_received",
+      [triggerEventTypes.enum.instagramStoryInsights]:
+        "instagram_story_insights",
       [triggerEventTypes.enum.subscribedToSequence]: "subscribed_to_sequence",
       [triggerEventTypes.enum.unsubscribedFromSequence]:
         "unsubscribed_from_sequence",

@@ -52,6 +52,48 @@ export const instagramCommentCreated = z.object({
     .optional(),
 })
 
+export const instagramMessageReceived = z.object({
+  id: zodBigintAsString().optional(),
+  type: z.literal(triggerEventTypes.enum.instagramMessageReceived),
+  operator: z.literal("contains").optional(),
+  value: z
+    .object({
+      text: z.string().optional(),
+    })
+    .optional(),
+})
+
+export const instagramPostbackReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramPostbackReceived,
+)
+export const instagramReferralReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramReferralReceived,
+)
+export const instagramOptinReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramOptinReceived,
+)
+export const instagramMessageSeen = createSimpleCondition(
+  triggerEventTypes.enum.instagramMessageSeen,
+)
+export const instagramMentionCreated = createSimpleCondition(
+  triggerEventTypes.enum.instagramMentionCreated,
+)
+export const instagramLiveCommentCreated = createSimpleCondition(
+  triggerEventTypes.enum.instagramLiveCommentCreated,
+)
+export const instagramReactionReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramReactionReceived,
+)
+export const instagramHandoverReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramHandoverReceived,
+)
+export const instagramStandbyReceived = createSimpleCondition(
+  triggerEventTypes.enum.instagramStandbyReceived,
+)
+export const instagramStoryInsights = createSimpleCondition(
+  triggerEventTypes.enum.instagramStoryInsights,
+)
+
 // Conditions with sourceId
 const createConditionWithSourceId = (type: TriggerEventType) =>
   z.object({
@@ -79,6 +121,12 @@ export const createDefaultFnWithSourceId =
 export const addInstagramCommentCreatedCondition = () => ({
   type: triggerEventTypes.enum.instagramCommentCreated,
   sourceId: "",
+  operator: "contains",
+  value: { text: "" },
+})
+
+export const addInstagramMessageReceivedCondition = () => ({
+  type: triggerEventTypes.enum.instagramMessageReceived,
   operator: "contains",
   value: { text: "" },
 })

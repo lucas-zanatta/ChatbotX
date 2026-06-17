@@ -72,21 +72,32 @@ export const instagramReferralSchema = z.object({
 })
 export type InstagramReferral = z.infer<typeof instagramReferralSchema>
 
-export const instagramMessagingEventSchema = z.object({
-  sender: idSchema,
-  recipient: idSchema,
-  timestamp: z.number(),
-  message: instagramMessageSchema.optional(),
-  read: instagramReadSchema.optional(),
-  postback: instagramPostbackSchema.optional(),
-  referral: instagramReferralSchema.optional(),
+export const instagramOptinSchema = z.object({
+  ref: z.string().optional(),
+  user_ref: z.string().optional(),
 })
+export type InstagramOptin = z.infer<typeof instagramOptinSchema>
+
+export const instagramMessagingEventSchema = z
+  .object({
+    sender: idSchema,
+    recipient: idSchema,
+    timestamp: z.number(),
+    message: instagramMessageSchema.optional(),
+    read: instagramReadSchema.optional(),
+    postback: instagramPostbackSchema.optional(),
+    referral: instagramReferralSchema.optional(),
+    optin: instagramOptinSchema.optional(),
+    reaction: z.record(z.string(), z.unknown()).optional(),
+    handover: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough()
 export type InstagramMessagingEvent = z.infer<
   typeof instagramMessagingEventSchema
 >
 
 export const instagramCommentChangeSchema = z.object({
-  field: z.literal("comments"),
+  field: z.enum(["comments", "mentions", "live_comments"]),
   value: z.object({
     id: z.string(),
     text: z.string().optional(),
@@ -102,18 +113,35 @@ export const instagramCommentChangeSchema = z.object({
         username: z.string().optional(),
       })
       .optional(),
+    media_id: z.string().optional(),
+    comment_id: z.string().optional(),
   }),
 })
 export type InstagramCommentChange = z.infer<
   typeof instagramCommentChangeSchema
 >
 
-export const instagramPageEntrySchema = z.object({
-  id: z.string(),
-  time: z.number(),
-  messaging: z.array(instagramMessagingEventSchema).optional(),
-  changes: z.array(instagramCommentChangeSchema).optional(),
+export const instagramGenericChangeSchema = z.object({
+  field: z.enum(["story_insights"]),
+  value: z.record(z.string(), z.unknown()).optional(),
 })
+export type InstagramGenericChange = z.infer<
+  typeof instagramGenericChangeSchema
+>
+
+export const instagramPageEntrySchema = z
+  .object({
+    id: z.string(),
+    time: z.number(),
+    messaging: z.array(instagramMessagingEventSchema).optional(),
+    standby: z.array(instagramMessagingEventSchema).optional(),
+    changes: z
+      .array(
+        z.union([instagramCommentChangeSchema, instagramGenericChangeSchema]),
+      )
+      .optional(),
+  })
+  .passthrough()
 export type InstagramPageEntry = z.infer<typeof instagramPageEntrySchema>
 
 export const instagramWebhookEventSchema = z.object({

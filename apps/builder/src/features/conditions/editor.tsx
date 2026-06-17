@@ -9,6 +9,7 @@ import { useTagSelectOptions } from "@/features/tags/provider/tag-hook"
 import { CustomFieldValueChanged } from "./custom-field-value-changed"
 import { DateTimeBasedTrigger } from "./date-time-based-trigger"
 import { InstagramCommentCreated } from "./instagram-comment-created"
+import { InstagramMessageReceived } from "./instagram-message-received"
 
 export const ConditionEditor = ({
   parentName,
@@ -33,6 +34,8 @@ export const ConditionEditor = ({
       return <CustomFieldValueChanged parentName={parentName} />
     case triggerEventTypes.enum.instagramCommentCreated:
       return <InstagramCommentCreated parentName={parentName} />
+    case triggerEventTypes.enum.instagramMessageReceived:
+      return <InstagramMessageReceived parentName={parentName} />
     default:
       return (
         <>

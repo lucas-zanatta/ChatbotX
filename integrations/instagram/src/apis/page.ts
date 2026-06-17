@@ -21,11 +21,17 @@ import { instagramMediaListResponseSchema } from "../schemas"
 
 export const INSTAGRAM_SUBSCRIBE_FIELDS = [
   "comments",
+  "mentions",
+  "live_comments",
+  "message_reactions",
   "messages",
+  "messaging_handover",
   "messaging_postbacks",
   "messaging_optins",
   "messaging_seen",
   "messaging_referral",
+  "standby",
+  "story_insights",
 ]
 
 export const refreshLongLivedToken = (accessToken: string): Promise<string> => {

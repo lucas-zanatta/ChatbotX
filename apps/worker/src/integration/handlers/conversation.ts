@@ -5,6 +5,10 @@ import {
   conversationModel,
 } from "@chatbotx.io/database/schema"
 import { emit } from "@chatbotx.io/event-bus"
+import {
+  emitInstagramMessageSeen,
+  setWebhookExecutionContext,
+} from "@chatbotx.io/events"
 import { messageEventTypeSchema } from "@chatbotx.io/flow-config"
 import type {
   IntegrationJobAgentMarkAsRead,
@@ -16,6 +20,8 @@ import { normalizeEpochTimestamp } from "../utils/message"
 export const contactMarkAsRead = async (
   props: IntegrationJobContactMarkAsRead["data"],
 ) => {
+  setWebhookExecutionContext({ source: "webhook" })
+
   const { sourceConversationId, integrationType, integrationIdentifier } = props
 
   const dbIntegration =
@@ -68,6 +74,17 @@ export const contactMarkAsRead = async (
     action: {},
     occurredAt: seenAt,
   })
+
+  if (integrationType === "instagram") {
+    await emitInstagramMessageSeen(
+      contactInbox.conversation.workspaceId,
+      contactInbox.contactId,
+      {
+        conversationId: contactInbox.conversation.id,
+        seenAt,
+      },
+    )
+  }
 }
 
 export const agentMarkAsRead = async (

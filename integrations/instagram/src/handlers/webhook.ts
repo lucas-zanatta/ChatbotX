@@ -74,13 +74,39 @@ const handleWebhookEvent = async (
     const commentChange = entry.changes?.find(
       (change) => change.field === "comments",
     )
+    const mentionChange = entry.changes?.find(
+      (change) => change.field === "mentions",
+    )
+    const liveCommentChange = entry.changes?.find(
+      (change) => change.field === "live_comments",
+    )
+    const storyInsightsChange = entry.changes?.find(
+      (change) => change.field === "story_insights",
+    )
 
-    if (commentChange) {
+    if (commentChange || mentionChange || liveCommentChange) {
       await queue?.add("incomingMessage", {
         type: "incomingMessage",
         data: {
           integrationType: "instagram",
           integrationIdentifier: entry.id,
+          payload: webhookData,
+        },
+      })
+      return
+    }
+
+    if (storyInsightsChange) {
+      return
+    }
+
+    const standby = entry.standby?.[0]
+    if (standby) {
+      await queue?.add("incomingMessage", {
+        type: "incomingMessage",
+        data: {
+          integrationType: "instagram",
+          integrationIdentifier: standby.recipient.id,
           payload: webhookData,
         },
       })
@@ -98,6 +124,23 @@ const handleWebhookEvent = async (
           integrationType: "instagram",
           integrationIdentifier: entry.id,
           sourceConversationId: messaging.sender.id,
+          payload: webhookData,
+        },
+      })
+      return
+    }
+
+    if (
+      messaging.optin ||
+      messaging.referral ||
+      messaging.reaction ||
+      messaging.handover
+    ) {
+      await queue?.add("incomingMessage", {
+        type: "incomingMessage",
+        data: {
+          integrationType: "instagram",
+          integrationIdentifier: messaging.recipient.id,
           payload: webhookData,
         },
       })

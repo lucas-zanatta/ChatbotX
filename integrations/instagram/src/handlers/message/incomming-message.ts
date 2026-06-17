@@ -69,15 +69,40 @@ export const receiveMessage = async ({
     (change): change is InstagramCommentChange => change.field === "comments",
   )
   if (commentChange) {
-    return getCommentMessageEntity(commentChange)
+    return getCommentMessageEntity(commentChange, "instagram_comment")
   }
 
-  const messaging = entry.messaging?.[0]
+  const mentionChange = entry.changes?.find(
+    (change): change is InstagramCommentChange => change.field === "mentions",
+  )
+  if (mentionChange) {
+    return getCommentMessageEntity(mentionChange, "instagram_mention")
+  }
+
+  const liveCommentChange = entry.changes?.find(
+    (change): change is InstagramCommentChange =>
+      change.field === "live_comments",
+  )
+  if (liveCommentChange) {
+    return getCommentMessageEntity(liveCommentChange, "instagram_live_comment")
+  }
+
+  const messaging = entry.messaging?.[0] ?? entry.standby?.[0]
   if (!messaging) {
     throw new InstagramException("No messaging found")
   }
 
-  if (!(messaging.message || messaging.postback)) {
+  if (
+    !(
+      messaging.message ||
+      messaging.postback ||
+      messaging.referral ||
+      messaging.optin ||
+      messaging.reaction ||
+      messaging.handover ||
+      entry.standby?.[0]
+    )
+  ) {
     throw new InstagramException("No message found")
   }
 
@@ -134,6 +159,7 @@ const getMessageEntity = async (
 
 const getCommentMessageEntity = (
   change: InstagramCommentChange,
+  type: "instagram_comment" | "instagram_mention" | "instagram_live_comment",
 ): ReceivedMessageResult => {
   const { value } = change
   const sourceId = value.from?.id ?? value.from?.username
@@ -149,11 +175,12 @@ const getCommentMessageEntity = (
       text,
       contentType: contentTypes.enum.text,
       contentAttributes: {
-        type: "instagram_comment",
+        type,
         commentId: value.id,
-        mediaId: value.media?.id,
+        mediaId: value.media?.id ?? value.media_id,
         parentId: value.parent_id,
         username: value.from?.username,
+        mentionCommentId: value.comment_id,
       },
     },
     postbackAction: null,
@@ -162,7 +189,7 @@ const getCommentMessageEntity = (
     contact: {
       sourceId,
       firstName: value.from?.username,
-      sourceConversationId: value.media?.id,
+      sourceConversationId: value.media?.id ?? value.media_id,
     },
   }
 }

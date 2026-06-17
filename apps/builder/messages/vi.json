@@ -2505,6 +2505,17 @@
       "conversationAssigned": "Cuộc trò chuyện được gán",
       "conversationUnassigned": "Cuộc trò chuyện bị bỏ gán",
       "instagramCommentCreated": "Instagram comment created",
+      "instagramMessageReceived": "Instagram Message Received",
+      "instagramPostbackReceived": "Instagram Postback Received",
+      "instagramReferralReceived": "Instagram Referral Received",
+      "instagramOptinReceived": "Instagram Opt-in Received",
+      "instagramMessageSeen": "Instagram Message Seen",
+      "instagramMentionCreated": "Instagram Mention Created",
+      "instagramLiveCommentCreated": "Instagram Live Comment Created",
+      "instagramReactionReceived": "Instagram Reaction Received",
+      "instagramHandoverReceived": "Instagram Handover Received",
+      "instagramStandbyReceived": "Instagram Standby Received",
+      "instagramStoryInsights": "Instagram Story Insights",
       "incomingCall": "Cuộc gọi đến",
       "missedAudioCall": "Cuộc gọi âm thanh nhỡ",
       "callEnded": "Cuộc gọi kết thúc",
@@ -2532,11 +2543,13 @@
     },
     "fields": {
       "instagramMediaId": "Instagram post/media ID",
-      "commentContains": "Comment contains"
+      "commentContains": "Comment contains",
+      "messageContains": "Message contains"
     },
     "placeholders": {
       "anyInstagramPost": "Any current or future post",
       "anyCommentText": "Leave blank for any comment",
+      "anyMessageText": "Leave blank for any message",
       "manualInstagramMediaId": "Paste a media ID manually",
       "searchInstagramPosts": "Search Instagram posts...",
       "untitledPost": "Untitled post"

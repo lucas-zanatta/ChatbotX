@@ -249,6 +249,146 @@ export abstract class BaseEventEmitter {
     })
   }
 
+  async instagramMessageReceived(
+    workspaceId: string,
+    contactId: string,
+    message: {
+      messageId?: string
+      text?: string
+      quickReplyPayload?: string | null
+    },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramMessageReceived, {
+      workspaceId,
+      contactId,
+      metadata: message,
+    })
+  }
+
+  async instagramPostbackReceived(
+    workspaceId: string,
+    contactId: string,
+    postback: {
+      payload?: string | null
+      title?: string | null
+      messageId?: string
+    },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramPostbackReceived, {
+      workspaceId,
+      contactId,
+      metadata: postback,
+    })
+  }
+
+  async instagramReferralReceived(
+    workspaceId: string,
+    contactId: string,
+    referral: { ref?: string | null },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramReferralReceived, {
+      workspaceId,
+      contactId,
+      metadata: referral,
+    })
+  }
+
+  async instagramOptinReceived(
+    workspaceId: string,
+    contactId: string,
+    optin: { ref?: string | null },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramOptinReceived, {
+      workspaceId,
+      contactId,
+      metadata: optin,
+    })
+  }
+
+  async instagramMessageSeen(
+    workspaceId: string,
+    contactId: string,
+    seen: { conversationId?: string; seenAt?: Date },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramMessageSeen, {
+      workspaceId,
+      contactId,
+      metadata: seen,
+    })
+  }
+
+  async instagramMentionCreated(
+    workspaceId: string,
+    contactId: string,
+    mention: { mediaId?: string; commentId?: string; username?: string },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramMentionCreated, {
+      workspaceId,
+      contactId,
+      metadata: mention,
+    })
+  }
+
+  async instagramLiveCommentCreated(
+    workspaceId: string,
+    contactId: string,
+    comment: { mediaId?: string; commentId?: string; username?: string },
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramLiveCommentCreated, {
+      workspaceId,
+      contactId,
+      metadata: comment,
+    })
+  }
+
+  async instagramReactionReceived(
+    workspaceId: string,
+    contactId: string,
+    reaction: Record<string, unknown>,
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramReactionReceived, {
+      workspaceId,
+      contactId,
+      metadata: reaction,
+    })
+  }
+
+  async instagramHandoverReceived(
+    workspaceId: string,
+    contactId: string,
+    handover: Record<string, unknown>,
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramHandoverReceived, {
+      workspaceId,
+      contactId,
+      metadata: handover,
+    })
+  }
+
+  async instagramStandbyReceived(
+    workspaceId: string,
+    contactId: string,
+    standby: Record<string, unknown>,
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramStandbyReceived, {
+      workspaceId,
+      contactId,
+      metadata: standby,
+    })
+  }
+
+  async instagramStoryInsights(
+    workspaceId: string,
+    contactId: string,
+    insights: Record<string, unknown>,
+  ): Promise<void> {
+    await this.emit(triggerEventTypes.enum.instagramStoryInsights, {
+      workspaceId,
+      contactId,
+      metadata: insights,
+    })
+  }
+
   async sequenceSubscribed(
     workspaceId: string,
     contactId: string,

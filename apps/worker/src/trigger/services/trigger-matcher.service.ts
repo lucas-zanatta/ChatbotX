@@ -125,6 +125,39 @@ export class TriggerMatcherService {
       [triggerEventTypes.enum.instagramCommentCreated]: [
         triggerEventTypes.enum.instagramCommentCreated,
       ],
+      [triggerEventTypes.enum.instagramMessageReceived]: [
+        triggerEventTypes.enum.instagramMessageReceived,
+      ],
+      [triggerEventTypes.enum.instagramPostbackReceived]: [
+        triggerEventTypes.enum.instagramPostbackReceived,
+      ],
+      [triggerEventTypes.enum.instagramReferralReceived]: [
+        triggerEventTypes.enum.instagramReferralReceived,
+      ],
+      [triggerEventTypes.enum.instagramOptinReceived]: [
+        triggerEventTypes.enum.instagramOptinReceived,
+      ],
+      [triggerEventTypes.enum.instagramMessageSeen]: [
+        triggerEventTypes.enum.instagramMessageSeen,
+      ],
+      [triggerEventTypes.enum.instagramMentionCreated]: [
+        triggerEventTypes.enum.instagramMentionCreated,
+      ],
+      [triggerEventTypes.enum.instagramLiveCommentCreated]: [
+        triggerEventTypes.enum.instagramLiveCommentCreated,
+      ],
+      [triggerEventTypes.enum.instagramReactionReceived]: [
+        triggerEventTypes.enum.instagramReactionReceived,
+      ],
+      [triggerEventTypes.enum.instagramHandoverReceived]: [
+        triggerEventTypes.enum.instagramHandoverReceived,
+      ],
+      [triggerEventTypes.enum.instagramStandbyReceived]: [
+        triggerEventTypes.enum.instagramStandbyReceived,
+      ],
+      [triggerEventTypes.enum.instagramStoryInsights]: [
+        triggerEventTypes.enum.instagramStoryInsights,
+      ],
       [triggerEventTypes.enum.subscribedToSequence]: [
         triggerEventTypes.enum.subscribedToSequence,
       ],

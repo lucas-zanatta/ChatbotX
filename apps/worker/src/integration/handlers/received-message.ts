@@ -25,6 +25,15 @@ import { emit } from "@chatbotx.io/event-bus"
 import {
   emitContactCreated,
   emitInstagramCommentCreated,
+  emitInstagramHandoverReceived,
+  emitInstagramLiveCommentCreated,
+  emitInstagramMentionCreated,
+  emitInstagramMessageReceived,
+  emitInstagramOptinReceived,
+  emitInstagramPostbackReceived,
+  emitInstagramReactionReceived,
+  emitInstagramReferralReceived,
+  emitInstagramStandbyReceived,
   setWebhookExecutionContext,
 } from "@chatbotx.io/events"
 import { messageEventTypeSchema } from "@chatbotx.io/flow-config"
@@ -234,15 +243,59 @@ export const receiveMessage = async (
         incomingMessage.contentAttributes,
       )
       if (inbox.channel === "instagram" && instagramComment) {
-        await emitInstagramCommentCreated(
+        const payload = {
+          commentId: instagramComment.commentId,
+          mediaId: instagramComment.mediaId,
+          parentId: instagramComment.parentId,
+          text: incomingMessage.text,
+          username: instagramComment.username,
+        }
+
+        if (instagramComment.type === "instagram_mention") {
+          await emitInstagramMentionCreated(
+            inbox.workspaceId,
+            contactInbox.contactId,
+            payload,
+          )
+        } else if (instagramComment.type === "instagram_live_comment") {
+          await emitInstagramLiveCommentCreated(
+            inbox.workspaceId,
+            contactInbox.contactId,
+            payload,
+          )
+        } else {
+          await emitInstagramCommentCreated(
+            inbox.workspaceId,
+            contactInbox.contactId,
+            payload,
+          )
+        }
+      }
+
+      if (
+        inbox.channel === "instagram" &&
+        incomingMessage.messageType === "incoming" &&
+        !instagramComment
+      ) {
+        await emitInstagramMessageReceived(
           inbox.workspaceId,
           contactInbox.contactId,
           {
-            commentId: instagramComment.commentId,
-            mediaId: instagramComment.mediaId,
-            parentId: instagramComment.parentId,
+            messageId: incomingMessage.sourceId,
             text: incomingMessage.text,
-            username: instagramComment.username,
+            quickReplyPayload: quickReplyAction,
+          },
+        )
+      }
+
+      if (inbox.channel === "instagram" && postbackAction) {
+        await emitInstagramPostbackReceived(
+          inbox.workspaceId,
+          contactInbox.contactId,
+          {
+            payload: postbackAction,
+            title: incomingMessage.text,
+            messageId: incomingMessage.sourceId,
           },
         )
       }
@@ -282,6 +335,14 @@ export const receiveMessage = async (
   }
 
   if (ref) {
+    if (inbox.channel === "instagram") {
+      await emitInstagramReferralReceived(
+        inbox.workspaceId,
+        contactInbox.contactId,
+        { ref },
+      )
+    }
+
     await integrationQueue.add(IntegrationJobAction.runRef, {
       type: IntegrationJobAction.runRef,
       data: {
@@ -291,6 +352,50 @@ export const receiveMessage = async (
         messageId: createdMessage?.id,
       },
     })
+  }
+
+  const instagramOptinRef = getInstagramOptinRef(props.payload)
+  if (inbox.channel === "instagram" && instagramOptinRef !== undefined) {
+    await emitInstagramOptinReceived(
+      inbox.workspaceId,
+      contactInbox.contactId,
+      {
+        ref: instagramOptinRef,
+      },
+    )
+  }
+
+  const instagramReaction = getInstagramMessagingValue(
+    props.payload,
+    "reaction",
+  )
+  if (inbox.channel === "instagram" && instagramReaction) {
+    await emitInstagramReactionReceived(
+      inbox.workspaceId,
+      contactInbox.contactId,
+      instagramReaction,
+    )
+  }
+
+  const instagramHandover = getInstagramMessagingValue(
+    props.payload,
+    "handover",
+  )
+  if (inbox.channel === "instagram" && instagramHandover) {
+    await emitInstagramHandoverReceived(
+      inbox.workspaceId,
+      contactInbox.contactId,
+      instagramHandover,
+    )
+  }
+
+  const instagramStandby = getInstagramStandby(props.payload)
+  if (inbox.channel === "instagram" && instagramStandby) {
+    await emitInstagramStandbyReceived(
+      inbox.workspaceId,
+      contactInbox.contactId,
+      instagramStandby,
+    )
   }
 
   return {
@@ -475,6 +580,7 @@ const getInstagramCommentAttributes = (
   contentAttributes: unknown,
 ):
   | {
+      type: "instagram_comment" | "instagram_mention" | "instagram_live_comment"
       commentId: string
       mediaId?: string
       parentId?: string
@@ -486,15 +592,83 @@ const getInstagramCommentAttributes = (
   }
   const attrs = contentAttributes as Record<string, unknown>
   if (
-    attrs.type !== "instagram_comment" ||
+    (attrs.type !== "instagram_comment" &&
+      attrs.type !== "instagram_mention" &&
+      attrs.type !== "instagram_live_comment") ||
     typeof attrs.commentId !== "string"
   ) {
     return
   }
   return {
+    type: attrs.type,
     commentId: attrs.commentId,
     mediaId: typeof attrs.mediaId === "string" ? attrs.mediaId : undefined,
     parentId: typeof attrs.parentId === "string" ? attrs.parentId : undefined,
     username: typeof attrs.username === "string" ? attrs.username : undefined,
   }
+}
+
+const getInstagramMessagingValue = (
+  payload: unknown,
+  key: string,
+): Record<string, unknown> | null => {
+  const messaging = getInstagramMessaging(payload)
+  const value = messaging?.[key]
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+const getInstagramStandby = (
+  payload: unknown,
+): Record<string, unknown> | null => {
+  if (!(payload && typeof payload === "object")) {
+    return null
+  }
+
+  const entry = (payload as Record<string, unknown>).entry
+  const firstEntry =
+    Array.isArray(entry) && entry[0] && typeof entry[0] === "object"
+      ? (entry[0] as Record<string, unknown>)
+      : undefined
+  const standby = firstEntry?.standby
+  return Array.isArray(standby) && standby[0] && typeof standby[0] === "object"
+    ? (standby[0] as Record<string, unknown>)
+    : null
+}
+
+const getInstagramOptinRef = (payload: unknown): string | null | undefined => {
+  const messaging = getInstagramMessaging(payload)
+  if (!messaging) {
+    return
+  }
+
+  const optin = messaging.optin
+  if (!(optin && typeof optin === "object")) {
+    return
+  }
+
+  const record = optin as Record<string, unknown>
+  const ref = record.ref ?? record.user_ref
+  return typeof ref === "string" ? ref : null
+}
+
+const getInstagramMessaging = (
+  payload: unknown,
+): Record<string, unknown> | null => {
+  if (!(payload && typeof payload === "object")) {
+    return null
+  }
+
+  const entry = (payload as Record<string, unknown>).entry
+  const firstEntry =
+    Array.isArray(entry) && entry[0] && typeof entry[0] === "object"
+      ? (entry[0] as Record<string, unknown>)
+      : undefined
+  const messaging = firstEntry?.messaging
+  return Array.isArray(messaging) &&
+    messaging[0] &&
+    typeof messaging[0] === "object"
+    ? (messaging[0] as Record<string, unknown>)
+    : null
 }

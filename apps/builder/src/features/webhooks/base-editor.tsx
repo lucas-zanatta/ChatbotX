@@ -54,6 +54,30 @@ export const BaseEditor = ({
         return t("trigger.conditions.conversationAssigned")
       case triggerEventTypes.enum.conversationUnassigned:
         return t("trigger.conditions.conversationUnassigned")
+      case triggerEventTypes.enum.instagramCommentCreated:
+        return t("trigger.conditions.instagramCommentCreated")
+      case triggerEventTypes.enum.instagramMessageReceived:
+        return t("trigger.conditions.instagramMessageReceived")
+      case triggerEventTypes.enum.instagramPostbackReceived:
+        return t("trigger.conditions.instagramPostbackReceived")
+      case triggerEventTypes.enum.instagramReferralReceived:
+        return t("trigger.conditions.instagramReferralReceived")
+      case triggerEventTypes.enum.instagramOptinReceived:
+        return t("trigger.conditions.instagramOptinReceived")
+      case triggerEventTypes.enum.instagramMessageSeen:
+        return t("trigger.conditions.instagramMessageSeen")
+      case triggerEventTypes.enum.instagramMentionCreated:
+        return t("trigger.conditions.instagramMentionCreated")
+      case triggerEventTypes.enum.instagramLiveCommentCreated:
+        return t("trigger.conditions.instagramLiveCommentCreated")
+      case triggerEventTypes.enum.instagramReactionReceived:
+        return t("trigger.conditions.instagramReactionReceived")
+      case triggerEventTypes.enum.instagramHandoverReceived:
+        return t("trigger.conditions.instagramHandoverReceived")
+      case triggerEventTypes.enum.instagramStandbyReceived:
+        return t("trigger.conditions.instagramStandbyReceived")
+      case triggerEventTypes.enum.instagramStoryInsights:
+        return t("trigger.conditions.instagramStoryInsights")
       case triggerEventTypes.enum.incomingCall:
         return t("trigger.conditions.incomingCall")
       case triggerEventTypes.enum.missedAudioCall:
