@@ -2238,6 +2238,8 @@
       "label": "Lệnh"
     },
     "connectExisting": "Kết nối tài khoản WhatsApp Business hiện có",
+    "embeddedSignupBrokerHint": "Hoàn tất đăng ký WhatsApp an toàn, sau đó bạn sẽ được đưa trở lại để hoàn tất kết nối.",
+    "embeddedSignupProcessing": "Đang hoàn tất — vui lòng đợi…",
     "fillRequiredFields": "Vui lòng điền đầy đủ các trường bắt buộc",
     "continueManualConnect": "Tiếp tục — kết nối thủ công",
     "icebreakers": {

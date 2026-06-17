@@ -17,14 +17,11 @@ import {
   CardTitle,
 } from "@chatbotx.io/ui/components/ui/card"
 import { Form } from "@chatbotx.io/ui/components/ui/form"
-import FacebookLogin, {
-  type InitParams,
-} from "@greatsumini/react-facebook-login"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useHookFormAction } from "@next-safe-action/adapter-react-hook-form/hooks"
 import ky from "ky"
 import { Loader2Icon } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { useFormContext, useWatch } from "react-hook-form"
@@ -33,14 +30,22 @@ import { InboxIcon } from "@/features/inboxes/components/inbox-icon"
 import { CoexistPopup } from "@/features/shared/coexist-popup"
 import { clientErrorHandler } from "@/lib/errors/client-handler"
 import { connectWhatsappAction } from "../actions/connect.action"
-import { getEmbeddedSignupRedirectUri } from "../libs/embedded-signup"
+import {
+  buildBrokerEmbeddedSignupUrl,
+  shouldRedirectToBroker,
+} from "../libs/embedded-signup"
 import { connectWhatsappSchema, type ManualOnboardingResult } from "../schemas"
+import { WhatsappEmbeddedLogin } from "./whatsapp-embedded-login"
 import { WhatsappOnboardingResult } from "./whatsapp-onboarding-result"
 
 // Constants
 const API_ENDPOINT = "/api/whatsapp/phone-numbers/list"
 const MAX_CARD_WIDTH = "max-w-md"
 const CARD_MARGIN = "mx-auto mt-40"
+
+// Shared styling for the "Continue" embedded-signup trigger (FB button / broker link).
+const CONTINUE_BUTTON_CLASS =
+  "inline-flex h-8 items-center justify-start gap-2 whitespace-nowrap rounded-md bg-secondary px-4 py-2 font-medium text-secondary-foreground text-sm shadow-xs transition-all hover:bg-secondary/80 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"
 
 // Form field names
 const FORM_FIELDS = {
@@ -53,15 +58,6 @@ const FORM_FIELDS = {
   PHONE_NUMBER_ID: "phoneNumberId",
   BUSINESS_ID: "businessId",
   CODE: "code",
-} as const
-
-const EMBEDDED_SIGNUP_FEATURE_TYPES = {
-  WHATSAPP_BUSINESS_APP_ONBOARDING: "whatsapp_business_app_onboarding",
-  ONLY_WABA_SHARING: "only_waba_sharing",
-} as const
-
-const EMBEDDED_SIGNUP_FEATURES = {
-  MARKETING_MESSAGES_LITE: "marketing_messages_lite",
 } as const
 
 type FormVisibility = {
@@ -116,6 +112,7 @@ export default function WhatsappCreate({
   const t = useTranslations()
   const { visibility, updateVisibility } = useFormVisibility()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [manualResult, setManualResult] =
     useState<ManualOnboardingResult | null>(null)
   const [showCoexist, setShowCoexist] = useState<{
@@ -178,58 +175,51 @@ export default function WhatsappCreate({
   const watchTransferPhoneNumber = watch(FORM_FIELDS.TRANSFER_PHONE_NUMBER)
   const watchManualConnect = watch(FORM_FIELDS.MANUAL_CONNECT)
 
+  // Broker relay return: the broker-hosted SDK page redirected back here with the
+  // captured embedded-signup result. Populate the form and auto-submit under the
+  // reseller session (where connectWhatsappAction must run). Guarded against
+  // refresh/double-submit by stripping the params and a ref latch.
+  const relayHandledRef = useRef(false)
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (!event.origin.endsWith("facebook.com")) {
-        return
-      }
-
-      try {
-        const data = JSON.parse(event.data)
-        if (data.type === "WA_EMBEDDED_SIGNUP") {
-          /*
-           * {
-           *     "data": {
-           *         "phone_number_id": "111598575218611",
-           *         "waba_id": "119496914420376",
-           *         "business_id": "553355495727951"
-           *     },
-           *     "type": "WA_EMBEDDED_SIGNUP",
-           *     "event": "FINISH",
-           *     "version": "3"
-           * }
-           */
-          if (
-            data.event === "FINISH" ||
-            data.event === "FINISH_ONLY_WABA" ||
-            data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
-          ) {
-            setValue(FORM_FIELDS.BUSINESS_ID, data.data.business_id ?? "")
-            setValue(FORM_FIELDS.WABA_ID, data.data.waba_id ?? "")
-            setValue(
-              FORM_FIELDS.PHONE_NUMBER_ID,
-              data.data.phone_number_id ?? "",
-            )
-          } else if (data.event === "CANCEL") {
-            setValue(FORM_FIELDS.BUSINESS_ID, "")
-            setValue(FORM_FIELDS.WABA_ID, "")
-            setValue(FORM_FIELDS.PHONE_NUMBER_ID, "")
-            toast.error(t("messages.connectFailed", { feature: "Whatsapp" }))
-          }
-        }
-      } catch {
-        // Ignore malformed postMessage payloads from Facebook SDK
-      }
+    if (relayHandledRef.current) {
+      return
     }
 
-    // Add the event listener
-    window.addEventListener("message", handleMessage)
+    const cleanUrl = `/channels/create?channel=whatsapp${
+      workspaceId ? `&workspaceId=${workspaceId}` : ""
+    }`
 
-    // Cleanup function to remove the event listener
-    return () => {
-      window.removeEventListener("message", handleMessage)
+    if (searchParams.get("waError")) {
+      relayHandledRef.current = true
+      toast.error(t("messages.connectFailed", { feature: "Whatsapp" }))
+      router.replace(cleanUrl)
+      return
     }
-  }, [setValue, t]) // Empty dependency array ensures the effect runs only once on mount and unmount
+
+    const waCode = searchParams.get("waCode")
+    if (!waCode) {
+      return
+    }
+
+    relayHandledRef.current = true
+    setValue(FORM_FIELDS.CODE, waCode)
+    setValue(FORM_FIELDS.WABA_ID, searchParams.get("waba_id") ?? "")
+    setValue(
+      FORM_FIELDS.PHONE_NUMBER_ID,
+      searchParams.get("phone_number_id") ?? "",
+    )
+    setValue(FORM_FIELDS.BUSINESS_ID, searchParams.get("business_id") ?? "")
+    setValue(
+      FORM_FIELDS.TRANSFER_PHONE_NUMBER,
+      searchParams.get("transferPhoneNumber") === "true",
+    )
+    setValue(FORM_FIELDS.CONNECT_EXISTING, false)
+    setValue(FORM_FIELDS.MANUAL_CONNECT, false)
+    setValue(FORM_FIELDS.MARKETING_MESSAGE_LITE, true)
+
+    router.replace(cleanUrl)
+    handleSubmitWithAction()
+  }, [searchParams, setValue, handleSubmitWithAction, router, workspaceId, t])
 
   // Form visibility effects
   useEffect(() => {
@@ -293,6 +283,7 @@ export default function WhatsappCreate({
                   settings={settings}
                   visibility={visibility}
                   watchManualConnect={watchManualConnect}
+                  workspaceId={workspaceId}
                 />
               )}
             </form>
@@ -307,12 +298,14 @@ type SdkConnectSectionProps = {
   visibility: FormVisibility
   watchManualConnect: boolean
   settings: WhatsappCredentialPublic
+  workspaceId?: string | null
 }
 
 function SdkConnectSection({
   visibility,
   watchManualConnect,
   settings,
+  workspaceId,
 }: SdkConnectSectionProps) {
   const t = useTranslations()
   const { setValue, watch, formState, trigger } = useFormContext()
@@ -327,13 +320,36 @@ function SdkConnectSection({
     name: FORM_FIELDS.TRANSFER_PHONE_NUMBER,
   })
 
-  let embeddedSignupFeatureType: string | undefined
-  if (watchTransferPhoneNumber) {
-    embeddedSignupFeatureType =
-      EMBEDDED_SIGNUP_FEATURE_TYPES.WHATSAPP_BUSINESS_APP_ONBOARDING
-  } else if (watchConnectExisting) {
-    embeddedSignupFeatureType = EMBEDDED_SIGNUP_FEATURE_TYPES.ONLY_WABA_SHARING
-  }
+  // The Facebook JS SDK derives its OAuth domain from window.location, so on a
+  // white-label custom domain it must run on the registered broker host instead.
+  // Resolved post-mount to avoid a hydration mismatch (window is server-undefined).
+  const [useBrokerRedirect, setUseBrokerRedirect] = useState(false)
+  useEffect(() => {
+    setUseBrokerRedirect(shouldRedirectToBroker(window.location.host))
+  }, [])
+
+  const redirectToBroker = useCallback(() => {
+    window.location.href = buildBrokerEmbeddedSignupUrl({
+      callbackURL: window.location.origin,
+      workspaceId,
+      clientId: settings.clientId,
+      configId: settings.configId,
+      version: settings.version,
+      connectExisting: Boolean(watchConnectExisting),
+      transferPhoneNumber: Boolean(watchTransferPhoneNumber),
+    })
+  }, [workspaceId, settings, watchConnectExisting, watchTransferPhoneNumber])
+
+  const handleCode = useCallback(
+    async (code: string) => {
+      setValue(FORM_FIELDS.CODE, code)
+      const valid = await trigger()
+      if (valid) {
+        finalSubmitRef.current?.click()
+      }
+    },
+    [setValue, trigger],
+  )
 
   return (
     <>
@@ -360,55 +376,43 @@ function SdkConnectSection({
       )}
 
       <div className="flex items-center justify-end gap-2">
-        {!(watchManualConnect || watch(FORM_FIELDS.CODE)) && (
-          <FacebookLogin
-            appId={settings.clientId}
-            className="inline-flex h-8 items-center justify-start gap-2 whitespace-nowrap rounded-md bg-secondary px-4 py-2 font-medium text-secondary-foreground text-sm shadow-xs transition-all hover:bg-secondary/80 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"
-            dialogParams={{
-              redirect_uri: getEmbeddedSignupRedirectUri(),
-              response_type: "code",
-              state: "facebookdirect",
-            }}
-            initParams={{
-              version: (settings.version as InitParams["version"]) ?? "v21.0",
-            }}
-            key={embeddedSignupFeatureType ?? "default"}
-            loginOptions={
-              {
-                config_id: settings.configId,
-                response_type: "code",
-                override_default_response_type: true,
-                return_scopes: true,
-                extras: {
-                  sessionInfoVersion: 3,
-                  setup: {},
-                  features: [EMBEDDED_SIGNUP_FEATURES.MARKETING_MESSAGES_LITE],
-                  ...(embeddedSignupFeatureType
-                    ? { featureType: embeddedSignupFeatureType }
-                    : {}),
-                },
-                // biome-ignore lint/suspicious/noExplicitAny: some types are not supported
-              } as any
-            }
-            onFail={() => {
-              toast.error(t("messages.connectFailed", { feature: "Whatsapp" }))
-            }}
-            // biome-ignore lint/suspicious/noExplicitAny: this library does not support code returned
-            onSuccess={async (res: any) => {
-              if (res.code) {
-                setValue(FORM_FIELDS.CODE, res.code)
-                const valid = await trigger()
-
-                if (valid) {
-                  finalSubmitRef.current?.click()
-                }
-              }
-            }}
-            scope=""
-          >
-            {t("actions.continue")}
-          </FacebookLogin>
-        )}
+        {!(watchManualConnect || watch(FORM_FIELDS.CODE)) &&
+          (useBrokerRedirect ? (
+            <Button
+              className={CONTINUE_BUTTON_CLASS}
+              onClick={redirectToBroker}
+              type="button"
+            >
+              {t("actions.continue")}
+            </Button>
+          ) : (
+            <WhatsappEmbeddedLogin
+              className={CONTINUE_BUTTON_CLASS}
+              connectExisting={Boolean(watchConnectExisting)}
+              label={t("actions.continue")}
+              onCancel={() => {
+                setValue(FORM_FIELDS.BUSINESS_ID, "")
+                setValue(FORM_FIELDS.WABA_ID, "")
+                setValue(FORM_FIELDS.PHONE_NUMBER_ID, "")
+                toast.error(
+                  t("messages.connectFailed", { feature: "Whatsapp" }),
+                )
+              }}
+              onCode={handleCode}
+              onFail={() => {
+                toast.error(
+                  t("messages.connectFailed", { feature: "Whatsapp" }),
+                )
+              }}
+              onSessionInfo={(info) => {
+                setValue(FORM_FIELDS.BUSINESS_ID, info.businessId)
+                setValue(FORM_FIELDS.WABA_ID, info.wabaId)
+                setValue(FORM_FIELDS.PHONE_NUMBER_ID, info.phoneNumberId)
+              }}
+              settings={settings}
+              transferPhoneNumber={Boolean(watchTransferPhoneNumber)}
+            />
+          ))}
 
         {watchCode && (
           <div className="flex items-center justify-end gap-2">

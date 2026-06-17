@@ -2226,6 +2226,8 @@
       "label": "Commands"
     },
     "connectExisting": "Connect an existing WhatsApp Business Account",
+    "embeddedSignupBrokerHint": "Complete the secure WhatsApp signup, then you'll be returned to finish connecting.",
+    "embeddedSignupProcessing": "Finishing up — please wait…",
     "fillRequiredFields": "Please fill in all required fields",
     "continueManualConnect": "Continue — manual connect",
     "icebreakers": {
