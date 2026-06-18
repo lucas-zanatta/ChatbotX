@@ -322,8 +322,8 @@ export class ConditionEvaluator {
 
     return this.evaluateStandardOperator(
       operator,
-      metadata.text ?? "",
-      expected,
+      String(metadata.text ?? "").toLowerCase(),
+      expected.toLowerCase(),
     )
   }
 
@@ -343,8 +343,8 @@ export class ConditionEvaluator {
 
     return this.evaluateStandardOperator(
       operator,
-      metadata.text ?? "",
-      expected,
+      String(metadata.text ?? "").toLowerCase(),
+      expected.toLowerCase(),
     )
   }
 
