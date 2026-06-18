@@ -49,6 +49,7 @@ export type ChannelSendFlowStepProps<IAuth extends AuthValue> = {
     flowVersionId?: string
     step: SendFlowStepData
     metadata?: MetadataPayload
+    channelContext?: Record<string, unknown>
     sendFrom?: "inbox"
   }
 }
@@ -91,6 +92,7 @@ export type MessageHandlers<
         flowVersionId?: string
         step: TStep
         metadata?: MetadataPayload
+        channelContext?: Record<string, unknown>
         sendFrom?: "inbox"
       }
     },

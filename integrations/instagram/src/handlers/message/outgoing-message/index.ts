@@ -15,7 +15,10 @@ import {
   type OutgoingMessage,
   type SendFlowStepProps,
 } from "@chatbotx.io/sdk"
-import { sendInstagramMessage } from "../../../apis/page"
+import {
+  sendInstagramMessage,
+  sendInstagramPrivateReply,
+} from "../../../apis/page"
 import { mapToChannelError } from "../../../lib/error-mapper"
 import { logger } from "../../../lib/logger"
 import {
@@ -126,6 +129,70 @@ const buildMessagePayload = (
   }
 }
 
+const buildPrivateReplyText = (
+  message: InstagramMessageAttachmentPayload | InstagramSendMessage,
+): string => {
+  const sendMessage = message as InstagramSendMessage
+  if (sendMessage.text && !("template_type" in message)) {
+    const quickReplies = sendMessage.quick_replies
+      ?.map((reply) => reply.title)
+      .filter(Boolean)
+      .join("\n")
+
+    return quickReplies
+      ? `${sendMessage.text}\n\n${quickReplies}`
+      : sendMessage.text
+  }
+
+  const payload =
+    sendMessage.attachment?.payload ??
+    (message as InstagramMessageAttachmentPayload)
+
+  if (payload.template_type === "button") {
+    const lines = [payload.text ?? ""]
+    for (const button of payload.buttons ?? []) {
+      if (button.url) {
+        lines.push(`${button.title}: ${button.url}`)
+      } else if (button.title) {
+        lines.push(button.title)
+      }
+    }
+    return lines.filter(Boolean).join("\n\n")
+  }
+
+  if (payload.template_type === "generic") {
+    return (
+      payload.elements
+        ?.map((element) => {
+          const lines = [element.title, element.subtitle]
+          for (const button of element.buttons ?? []) {
+            if (button.url) {
+              lines.push(`${button.title}: ${button.url}`)
+            } else if (button.title) {
+              lines.push(button.title)
+            }
+          }
+          return lines.filter(Boolean).join("\n")
+        })
+        .filter(Boolean)
+        .join("\n\n") || "Obrigado pelo comentario. Chame a gente por aqui."
+    )
+  }
+
+  if (payload.url) {
+    return payload.url
+  }
+
+  return "Obrigado pelo comentario. Chame a gente por aqui."
+}
+
+const getPrivateReplyCommentId = (
+  props: SendFlowStepProps<InstagramAuthValue>,
+): string | undefined => {
+  const value = props.data.channelContext?.instagramPrivateReplyCommentId
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
 export async function* convertFlowStepToInstagramMessage(
   props: SendFlowStepProps<InstagramAuthValue>,
 ): AsyncGenerator<InstagramMessageAttachmentPayload | InstagramSendMessage> {
@@ -186,6 +253,25 @@ export const sendFlowStep = async (
     data: { contact },
   } = props
   try {
+    const privateReplyCommentId = getPrivateReplyCommentId(props)
+    if (privateReplyCommentId) {
+      const iterator = convertFlowStepToInstagramMessage(props)
+      const first = await iterator.next()
+
+      if (!first.done) {
+        await sendInstagramPrivateReply(ctx.auth, privateReplyCommentId, {
+          message: buildPrivateReplyText(first.value),
+        })
+        logger.info(
+          `Private reply sent for Instagram comment: ${privateReplyCommentId}`,
+        )
+      }
+
+      return {
+        messageIds: [],
+      }
+    }
+
     for await (const instagramMessage of convertFlowStepToInstagramMessage(
       props,
     )) {

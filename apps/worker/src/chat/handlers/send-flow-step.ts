@@ -56,6 +56,44 @@ import { sendFlowStepToChannel, sendMessageToChannel } from "./send-message"
 import { processMessengerTemplate } from "./send-messenger-template"
 import { processWhatsappTemplate } from "./send-whatsapp-template"
 
+const getInstagramPrivateReplyContext = async (props: {
+  conversationId: string
+  channel: string
+}): Promise<Record<string, unknown> | undefined> => {
+  if (props.channel !== channelTypes.enum.instagram) {
+    return
+  }
+
+  const latestMessage = await db.query.messageModel.findFirst({
+    where: {
+      conversationId: props.conversationId,
+      messageType: messageTypes.enum.incoming,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  })
+
+  const attrs = latestMessage?.contentAttributes
+  if (!attrs || typeof attrs !== "object") {
+    return
+  }
+
+  const type = (attrs as Record<string, unknown>).type
+  if (type !== "instagram_comment" && type !== "instagram_live_comment") {
+    return
+  }
+
+  const commentId = (attrs as Record<string, unknown>).commentId
+  if (typeof commentId !== "string" || commentId.length === 0) {
+    return
+  }
+
+  return {
+    instagramPrivateReplyCommentId: commentId,
+  }
+}
+
 export const convertButtonsToTemplate = (props: {
   flowId: string
   flowVersionId?: string
@@ -359,6 +397,10 @@ export async function sendFlowStep({
         flowVersionId,
         step: resolvedStep as SendFlowStepData,
         metadata,
+        channelContext: await getInstagramPrivateReplyContext({
+          conversationId: conversation.id,
+          channel: targetContactInbox.channel,
+        }),
         messageId: message?.id,
         sendFrom,
       }),

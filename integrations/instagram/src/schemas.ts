@@ -234,6 +234,22 @@ export type InstagramSendMessageResponse = z.infer<
   typeof instagramSendMessageResponseSchema
 >
 
+export const instagramPrivateReplyRequestSchema = z.object({
+  message: z.string(),
+})
+export type InstagramPrivateReplyRequest = z.infer<
+  typeof instagramPrivateReplyRequestSchema
+>
+
+export const instagramPrivateReplyResponseSchema = z.object({
+  id: z.string().optional(),
+  recipient_id: z.string().optional(),
+  message_id: z.string().optional(),
+})
+export type InstagramPrivateReplyResponse = z.infer<
+  typeof instagramPrivateReplyResponseSchema
+>
+
 export const instagramErrorSchema = z.object({
   message: z.string(),
   type: z.string(),

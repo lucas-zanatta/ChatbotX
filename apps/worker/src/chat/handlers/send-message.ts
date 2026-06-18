@@ -116,6 +116,7 @@ export async function sendFlowStepToChannel({
   flowVersionId,
   step,
   metadata,
+  channelContext,
   messageId,
   sendFrom,
 }: {
@@ -125,6 +126,7 @@ export async function sendFlowStepToChannel({
   flowVersionId?: string
   step: SendFlowStepData
   metadata?: MetadataPayload
+  channelContext?: Record<string, unknown>
   messageId?: string
   sendFrom?: "inbox"
 }): Promise<{ messageIds: string[] }> {
@@ -165,6 +167,7 @@ export async function sendFlowStepToChannel({
         flowVersionId,
         step: resolvedStep,
         metadata,
+        channelContext,
         sendFrom,
       },
     },

@@ -13,6 +13,8 @@ import type {
   InstagramAuthValue,
   InstagramMediaListResponse,
   InstagramMessageAttachment,
+  InstagramPrivateReplyRequest,
+  InstagramPrivateReplyResponse,
   InstagramProfileRequest,
   InstagramSendMessageRequest,
   InstagramSendMessageResponse,
@@ -141,6 +143,25 @@ export const sendInstagramMessage = (
 
   return rescue(endpoint, () =>
     instagramBusinessClient.post<InstagramSendMessageResponse>(endpoint, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.tokens.accessToken}`,
+      },
+      json: payload,
+    }),
+  )
+}
+
+export const sendInstagramPrivateReply = (
+  auth: InstagramAuthValue,
+  commentId: string,
+  payload: InstagramPrivateReplyRequest,
+): Promise<InstagramPrivateReplyResponse> => {
+  const version = auth.metadata.version ?? DEFAULT_API_VERSION
+  const endpoint = `${version}/${commentId}/private_replies`
+
+  return rescue(endpoint, () =>
+    instagramBusinessClient.post<InstagramPrivateReplyResponse>(endpoint, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${auth.tokens.accessToken}`,
